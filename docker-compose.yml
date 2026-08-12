@@ -10,8 +10,10 @@ services:
       POSTGRES_USER: avenues
       POSTGRES_PASSWORD: avenues
       POSTGRES_DB: avenues
+    # Host port is 5433 on purpose: 5432 is often already taken by a native
+    # PostgreSQL install. Keep DATABASE_URL in .env pointed at 5433.
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - avenues-pgdata:/var/lib/postgresql/data
     healthcheck:

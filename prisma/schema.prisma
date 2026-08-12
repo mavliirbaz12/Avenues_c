@@ -28,6 +28,12 @@ enum Gender {
   UNISEX
 }
 
+enum AddressType {
+  HOME
+  WORK
+  OTHER
+}
+
 enum OrderStatus {
   PENDING // created, awaiting payment (prepaid) or confirmation (COD)
   CONFIRMED
@@ -37,7 +43,9 @@ enum OrderStatus {
   OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
+  RETURN_REQUESTED
   RETURNED
+  RTO // COD parcel refused / undeliverable, coming back to origin
   FAILED
 }
 
@@ -54,6 +62,19 @@ enum PaymentStatus {
   PARTIALLY_REFUNDED
 }
 
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 enum CouponType {
   FLAT // valuePaise is a rupee amount off
   PERCENTAGE // valuePercent is % off, capped by maxDiscountPaise
@@ -68,6 +89,25 @@ enum ShipmentStatus {
   RTO
   CANCELLED
   FAILED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  HIDDEN
+}
+
+enum EnquirySubject {
+  ORDER_ISSUE
+  PRODUCT_ENQUIRY
+  BULK_CORPORATE
+  OTHER
+}
+
+enum EnquiryStatus {
+  NEW
+  REPLIED
+  CLOSED
 }
 
 // ---------------------------------------------------------------------------
@@ -87,15 +127,16 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts            Account[]
-  sessions            Session[]
-  addresses           Address[]
-  orders              Order[]
-  wishlist            WishlistItem[]
-  cart                Cart?
-  passwordResets      PasswordResetToken[]
-  couponRedemptions   CouponRedemption[]
-  stockNotifications  StockNotification[]
+  accounts           Account[]
+  sessions           Session[]
+  addresses          Address[]
+  orders             Order[]
+  wishlist           WishlistItem[]
+  cart               Cart?
+  passwordResets     PasswordResetToken[]
+  couponRedemptions  CouponRedemption[]
+  stockNotifications StockNotification[]
+  reviews            Review[]
 
   @@index([role])
 }
@@ -142,7 +183,7 @@ model VerificationToken {
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String
-  tokenHash String    @unique // sha256 of the emailed token; raw token is never stored
+  tokenHash String    @unique // sha256 of the emailed token; the raw token is never stored
   expires   DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -153,19 +194,20 @@ model PasswordResetToken {
 }
 
 model Address {
-  id        String  @id @default(cuid())
+  id        String      @id @default(cuid())
   userId    String
-  label     String? // "Home", "Office"
+  type      AddressType @default(HOME)
   fullName  String
   phone     String
+  altPhone  String?
   line1     String
   line2     String?
   landmark  String?
   city      String
   state     String
   pincode   String
-  country   String  @default("India")
-  isDefault Boolean @default(false)
+  country   String      @default("India")
+  isDefault Boolean     @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -189,21 +231,29 @@ model Product {
   concentration String  @default("Eau De Parfum")
   gender        Gender
 
-  // Fragrance pyramid — kept as three ordered arrays so the storefront can
-  // render top/heart/base without parsing anything.
+  // Fragrance pyramid — three ordered arrays so the storefront can render
+  // top/heart/base without parsing anything.
   notesTop   String[]
   notesHeart String[]
   notesBase  String[]
 
-  occasions  String[]
-  whyChoose  String[]
-  howToUse   String @db.Text
-  caution    String @db.Text
-  longevity  String @default("8-10 hours")
+  occasions String[]
+  whyChoose String[]
+  howToUse  String   @db.Text
+  caution   String   @db.Text
+  longevity String   @default("8-10 hours")
 
-  isActive  Boolean @default(true)
+  // Legal Metrology (Packaged Commodities Rules) — shown on the PDP.
+  countryOfOrigin String @default("India")
+
+  isActive   Boolean @default(true)
   isFeatured Boolean @default(false)
-  sortOrder Int     @default(0)
+  sortOrder  Int     @default(0)
+
+  // Denormalised review aggregates so product cards and sorting never need a
+  // join. Recomputed by recalcProductRating() whenever a review changes state.
+  avgRating   Float @default(0)
+  reviewCount Int   @default(0)
 
   metaTitle       String?
   metaDescription String?
@@ -211,25 +261,29 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  variants           Variant[]
-  images             ProductImage[]
-  collections        ProductCollection[]
-  wishlistedBy       WishlistItem[]
+  variants     Variant[]
+  images       ProductImage[]
+  collections  ProductCollection[]
+  wishlistedBy WishlistItem[]
+  reviews      Review[]
 
   @@index([isActive, sortOrder])
   @@index([gender])
 }
 
 model Variant {
-  id        String  @id @default(cuid())
-  productId String
-  size      String // "50ml", "100ml"
-  sku       String  @unique
-  mrpPaise  Int // struck-through price
+  id         String  @id @default(cuid())
+  productId  String
+  size       String // "50ml", "100ml" — also the Legal Metrology net quantity
+  sku        String  @unique
+  mrpPaise   Int // struck-through price, inclusive of all taxes
   pricePaise Int // what the customer actually pays
-  stock     Int     @default(0)
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
+  stock      Int     @default(0)
+  // Shipped weight including carton, in grams. Delhivery requires it on
+  // shipment creation and prices slabs off it.
+  weightGrams Int    @default(250)
+  isActive   Boolean @default(true)
+  sortOrder  Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -294,18 +348,50 @@ model ProductCollection {
 }
 
 model StockNotification {
-  id        String    @id @default(cuid())
-  variantId String
-  email     String
-  userId    String?
+  id         String    @id @default(cuid())
+  variantId  String
+  email      String
+  userId     String?
   notifiedAt DateTime?
-  createdAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
 
   variant Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([variantId, email])
   @@index([variantId])
+}
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+
+model Review {
+  id        String @id @default(cuid())
+  productId String
+  userId    String
+
+  rating Int // 1-5, validated at the API boundary
+  title  String?
+  body   String  @db.Text
+
+  // Set at submission time by checking for a DELIVERED order containing this
+  // product. Stored rather than derived so the badge survives order edits.
+  isVerifiedBuyer Boolean      @default(false)
+  status          ReviewStatus @default(PENDING)
+
+  adminNote String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  moderatedAt DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId]) // one review per customer per fragrance
+  @@index([productId, status])
+  @@index([status, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -357,20 +443,20 @@ model CartItem {
 // ---------------------------------------------------------------------------
 
 model Coupon {
-  id              String     @id @default(cuid())
-  code            String     @unique // stored upper-cased; lookups upper-case the input
-  description     String?
-  type            CouponType
-  valuePaise      Int? // FLAT only
-  valuePercent    Int? // PERCENTAGE only, 1-100
-  minOrderPaise   Int        @default(0)
+  id               String     @id @default(cuid())
+  code             String     @unique // stored upper-cased; lookups upper-case the input
+  description      String?
+  type             CouponType
+  valuePaise       Int? // FLAT only
+  valuePercent     Int? // PERCENTAGE only, 1-100
+  minOrderPaise    Int        @default(0)
   maxDiscountPaise Int? // caps a PERCENTAGE coupon
-  usageLimit      Int? // total redemptions allowed, null = unlimited
-  perUserLimit    Int? // redemptions per user, null = unlimited
-  usedCount       Int        @default(0)
-  startsAt        DateTime?
-  endsAt          DateTime?
-  isActive        Boolean    @default(true)
+  usageLimit       Int? // total redemptions allowed, null = unlimited
+  perUserLimit     Int? // redemptions per user, null = unlimited
+  usedCount        Int        @default(0)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  isActive         Boolean    @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -382,12 +468,12 @@ model Coupon {
 }
 
 model CouponRedemption {
-  id       String   @id @default(cuid())
-  couponId String
-  userId   String?
-  orderId  String   @unique
+  id          String   @id @default(cuid())
+  couponId    String
+  userId      String?
+  orderId     String   @unique
   amountPaise Int
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -402,12 +488,18 @@ model CouponRedemption {
 // ---------------------------------------------------------------------------
 
 model Order {
-  id          String        @id @default(cuid())
-  orderNumber String        @unique // AVN-XXXXXX, shown to the customer
-  userId      String?
-  status      OrderStatus   @default(PENDING)
+  id            String        @id @default(cuid())
+  orderNumber   String        @unique // AVN-XXXXXX, shown to the customer
+  userId        String? // null for guest checkout
+  status        OrderStatus   @default(PENDING)
   paymentMethod PaymentMethod
   paymentStatus PaymentStatus @default(PENDING)
+
+  // Sequential, gapless, GST-ready. Allocated from StoreSetting.invoiceNextNumber
+  // inside a transaction at confirmation — never at creation, so abandoned
+  // carts don't burn invoice numbers.
+  invoiceNumber String?   @unique
+  invoicedAt    DateTime?
 
   // Contact — captured even for guest checkout.
   email String
@@ -417,13 +509,14 @@ model Order {
   // must not rewrite history on an already-shipped order.
   shipName     String
   shipPhone    String
+  shipAltPhone String?
   shipLine1    String
   shipLine2    String?
   shipLandmark String?
   shipCity     String
   shipState    String
   shipPincode  String
-  shipCountry  String @default("India")
+  shipCountry  String  @default("India")
 
   // Every figure below is computed server-side from DB prices. The client cart
   // is treated as a list of (variantId, qty) intents and nothing more.
@@ -436,8 +529,20 @@ model Order {
   couponId   String?
   couponCode String?
 
+  // Inventory reservation. Stock is decremented atomically when the order is
+  // created and released if a prepaid order is never paid. These two timestamps
+  // make the operation idempotent under webhook retries.
+  stockCommittedAt DateTime?
+  stockReleasedAt  DateTime?
+  // After this instant an unpaid prepaid order is eligible for stock release.
+  paymentExpiresAt DateTime?
+
   customerNote String? @db.Text
   adminNote    String? @db.Text
+  cancelReason String? @db.Text
+
+  // Consent captured at checkout, for dispute handling.
+  termsAcceptedAt DateTime?
 
   placedAt    DateTime?
   cancelledAt DateTime?
@@ -446,16 +551,20 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  coupon     Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  items      OrderItem[]
-  payments   Payment[]
-  shipment   Shipment?
-  redemption CouponRedemption?
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  coupon        Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+  payments      Payment[]
+  refunds       Refund[]
+  shipment      Shipment?
+  redemption    CouponRedemption?
+  returnRequest ReturnRequest?
 
   @@index([userId, createdAt])
   @@index([status])
   @@index([createdAt])
+  @@index([email])
+  @@index([phone])
 }
 
 model OrderItem {
@@ -493,9 +602,10 @@ model Payment {
   razorpaySignature String?
 
   amountPaise Int
-  currency    String @default("INR")
+  currency    String  @default("INR")
   method      String? // upi / card / netbanking, as reported by Razorpay
-  errorCode   String?
+
+  errorCode        String?
   errorDescription String?
 
   raw Json? // full webhook/verify payload, kept for reconciliation
@@ -508,6 +618,45 @@ model Payment {
   @@index([orderId])
 }
 
+model Refund {
+  id      String       @id @default(cuid())
+  orderId String
+  status  RefundStatus @default(PENDING)
+
+  razorpayRefundId  String? @unique
+  razorpayPaymentId String?
+
+  amountPaise Int
+  reason      String? @db.Text
+  notes       String? @db.Text
+  raw         Json?
+
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model ReturnRequest {
+  id      String       @id @default(cuid())
+  orderId String       @unique
+  status  ReturnStatus @default(REQUESTED)
+
+  reason    String  @db.Text
+  adminNote String? @db.Text
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
 // ---------------------------------------------------------------------------
 // Shipping (Delhivery)
 // ---------------------------------------------------------------------------
@@ -516,12 +665,12 @@ model Shipment {
   id      String @id @default(cuid())
   orderId String @unique
 
-  provider    String         @default("delhivery")
-  waybill     String?        @unique // Delhivery AWB
-  status      ShipmentStatus @default(CREATED)
+  provider     String         @default("delhivery")
+  waybill      String?        @unique // Delhivery AWB
+  status       ShipmentStatus @default(CREATED)
   statusDetail String?
-  courierName String?
-  trackingUrl String?
+  courierName  String?
+  trackingUrl  String?
 
   expectedDeliveryAt DateTime?
   shippedAt          DateTime?
@@ -556,12 +705,79 @@ model ShipmentEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Misc
+// Support & marketing
 // ---------------------------------------------------------------------------
+
+model Enquiry {
+  id      String         @id @default(cuid())
+  name    String
+  email   String
+  phone   String?
+  subject EnquirySubject @default(OTHER)
+  message String         @db.Text
+  source  String? // "contact-page", "footer"
+
+  status    EnquiryStatus @default(NEW)
+  adminNote String?       @db.Text
+  handledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([subject])
+}
 
 model NewsletterSubscriber {
   id        String   @id @default(cuid())
   email     String   @unique
   source    String? // "footer", "landing"
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Store settings — a single row (id = 1).
+//
+// Everything the founder must be able to change without a deploy lives here:
+// shipping economics, COD policy, support channels, and the statutory
+// manufacturer details that Legal Metrology requires on a product page.
+// ---------------------------------------------------------------------------
+
+model StoreSetting {
+  id Int @id @default(1)
+
+  // Shipping economics
+  shippingFlatPaise         Int     @default(7900) // ₹79
+  freeShippingThresholdPaise Int    @default(99900) // free at ₹999 and above
+  codEnabled                Boolean @default(true)
+  codFeePaise               Int     @default(4900) // ₹49
+  codMaxOrderPaise          Int? // refuse COD above this value; null = no cap
+
+  // Delhivery
+  delhiveryPickupName String?
+
+  // Support channels — rendered by the floating WhatsApp button, the footer,
+  // and the per-product "Enquire on WhatsApp" link.
+  whatsappNumber String? // E.164 without '+', e.g. 919876543210
+  supportEmail   String  @default("support@avenuesperfumes.com")
+  supportPhone   String?
+
+  // Legal Metrology / statutory
+  manufacturerName    String  @default("Avenues Perfumes")
+  manufacturerAddress String  @default("") @db.Text
+  customerCareEmail   String  @default("care@avenuesperfumes.com")
+  customerCarePhone   String?
+  gstin               String?
+
+  // Sequential invoice numbering. `invoiceNextNumber` is read-and-incremented
+  // inside the order-confirmation transaction, which is what keeps the series
+  // gapless under concurrency.
+  invoicePrefix     String @default("AVN")
+  invoiceNextNumber Int    @default(1)
+
+  // Social
+  instagramUrl String?
+  facebookUrl  String?
+
+  updatedAt DateTime @updatedAt
 }

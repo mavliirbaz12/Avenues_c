@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Avenues — base layer
+   ========================================================================== */
+
+@layer base {
+  :root {
+    --ring-length: 640; /* consumed by the gold arc stroke animations */
+    --nav-h: 4.5rem;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ink text-bone font-sans antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Gold text selection — one of those details that reads as intent. */
+  ::selection {
+    background: #c9a24b;
+    color: #0b0b0d;
+  }
+
+  /* Focus is always visible and always gold. Never remove this. */
+  :focus-visible {
+    outline: 2px solid #e8ce8c;
+    outline-offset: 3px;
+    border-radius: 1px;
+  }
+
+  /* Custom scrollbar so the dark surface doesn't get a bright OS gutter. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #33333a #0b0b0d;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0b0b0d;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a30;
+    border: 3px solid #0b0b0d;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b655d;
+  }
+
+  /* Kill the number-input spinners; admin price fields look wrong with them. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  /* Autofill on a dark form turns the field white in Chrome. Undo it. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: #f2ede3;
+    -webkit-box-shadow: 0 0 0 1000px #1b1b1e inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@layer components {
+  /* The page gutter. Every top-level section uses this. */
+  .shell {
+    @apply mx-auto w-full max-w-shell px-gutter;
+  }
+
+  /* The recurring letter-spaced uppercase device: EAU DE PARFUM · 50ML */
+  .micro-label {
+    @apply font-sans text-micro uppercase text-stone;
+  }
+
+  .micro-label-gold {
+    @apply font-sans text-micro uppercase text-gold;
+  }
+
+  /* Hairline rule — the "engraved plate" structure. */
+  .rule {
+    @apply h-px w-full bg-line;
+  }
+
+  /* ---- Buttons ------------------------------------------------------- */
+  .btn {
+    @apply relative inline-flex select-none items-center justify-center gap-2
+           font-sans text-label uppercase transition-all duration-400 ease-smoke
+           disabled:pointer-events-none disabled:opacity-40;
+    border-radius: 2px;
+  }
+
+  .btn-lg {
+    @apply h-14 px-9;
+  }
+  .btn-md {
+    @apply h-12 px-7;
+  }
+  .btn-sm {
+    @apply h-10 px-5 text-micro;
+  }
+
+  /* Primary: solid gold. Used sparingly — one per view. */
+  .btn-primary {
+    @apply bg-gold text-ink hover:bg-gold-light;
+  }
+  .btn-primary:active {
+    transform: translateY(1px);
+  }
+
+  /* Secondary: hairline gold outline that fills on hover. */
+  .btn-outline {
+    @apply border border-gold/45 text-gold hover:border-gold hover:bg-gold hover:text-ink;
+  }
+
+  /* Tertiary: bone outline for neutral actions. */
+  .btn-ghost {
+    @apply border border-line-strong text-bone hover:border-bone/40 hover:bg-surface-raised;
+  }
+
+  .btn-danger {
+    @apply border border-danger/40 text-danger hover:bg-danger hover:text-bone;
+  }
+
+  /* ---- Form fields --------------------------------------------------- */
+  .field {
+    @apply block w-full appearance-none border border-line bg-surface-sunken px-4 py-3.5
+           font-sans text-[0.9375rem] text-bone placeholder:text-stone-dark
+           transition-colors duration-300 ease-smoke
+           hover:border-line-strong focus:border-gold/70 focus:outline-none focus:ring-0;
+    border-radius: 2px;
+  }
+
+  .field-error {
+    @apply border-danger/60 focus:border-danger;
+  }
+
+  .field-label {
+    @apply mb-2 block font-sans text-micro uppercase text-stone;
+  }
+
+  .field-hint {
+    @apply mt-1.5 block font-sans text-xs text-stone-dark;
+  }
+
+  .field-msg-error {
+    @apply mt-1.5 block font-sans text-xs text-danger;
+  }
+
+  /* ---- Surfaces ------------------------------------------------------ */
+  .card {
+    @apply border border-line bg-surface;
+    border-radius: 2px;
+  }
+
+  /* The lit vitrine — product media only. */
+  .vitrine {
+    @apply relative overflow-hidden border border-line bg-ink-deep
+           transition-[border-color,box-shadow,transform] duration-600 ease-smoke;
+    border-radius: 2px;
+  }
+
+  .group:hover .vitrine,
+  .vitrine:hover {
+    @apply border-gold/45 shadow-rim;
+  }
+
+  /* ---- Link with a gold underline that draws in from the left -------- */
+  .link-draw {
+    @apply relative inline-block text-bone transition-colors duration-300 hover:text-gold-light;
+  }
+
+  .link-draw::after {
+    content: "";
+    @apply absolute -bottom-0.5 left-0 h-px w-full origin-right scale-x-0 bg-gold
+           transition-transform duration-400 ease-smoke;
+  }
+
+  .link-draw:hover::after,
+  .link-draw[data-active="true"]::after {
+    @apply origin-left scale-x-100;
+  }
+
+  /* ---- Skeleton ------------------------------------------------------ */
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-raised;
+    border-radius: 2px;
+  }
+
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(201, 162, 75, 0.07),
+      transparent
+    );
+  }
+
+  /* ---- Long-form copy (policy pages, product description) ------------ */
+  .prose-avenues {
+    @apply max-w-prose2 font-sans text-body-lg text-stone;
+  }
+  .prose-avenues h2 {
+    @apply mb-4 mt-12 font-display text-d4 font-light text-bone;
+  }
+  .prose-avenues h3 {
+    @apply mb-3 mt-8 font-sans text-base font-medium uppercase tracking-wide2 text-bone;
+  }
+  .prose-avenues p {
+    @apply mb-5;
+  }
+  .prose-avenues ul {
+    @apply mb-5 space-y-2.5;
+  }
+  .prose-avenues li {
+    @apply relative pl-6;
+  }
+  .prose-avenues li::before {
+    content: "";
+    @apply absolute left-0 top-[0.72em] h-1 w-1 rounded-full bg-gold;
+  }
+  .prose-avenues a {
+    @apply text-gold underline decoration-gold/40 underline-offset-4 transition-colors hover:decoration-gold;
+  }
+  .prose-avenues strong {
+    @apply font-medium text-bone;
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+@layer utilities {
+  /* Very fine film grain. Sits over dark fields so large flat areas of
+     near-black don't band on cheap panels. */
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Radial vignette for full-bleed media. */
+  .vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 35%,
+      rgba(6, 6, 7, 0.55) 78%,
+      rgba(6, 6, 7, 0.92) 100%
+    );
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(180deg, #e8ce8c 0%, #c9a24b 55%, #8a6b2a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Clip used by the staggered headline reveal — each line sits in a mask
+     and slides up out of it. */
+  .line-mask {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.08em;
+    margin-bottom: -0.08em;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ==========================================================================
+   Motion preferences — honoured globally, not per-component
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
