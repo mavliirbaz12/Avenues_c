@@ -1,0 +1,24 @@
+# Local Postgres for development only. Production runs on Railway or AWS RDS.
+#   docker compose up -d
+#   npm run db:migrate && npm run db:seed
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: avenues-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: avenues
+      POSTGRES_PASSWORD: avenues
+      POSTGRES_DB: avenues
+    ports:
+      - "5432:5432"
+    volumes:
+      - avenues-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avenues -d avenues"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  avenues-pgdata:
