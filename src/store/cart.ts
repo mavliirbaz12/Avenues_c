@@ -33,10 +33,14 @@ export type CartLine = {
 
 type CartState = {
   lines: CartLine[];
+  /** The code the customer typed. Validity is decided by the server on every
+   *  price call — this is an intent, not an entitlement. */
+  couponCode: string | null;
   add: (line: Omit<CartLine, "quantity">, quantity?: number) => void;
   setQuantity: (variantId: string, quantity: number) => void;
   remove: (variantId: string) => void;
   clear: () => void;
+  setCoupon: (code: string | null) => void;
   /** Replaces the whole cart — used after a server sync or merge. */
   replaceAll: (lines: CartLine[]) => void;
 };
@@ -45,6 +49,7 @@ export const useCart = create<CartState>()(
   persist(
     (set) => ({
       lines: [],
+      couponCode: null,
 
       add: (line, quantity = 1) =>
         set((state) => {
@@ -80,7 +85,9 @@ export const useCart = create<CartState>()(
       remove: (variantId) =>
         set((state) => ({ lines: state.lines.filter((l) => l.variantId !== variantId) })),
 
-      clear: () => set({ lines: [] }),
+      clear: () => set({ lines: [], couponCode: null }),
+
+      setCoupon: (code) => set({ couponCode: code ? code.trim().toUpperCase() : null }),
 
       replaceAll: (lines) => set({ lines }),
     }),

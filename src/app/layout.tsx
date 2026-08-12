@@ -5,8 +5,11 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 import { SearchOverlay } from "@/components/layout/search-overlay";
 import { WhatsAppFab } from "@/components/layout/whatsapp-fab";
+import { CartDrawer } from "@/components/cart/cart-drawer";
 import { Toaster } from "@/components/ui/toaster";
 import { StoreHydrator } from "@/components/providers/store-hydrator";
+import { SessionSync } from "@/components/providers/session-sync";
+import { getCurrentUser } from "@/lib/auth-guards";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/env";
@@ -76,7 +79,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [settings, fragrances] = await Promise.all([
+  const [settings, fragrances, user] = await Promise.all([
     getStoreSettings(),
     prisma.product
       .findMany({
@@ -86,11 +89,10 @@ export default async function RootLayout({
         take: 8,
       })
       .catch(() => []),
+    getCurrentUser().catch(() => null),
   ]);
 
-  // TODO(auth): replaced with the real session lookup when NextAuth lands.
-  const isAuthed = false;
-
+  const isAuthed = Boolean(user);
   const wa = whatsappLink(settings.whatsappNumber, "Hi Avenues, I have a question.");
 
   return (
@@ -106,6 +108,7 @@ export default async function RootLayout({
         </a>
 
         <StoreHydrator />
+        <SessionSync isAuthed={isAuthed} />
         <SiteNav isAuthed={isAuthed} />
         <MobileMenu
           isAuthed={isAuthed}
@@ -121,6 +124,7 @@ export default async function RootLayout({
 
         <SiteFooter />
 
+        <CartDrawer />
         <WhatsAppFab href={wa} />
         <Toaster />
       </body>
