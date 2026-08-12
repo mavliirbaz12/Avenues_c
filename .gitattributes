@@ -1,0 +1,11 @@
+# Normalise line endings so Windows checkouts stop warning on every commit.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

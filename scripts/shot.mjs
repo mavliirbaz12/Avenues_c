@@ -35,6 +35,10 @@ const path = rawPath === "" ? "/" : `/${rawPath.replace(/^\/+/, "")}`;
 const full = args.includes("--full");
 const tag = (args.find((a) => a.startsWith("--tag=")) ?? "").split("=")[1] ?? "";
 const onlyWidth = (args.find((a) => a.startsWith("--w=")) ?? "").split("=")[1];
+// --at=#notes scrolls that element to the top before a viewport capture, so a
+// single section can be inspected at real pixel size instead of squinting at a
+// 12,000px full-page render.
+const scrollTo = (args.find((a) => a.startsWith("--at=")) ?? "").split("=")[1];
 
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
@@ -110,6 +114,14 @@ for (const vp of VIEWPORTS) {
       await sleep(300);
     });
   }
+  if (scrollTo) {
+    await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 90);
+    }, scrollTo);
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+
   await new Promise((r) => setTimeout(r, 900));
 
   const file = join(OUT, `${slug}-${vp.name}-${vp.width}.png`);
