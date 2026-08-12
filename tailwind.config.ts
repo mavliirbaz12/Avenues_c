@@ -54,9 +54,11 @@ const config: Config = {
       },
       fontSize: {
         // Fluid display scale — the site's voice.
-        d1: ["clamp(3rem, 9.5vw, 8rem)", { lineHeight: "0.94", letterSpacing: "-0.02em" }],
-        d2: ["clamp(2.5rem, 6.5vw, 5rem)", { lineHeight: "1.0", letterSpacing: "-0.015em" }],
-        d3: ["clamp(2rem, 4.5vw, 3.5rem)", { lineHeight: "1.06", letterSpacing: "-0.01em" }],
+        // Capped deliberately: at the old 8rem max the hero headline pushed the
+        // call to action below the fold on a 1440x900 laptop.
+        d1: ["clamp(2.5rem, 6.2vw, 5.5rem)", { lineHeight: "1.0", letterSpacing: "-0.02em" }],
+        d2: ["clamp(2.25rem, 5vw, 4rem)", { lineHeight: "1.04", letterSpacing: "-0.015em" }],
+        d3: ["clamp(1.875rem, 4vw, 3rem)", { lineHeight: "1.08", letterSpacing: "-0.01em" }],
         d4: ["clamp(1.625rem, 3.2vw, 2.5rem)", { lineHeight: "1.14", letterSpacing: "-0.005em" }],
         d5: ["clamp(1.375rem, 2.2vw, 1.75rem)", { lineHeight: "1.2" }],
         // The recurring letter-spaced uppercase device.

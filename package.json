@@ -55,6 +55,7 @@
     "eslint-config-next": "15.5.23",
     "postcss": "8.4.49",
     "prisma": "6.19.3",
+    "puppeteer-core": "^23.11.1",
     "tailwindcss": "3.4.19",
     "tsx": "4.19.2",
     "typescript": "5.7.2"
