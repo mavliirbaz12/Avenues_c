@@ -13,11 +13,14 @@ import { NotePyramid } from "@/components/product/note-pyramid";
 import { DetailAccordion } from "@/components/product/detail-accordion";
 import { LegalMetrology } from "@/components/product/legal-metrology";
 import { ProductCard } from "@/components/product/product-card";
+import { ProductReviews } from "@/components/product/product-reviews";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
 import { Sparkle } from "@/components/brand/sparkle";
 
-export const revalidate = 3600;
+// Dynamic, not ISR: the reviews band reads the session (to offer the right
+// form state) and the buy box shows live stock — both want fresh renders.
+export const dynamic = "force-dynamic";
 
 const detailSelect = {
   id: true,
@@ -59,13 +62,6 @@ async function getProduct(slug: string) {
     where: { slug, isActive: true },
     select: detailSelect,
   });
-}
-
-export async function generateStaticParams() {
-  const products = await prisma.product
-    .findMany({ where: { isActive: true }, select: { slug: true } })
-    .catch(() => []);
-  return products.map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({
@@ -337,6 +333,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </Reveal>
         </div>
       </section>
+
+      <ProductReviews
+        productId={product.id}
+        productName={shortName}
+        slug={product.slug}
+        avgRating={product.avgRating}
+        reviewCount={product.reviewCount}
+      />
 
       {related.length > 0 && (
         <section className="border-t border-line py-section">
