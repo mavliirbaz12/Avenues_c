@@ -9,11 +9,13 @@ import { verifyOrderAccessToken, orderAccessToken } from "@/lib/commerce/order-t
 import { formatPaise, formatDate } from "@/lib/format";
 import { OrderJourney, type JourneyEvent } from "@/components/orders/order-journey";
 import { RetryPaymentButton } from "@/components/orders/retry-payment-button";
+import { OrderActions } from "@/components/orders/order-actions";
 import { ClearCartOnArrival } from "@/components/orders/clear-cart-on-arrival";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Sparkle } from "@/components/brand/sparkle";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
+import { syncOrderTracking } from "@/lib/shipping/sync";
 import { MessageCircle } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -43,8 +45,19 @@ export default async function OrderPage({
   const sp = await searchParams;
   const one = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : sp[k]);
 
-  const order = await prisma.order.findUnique({
+  const stub = await prisma.order.findUnique({
     where: { orderNumber: orderNumber.toUpperCase() },
+    select: { id: true },
+  });
+  if (!stub) notFound();
+
+  // Lazy tracking refresh: viewing the page is what triggers a courier poll,
+  // so the journey is live without any cron. Rate-limited internally to one
+  // real poll per shipment per 10 minutes.
+  await syncOrderTracking(stub.id).catch(() => {});
+
+  const order = await prisma.order.findUnique({
+    where: { id: stub.id },
     include: {
       items: true,
       shipment: { include: { events: { orderBy: { occurredAt: "asc" } } } },
@@ -164,6 +177,24 @@ export default async function OrderPage({
               <MessageCircle className="h-4 w-4" strokeWidth={1.4} />
               Need help with this order?
             </a>
+          )}
+
+          {/* Cancel before shipment; request a return after delivery. */}
+          {([OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PACKED] as OrderStatus[]).includes(
+            order.status,
+          ) && (
+            <OrderActions
+              orderId={order.id}
+              accessToken={hasToken ? token : isOwner ? orderAccessToken(order.id) : null}
+              mode="cancel"
+            />
+          )}
+          {order.status === OrderStatus.DELIVERED && (
+            <OrderActions
+              orderId={order.id}
+              accessToken={hasToken ? token : isOwner ? orderAccessToken(order.id) : null}
+              mode="return"
+            />
           )}
         </section>
 
