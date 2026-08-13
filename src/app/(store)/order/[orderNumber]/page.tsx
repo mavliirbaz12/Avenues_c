@@ -11,6 +11,7 @@ import { OrderJourney, type JourneyEvent } from "@/components/orders/order-journ
 import { RetryPaymentButton } from "@/components/orders/retry-payment-button";
 import { OrderActions } from "@/components/orders/order-actions";
 import { ClearCartOnArrival } from "@/components/orders/clear-cart-on-arrival";
+import { PurchaseEvent } from "@/components/analytics/purchase-event";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Sparkle } from "@/components/brand/sparkle";
@@ -97,7 +98,21 @@ export default async function OrderPage({
 
   return (
     <div className="shell py-12 sm:py-16">
-      {justPlaced && <ClearCartOnArrival />}
+      {justPlaced && (
+        <>
+          <ClearCartOnArrival />
+          <PurchaseEvent
+            orderNumber={order.orderNumber}
+            valuePaise={order.totalPaise}
+            items={order.items.map((i) => ({
+              name: i.productName,
+              sku: i.sku,
+              quantity: i.quantity,
+              pricePaise: i.unitPricePaise,
+            }))}
+          />
+        </>
+      )}
 
       {/* Header */}
       <header className="text-center">

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Jost } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { StoreHydrator } from "@/components/providers/store-hydrator";
+import { Analytics } from "@/components/analytics/analytics";
 import { siteUrl } from "@/lib/env";
 import "./globals.css";
 
@@ -75,6 +76,7 @@ export default function RootLayout({
         <StoreHydrator />
         {children}
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
