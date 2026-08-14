@@ -12,7 +12,7 @@ import { BuyBox } from "@/components/product/buy-box";
 import { NotePyramid } from "@/components/product/note-pyramid";
 import { DetailAccordion } from "@/components/product/detail-accordion";
 import { LegalMetrology } from "@/components/product/legal-metrology";
-import { ProductCard } from "@/components/product/product-card";
+import { FeaturedCollection } from "@/components/landing/featured-collection";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
@@ -38,6 +38,8 @@ const detailSelect = {
   whyChoose: true,
   howToUse: true,
   caution: true,
+  sensoryNarrative: true,
+  bestFor: true,
   longevity: true,
   countryOfOrigin: true,
   avgRating: true,
@@ -177,7 +179,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <ProductGallery slug={product.slug} name={product.name} images={product.images} />
         </div>
 
-        <div className="lg:sticky lg:top-[calc(var(--nav-h)+2rem)] lg:self-start">
+        <div className="lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
           <BuyBox
             product={{
               id: product.id,
@@ -185,7 +187,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               name: product.name,
               shortName,
               tagline: product.tagline,
-              highlight: product.highlight,
               concentration: product.concentration,
               longevity: product.longevity,
               avgRating: product.avgRating,
@@ -218,10 +219,19 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <h2 id="notes-heading" className="mt-5 font-display text-d3 font-light text-bone">
               How {shortName} unfolds
             </h2>
-            <p className="mx-auto mt-5 max-w-xl font-sans text-body-lg leading-relaxed text-stone">
-              Three tiers, arriving in order. The heavier the note, the longer it
-              stays with you.
-            </p>
+            {/* The sensory lead-in. This is what keeps the page from reading
+                as a spec sheet — the pyramid below is the structure, this is
+                what it actually smells like. */}
+            {product.sensoryNarrative ? (
+              <p className="mx-auto mt-6 max-w-2xl font-sans text-body-lg leading-relaxed text-stone">
+                {product.sensoryNarrative}
+              </p>
+            ) : (
+              <p className="mx-auto mt-5 max-w-xl font-sans text-body-lg leading-relaxed text-stone">
+                Three tiers, arriving in order. The heavier the note, the longer
+                it stays with you.
+              </p>
+            )}
           </Reveal>
 
           <NotePyramid
@@ -231,19 +241,28 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             className="mt-14"
           />
 
-          {product.occasions.length > 0 && (
+          {(product.occasions.length > 0 || product.bestFor) && (
             <Reveal className="mt-14 text-center">
-              <p className="micro-label mb-4">Wear it for</p>
-              <ul className="flex flex-wrap items-center justify-center gap-2.5">
-                {product.occasions.map((o) => (
-                  <li
-                    key={o}
-                    className="border border-line px-4 py-2 font-sans text-xs text-stone"
-                  >
-                    {o}
-                  </li>
-                ))}
-              </ul>
+              {product.bestFor && (
+                <p className="mx-auto mb-8 max-w-xl font-display text-d5 font-light italic text-bone">
+                  {product.bestFor}
+                </p>
+              )}
+              {product.occasions.length > 0 && (
+                <>
+                  <p className="micro-label mb-4">Wear it for</p>
+                  <ul className="flex flex-wrap items-center justify-center gap-2.5">
+                    {product.occasions.map((o) => (
+                      <li
+                        key={o}
+                        className="border border-line px-4 py-2 font-sans text-xs text-stone"
+                      >
+                        {o}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </Reveal>
           )}
         </div>
@@ -343,25 +362,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       />
 
       {related.length > 0 && (
-        <section className="border-t border-line py-section">
-          <div className="shell">
-            <Reveal className="text-center">
-              <GoldArc className="mb-10" />
-              <p className="micro-label-gold">Also consider</p>
-              <h2 className="mt-5 font-display text-d3 font-light text-bone">
-                {inStock ? "Others in the range" : "In stock right now"}
-              </h2>
-            </Reveal>
-
-            <div className="mt-12 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-              {related.map((p, i) => (
-                <Reveal key={p.id} delay={i * 0.06}>
-                  <ProductCard product={p} />
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
+        <div className="border-t border-line">
+          <FeaturedCollection
+            products={related}
+            eyebrow="Also consider"
+            title={inStock ? "Others in the range" : "In stock right now"}
+          />
+        </div>
       )}
     </>
   );

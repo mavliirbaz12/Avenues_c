@@ -40,6 +40,13 @@ const settingsSchema = z.object({
     .regex(/^[A-Z0-9]{2,8}$/, "2–8 letters/numbers."),
   instagramUrl: z.string().trim().url("Full URL, with https://").optional().or(z.literal("")),
   facebookUrl: z.string().trim().url("Full URL, with https://").optional().or(z.literal("")),
+
+  announcementText: z.string().trim().max(120, "Keep it to one short line.").optional().or(z.literal("")),
+  announcementHref: z.string().trim().max(300).optional().or(z.literal("")),
+  announcementEnabled: z.coerce.boolean().default(false),
+  heroVideoUrl: z.string().trim().url("Full URL, with https://").optional().or(z.literal("")),
+  heroPosterUrl: z.string().trim().url("Full URL, with https://").optional().or(z.literal("")),
+  brandBannerUrl: z.string().trim().url("Full URL, with https://").optional().or(z.literal("")),
 });
 
 export async function saveSettings(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -83,6 +90,12 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
       invoicePrefix: d.invoicePrefix,
       instagramUrl: d.instagramUrl || null,
       facebookUrl: d.facebookUrl || null,
+      announcementText: d.announcementText || null,
+      announcementHref: d.announcementHref || null,
+      announcementEnabled: d.announcementEnabled,
+      heroVideoUrl: d.heroVideoUrl || null,
+      heroPosterUrl: d.heroPosterUrl || null,
+      brandBannerUrl: d.brandBannerUrl || null,
     },
   });
 

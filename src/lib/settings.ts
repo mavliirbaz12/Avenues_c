@@ -30,6 +30,12 @@ export type StoreSettings = {
   invoicePrefix: string;
   instagramUrl: string | null;
   facebookUrl: string | null;
+  announcementText: string | null;
+  announcementHref: string | null;
+  announcementEnabled: boolean;
+  heroVideoUrl: string | null;
+  heroPosterUrl: string | null;
+  brandBannerUrl: string | null;
 };
 
 const DEFAULTS: StoreSettings = {
@@ -50,6 +56,12 @@ const DEFAULTS: StoreSettings = {
   invoicePrefix: "AVN",
   instagramUrl: null,
   facebookUrl: null,
+  announcementText: null,
+  announcementHref: null,
+  announcementEnabled: true,
+  heroVideoUrl: null,
+  heroPosterUrl: null,
+  brandBannerUrl: null,
 };
 
 export const getStoreSettings = cache(async (): Promise<StoreSettings> => {
@@ -74,6 +86,12 @@ export const getStoreSettings = cache(async (): Promise<StoreSettings> => {
       invoicePrefix: row.invoicePrefix,
       instagramUrl: row.instagramUrl,
       facebookUrl: row.facebookUrl,
+      announcementText: row.announcementText,
+      announcementHref: row.announcementHref,
+      announcementEnabled: row.announcementEnabled,
+      heroVideoUrl: row.heroVideoUrl,
+      heroPosterUrl: row.heroPosterUrl,
+      brandBannerUrl: row.brandBannerUrl,
     };
   } catch {
     // Database unreachable at render time — serve the shell rather than a 500.

@@ -262,6 +262,14 @@ model Product {
   caution   String   @db.Text
   longevity String   @default("8-10 hours")
 
+  // How the scent actually opens, develops and settles — 2-3 sentences of
+  // sensory prose that lead into the note pyramid on the product page. A
+  // fragrance page that only lists ingredients reads as a spec sheet.
+  sensoryNarrative String @default("") @db.Text
+  // One line of season/occasion guidance, e.g. "Best in cooler weather and
+  // after dark". Complements the structured `occasions` tags.
+  bestFor          String @default("")
+
   // Legal Metrology (Packaged Commodities Rules) — shown on the PDP.
   countryOfOrigin String @default("India")
 
@@ -797,6 +805,22 @@ model StoreSetting {
   // Social
   instagramUrl String?
   facebookUrl  String?
+
+  // Storefront chrome the founder can change without a deploy.
+  //
+  // Rule held deliberately: the database owns MEDIA URLS and the one
+  // announcement string; code owns editorial copy. Do not add heroHeadline
+  // here — RevealLines depends on hand-authored line breaks, and a
+  // DB-authored headline would rewrap and destroy the stagger rhythm.
+  announcementText    String?
+  announcementHref    String?
+  announcementEnabled Boolean @default(true)
+  // Hero background video. Blank falls back to the poster image, and failing
+  // that to a designed void — see components/landing/hero-media.tsx.
+  heroVideoUrl  String?
+  heroPosterUrl String?
+  // Full-bleed image behind the brand statement band.
+  brandBannerUrl String?
 
   updatedAt DateTime @updatedAt
 }

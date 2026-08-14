@@ -7,15 +7,9 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { X, Search, Heart, User, Mail, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Sparkle } from "@/components/brand/sparkle";
+import { NAV_LINKS } from "./nav-links";
 import { useUI } from "@/store/ui";
 import { useWishlist } from "@/store/wishlist";
-
-const LINKS = [
-  { href: "/shop", label: "Shop all" },
-  { href: "/about", label: "Our story" },
-  { href: "/track", label: "Track order" },
-  { href: "/contact", label: "Contact" },
-];
 
 export function MobileMenu({
   isAuthed,
@@ -108,7 +102,7 @@ export function MobileMenu({
 
               <nav aria-label="Mobile">
                 <ul className="space-y-1">
-                  {LINKS.map((l) => (
+                  {NAV_LINKS.map((l) => (
                     <li key={l.href}>
                       <Link
                         href={l.href}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LoginForm } from "./login-form";
 import { PhoneOtpForm } from "./phone-otp-form";
+import { AuthDivider, GoogleButton } from "./auth-shell";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,6 +26,16 @@ export function LoginMethods({
 
   return (
     <div>
+      {/* Google sits ABOVE the tabs. Nested inside the Email tab it was
+          invisible to anyone landing on the default Phone OTP tab — which is
+          most people. It is not a "method" in the same sense; it is one click. */}
+      {googleEnabled && (
+        <div className="mb-7 space-y-6">
+          <GoogleButton next={next} />
+          <AuthDivider />
+        </div>
+      )}
+
       <div role="tablist" aria-label="Sign-in method" className="mb-7 grid grid-cols-2 border border-line">
         <Tab active={method === "phone"} onClick={() => setMethod("phone")}>
           Phone OTP
@@ -37,7 +48,8 @@ export function LoginMethods({
       {method === "phone" ? (
         <PhoneOtpForm next={next} smsLive={smsLive} />
       ) : (
-        <LoginForm googleEnabled={googleEnabled} next={next} initialError={initialError} />
+        // googleEnabled is false here: the button is rendered above instead.
+        <LoginForm googleEnabled={false} next={next} initialError={initialError} />
       )}
     </div>
   );

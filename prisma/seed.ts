@@ -46,6 +46,10 @@ type SeedProduct = {
   occasions: string[];
   whyChoose: string[];
   longevity: string;
+  /** How the scent opens, turns and settles — the lead-in above the pyramid. */
+  sensoryNarrative: string;
+  /** One line of season/occasion guidance, shown beside the occasion chips. */
+  bestFor: string;
   sku: string;
   sortOrder: number;
   metaDescription: string;
@@ -63,6 +67,10 @@ const PRODUCTS: SeedProduct[] = [
     longevity: "8-10 hours",
     description:
       "Intense opens cold. Bergamot cut with lavender, sharp enough to turn a head at arm's length. Within the hour it warms — orange blossom and geranium soften the edge without dulling it — and what finally settles is amber over cedarwood, dry and resinous and close to the skin. It was built for long days: it reads as competence at nine in the morning and as something else entirely by nine at night.",
+    sensoryNarrative:
+      "Bergamot arrives first and it arrives cold — bright, bitter at the edge, sharpened by lavender rather than softened. Orange blossom and geranium turn it warmer through the middle hours without ever making it sweet. What is left after that is amber over cedarwood: dry, resinous, and worn close enough that people have to be near you to place it.",
+    bestFor:
+      "An all-season signature. Office-safe in daylight, considerably less so after dark.",
     notesTop: ["Bergamot", "Lavender"],
     notesHeart: ["Orange Blossom", "Geranium"],
     notesBase: ["Amber", "Cedarwood"],
@@ -88,6 +96,10 @@ const PRODUCTS: SeedProduct[] = [
     longevity: "8-10 hours",
     description:
       "Pink Aura begins the way a room does when someone walks into it. Peony first, lifted by a thread of citrus, light enough to feel like air. Then the rose arrives, and with it osmanthus — apricot-soft, faintly powdery. The base is where it stops being merely pretty: sandalwood and patchouli, warm and grounded, the part people notice on you hours later without quite knowing why.",
+    sensoryNarrative:
+      "Peony opens it almost weightlessly, lifted by a thread of citrus — the first minutes feel like air moving through a room. Rose takes over, and osmanthus arrives with it, apricot-soft and faintly powdery. Then sandalwood and patchouli settle underneath and give the whole thing gravity. That base is the reason people notice it on you hours later without being able to say why.",
+    bestFor:
+      "Year-round, and best in daylight — though it turns noticeably warmer on skin after sunset.",
     notesTop: ["Peony", "Citrus Accords"],
     notesHeart: ["Rose", "Osmanthus"],
     notesBase: ["Sandalwood", "Patchouli"],
@@ -113,6 +125,10 @@ const PRODUCTS: SeedProduct[] = [
     longevity: "8-12 hours",
     description:
       "Apple and cinnamon — sweet, and slightly wrong in the best possible way. The opening of Night Drip is a dare. Orange blossom stops it tipping into dessert, and then vanilla, tonka bean and amber pour in and simply stay. This is the bottle you reach for at ten at night. It sits heavy on skin, sweet without being juvenile, and it is still on your collar in the morning.",
+    sensoryNarrative:
+      "Apple and cinnamon open it sweet and slightly wrong in the best possible way — a dare, in the first ten minutes. Orange blossom cuts across the middle and stops it collapsing into dessert. Then vanilla, tonka bean and amber pour in and simply refuse to leave. It sits heavy and close, and it is still on your collar the next morning.",
+    bestFor:
+      "Cooler weather and after dark. Too much for a summer afternoon, exactly right for a winter evening.",
     notesTop: ["Apple", "Cinnamon"],
     notesHeart: ["Orange Blossom"],
     notesBase: ["Vanilla", "Tonka Bean", "Amber"],
@@ -138,6 +154,10 @@ const PRODUCTS: SeedProduct[] = [
     longevity: "8-10 hours",
     description:
       "Blue Mist is cold water and clean cotton. Citrus and an aquatic accord open it sharp and transparent; a marine heart, salted and faintly floral, holds the middle. Musk and soft woods close it without weight. It is the most wearable thing we make — the fragrance for the eight a.m. meeting, the flight, the shirt you want to smell like nothing, only better.",
+    sensoryNarrative:
+      "Citrus and an aquatic accord open it sharp and transparent — cold water, clean cotton, nothing hiding. A marine heart holds the middle, salted and only faintly floral, so it stays crisp rather than turning sweet. Musk and soft woods close it without adding weight. It is the least demanding thing we make, and the hardest to get wrong.",
+    bestFor:
+      "An everyday, all-season signature. Holds its shape in heat and humidity, which is the whole point.",
     notesTop: ["Citrus", "Fresh Aquatic"],
     notesHeart: ["Marine", "Floral"],
     notesBase: ["Musk", "Woody"],
@@ -163,6 +183,10 @@ const PRODUCTS: SeedProduct[] = [
     longevity: "8-10 hours",
     description:
       "Saffron opens White Oud with a dry, almost metallic warmth, and the spice beneath it takes a moment to bloom. Rose and oud meet in the heart — the oldest pairing in perfumery and still the most persuasive, one of them bright and the other smoky and animalic. Amber and musk finish it soft. Worn sparingly it is elegant; worn generously it is a statement, and it apologises for neither.",
+    sensoryNarrative:
+      "Saffron opens it dry, warm and very nearly metallic, and the spice underneath takes a minute to bloom. Then rose and oud meet in the heart — the oldest pairing in perfumery and still the most persuasive, one of them bright and the other smoky and faintly animalic. Amber and musk close it soft. Two sprays reads as elegant; four reads as a statement, and it apologises for neither.",
+    bestFor:
+      "Winter evenings, weddings and anything that warrants a jacket. Wear it sparingly in daylight.",
     notesTop: ["Saffron", "Spicy Accords"],
     notesHeart: ["Rose", "Oud"],
     notesBase: ["Amber", "Musk"],
@@ -237,6 +261,8 @@ async function seedProducts() {
         howToUse: HOW_TO_USE,
         caution: CAUTION,
         longevity: p.longevity,
+        sensoryNarrative: p.sensoryNarrative,
+        bestFor: p.bestFor,
         sortOrder: p.sortOrder,
         metaTitle: `${p.name} — ${p.tagline}`,
         metaDescription: p.metaDescription,
@@ -257,6 +283,8 @@ async function seedProducts() {
         howToUse: HOW_TO_USE,
         caution: CAUTION,
         longevity: p.longevity,
+        sensoryNarrative: p.sensoryNarrative,
+        bestFor: p.bestFor,
         isActive: true,
         isFeatured: true,
         sortOrder: p.sortOrder,
@@ -361,6 +389,9 @@ async function seedSettings() {
         "Marketed by Avenues Perfumes. Add your full registered address, city, state and PIN from Admin → Settings before going live.",
       invoicePrefix: "AVN",
       invoiceNextNumber: 1,
+      announcementText: "Free shipping on all orders",
+      announcementHref: "/shop",
+      announcementEnabled: true,
     },
   });
   console.log("  settings     store defaults");

@@ -10,6 +10,13 @@
   :root {
     --ring-length: 640; /* consumed by the gold arc stroke animations */
     --nav-h: 4.5rem;
+    /* Height of the announcement strip above the nav. Zero by default, so the
+       whole fixed-header coordinate system is inert when the strip is off.
+       AnnouncementBar overrides it on the root element when it renders. */
+    --announce-h: 0rem;
+    /* What every fixed-header offset should use: main's top padding, the
+       hero's negative pull-up, and sticky column offsets. */
+    --header-h: calc(var(--nav-h) + var(--announce-h));
   }
 
   * {

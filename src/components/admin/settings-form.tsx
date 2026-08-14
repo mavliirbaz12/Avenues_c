@@ -56,6 +56,72 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
         </div>
       </Panel>
 
+      <Panel
+        title="Landing page"
+        hint="Media URLs and the announcement strip. Editorial copy stays in code — a database-authored headline would rewrap and break the animation rhythm."
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            id="st-anntext"
+            name="announcementText"
+            label="Announcement strip"
+            defaultValue={settings.announcementText ?? ""}
+            error={e.announcementText}
+            placeholder="Free shipping on all orders"
+            hint="One short line above the nav. Leave blank to hide the strip."
+          />
+          <Field
+            id="st-annhref"
+            name="announcementHref"
+            label="Announcement link (optional)"
+            defaultValue={settings.announcementHref ?? ""}
+            error={e.announcementHref}
+            placeholder="/shop"
+            hint="Makes the strip clickable."
+          />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            name="announcementEnabled"
+            value="true"
+            defaultChecked={settings.announcementEnabled}
+            className="h-4 w-4 accent-[#C9A24B]"
+          />
+          <span className="font-sans text-sm text-stone">Show the announcement strip</span>
+        </label>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            id="st-herovid"
+            name="heroVideoUrl"
+            label="Hero video URL"
+            type="url"
+            defaultValue={settings.heroVideoUrl ?? ""}
+            error={e.heroVideoUrl}
+            hint="MP4 or WebM, under 6MB, an 8–12s silent loop, graded dark. Host on Cloudinary."
+          />
+          <Field
+            id="st-heroposter"
+            name="heroPosterUrl"
+            label="Hero poster image URL"
+            type="url"
+            defaultValue={settings.heroPosterUrl ?? ""}
+            error={e.heroPosterUrl}
+            hint="First frame. Also used on its own if no video is set, and for reduced-motion visitors."
+          />
+        </div>
+        <Field
+          id="st-brandbanner"
+          name="brandBannerUrl"
+          label="Brand statement image URL"
+          type="url"
+          defaultValue={settings.brandBannerUrl ?? ""}
+          error={e.brandBannerUrl}
+          hint="Full-bleed image behind the mantra band. Blank falls back to a designed dark panel."
+        />
+      </Panel>
+
       <Panel title="Social">
         <div className="grid gap-5 sm:grid-cols-2">
           <Field id="st-ig" name="instagramUrl" label="Instagram URL" type="url" placeholder="https://instagram.com/avenuesperfumes" defaultValue={settings.instagramUrl ?? ""} error={e.instagramUrl} />

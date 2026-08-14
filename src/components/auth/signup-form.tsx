@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { signUp } from "@/app/actions/auth";
 import { AuthField, AuthDivider, GoogleButton } from "./auth-shell";
+import { PasswordField } from "./password-field";
 import { FORM_IDLE } from "@/lib/form-state";
 
 export function SignupForm({
@@ -74,10 +75,9 @@ export function SignupForm({
           hint="Used only for delivery updates."
           error={state.fieldErrors?.phone}
         />
-        <AuthField
+        <PasswordField
           id="password"
           name="password"
-          type="password"
           label="Password"
           autoComplete="new-password"
           required

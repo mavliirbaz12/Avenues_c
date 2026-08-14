@@ -89,7 +89,7 @@ export default function CartPage() {
         </section>
 
         <aside className="lg:col-span-5">
-          <div className="card space-y-6 p-6 sm:p-8 lg:sticky lg:top-[calc(var(--nav-h)+2rem)]">
+          <div className="card space-y-6 p-6 sm:p-8 lg:sticky lg:top-[calc(var(--header-h)+2rem)]">
             <h2 className="font-display text-2xl font-light text-bone">Summary</h2>
             <FreeShippingMeter priced={priced} />
             <CouponField outcome={priced?.coupon} loading={loading} />

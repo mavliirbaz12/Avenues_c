@@ -20,12 +20,15 @@ export function ProductCard({
   product,
   index,
   priority = false,
+  showNotes = false,
   className,
 }: {
   product: ProductCardData;
   /** Renders the 01–05 index number used on the landing page and shop grid. */
   index?: number;
   priority?: boolean;
+  /** Adds the base-note summary line — used on the landing collection grid. */
+  showNotes?: boolean;
   className?: string;
 }) {
   const v = product.defaultVariant;
@@ -45,6 +48,7 @@ export function ProductCard({
               slug={product.slug}
               name={product.name}
               image={product.image}
+              hoverImage={product.hoverImage}
               priority={priority}
             />
           </div>
@@ -83,6 +87,12 @@ export function ProductCard({
           </h3>
 
           <p className="mt-1.5 font-sans text-sm leading-relaxed text-stone">{product.tagline}</p>
+
+          {showNotes && product.notes.base.length > 0 && (
+            <p className="mt-2.5 font-sans text-[0.625rem] uppercase tracking-label text-stone-dark">
+              {product.notes.base.join(" · ")}
+            </p>
+          )}
 
           {product.reviewCount > 0 && (
             <Stars rating={product.avgRating} count={product.reviewCount} className="mt-3" />

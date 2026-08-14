@@ -35,7 +35,6 @@ export function BuyBox({
     name: string;
     shortName: string;
     tagline: string;
-    highlight: string;
     concentration: string;
     longevity: string;
     avgRating: number;
@@ -103,10 +102,18 @@ export function BuyBox({
 
   return (
     <div>
-      <p className="micro-label-gold">
-        {product.concentration}
-        {variant && <> &middot; {variant.size}</>}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="micro-label-gold">
+          {product.concentration}
+          {variant && <> &middot; {variant.size}</>}
+        </p>
+        {/* Longevity as a scannable chip up top, not buried in the assurance
+            list below — it is the single most asked question about a perfume. */}
+        <span className="inline-flex items-center gap-1.5 border border-gold/35 px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-label text-gold">
+          <Clock className="h-3 w-3" strokeWidth={1.6} />
+          {product.longevity}
+        </span>
+      </div>
 
       <h1 className="mt-4 font-display text-d3 font-light text-bone">{product.name}</h1>
       <p className="mt-3 font-sans text-body-lg text-stone">{product.tagline}</p>

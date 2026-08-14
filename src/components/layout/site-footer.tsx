@@ -10,7 +10,7 @@ import { getStoreSettings, whatsappLink } from "@/lib/settings";
 const COMPANY = [
   { href: "/about", label: "Our story" },
   { href: "/contact", label: "Contact" },
-  { href: "/track", label: "Track your order" },
+  { href: "/track-order", label: "Track your order" },
   { href: "/account/orders", label: "Order history" },
 ];
 

@@ -2,6 +2,7 @@ import { SiteNav } from "@/components/layout/site-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 import { SearchOverlay } from "@/components/layout/search-overlay";
+import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { WhatsAppFab } from "@/components/layout/whatsapp-fab";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { SessionSync } from "@/components/providers/session-sync";
@@ -9,7 +10,7 @@ import { getCurrentUser } from "@/lib/auth-guards";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 
-/** The storefront shell: nav, overlays, footer, floating channels. */
+/** The storefront shell: announcement strip, nav, overlays, footer, channels. */
 export default async function StoreLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -28,6 +29,7 @@ export default async function StoreLayout({
 
   const isAuthed = Boolean(user);
   const wa = whatsappLink(settings.whatsappNumber, "Hi Avenues, I have a question.");
+  const showAnnouncement = Boolean(settings.announcementEnabled && settings.announcementText);
 
   return (
     <>
@@ -41,7 +43,19 @@ export default async function StoreLayout({
       </a>
 
       <SessionSync isAuthed={isAuthed} />
-      <SiteNav isAuthed={isAuthed} />
+
+      {showAnnouncement && (
+        <AnnouncementBar
+          text={settings.announcementText!}
+          href={settings.announcementHref}
+        />
+      )}
+
+      <SiteNav
+        isAuthed={isAuthed}
+        firstName={user?.name?.split(" ")[0] ?? null}
+        fragrances={fragrances}
+      />
       <MobileMenu
         isAuthed={isAuthed}
         supportEmail={settings.supportEmail}
@@ -50,7 +64,9 @@ export default async function StoreLayout({
       />
       <SearchOverlay />
 
-      <main id="main" className="pt-[var(--nav-h)]">
+      {/* --header-h is nav + announcement strip; the landing hero cancels the
+          same value to bleed under the fixed chrome. */}
+      <main id="main" className="pt-[var(--header-h)]">
         {children}
       </main>
 

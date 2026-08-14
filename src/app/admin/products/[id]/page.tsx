@@ -102,6 +102,8 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             howToUse: product.howToUse,
             caution: product.caution,
             longevity: product.longevity,
+            sensoryNarrative: product.sensoryNarrative,
+            bestFor: product.bestFor,
             countryOfOrigin: product.countryOfOrigin,
             isActive: product.isActive,
             isFeatured: product.isFeatured,

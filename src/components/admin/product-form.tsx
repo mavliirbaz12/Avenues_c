@@ -26,6 +26,8 @@ export type ProductFormValues = {
   howToUse?: string;
   caution?: string;
   longevity?: string;
+  sensoryNarrative?: string;
+  bestFor?: string;
   countryOfOrigin?: string;
   isActive?: boolean;
   isFeatured?: boolean;
@@ -76,6 +78,8 @@ export function ProductForm({ values }: { values?: ProductFormValues }) {
 
       <Panel title="The copy">
         <Area id="pf-desc" name="description" label="Description" rows={5} required defaultValue={values?.description} error={e.description} hint="A paragraph in the brand voice. What it opens with, what it settles into, when to wear it." />
+        <Area id="pf-sensory" name="sensoryNarrative" label="Sensory narrative" rows={4} defaultValue={values?.sensoryNarrative} error={e.sensoryNarrative} hint="Two or three sentences on how it opens, turns and settles. Shown above the note pyramid — this is what makes the page read like a perfume house rather than a spec sheet." />
+        <Field id="pf-bestfor" name="bestFor" label="Best for" defaultValue={values?.bestFor} error={e.bestFor} placeholder="Cooler weather and after dark." hint="One line of season and occasion guidance, shown beside the occasion chips." />
         <Area id="pf-why" name="whyChoose" label="Why choose it" rows={5} defaultValue={values?.whyChoose?.join("\n")} error={e.whyChoose} hint="One reason per line. Shown as the bulleted list on the product page." />
         <div className="grid gap-5 sm:grid-cols-2">
           <Area id="pf-how" name="howToUse" label="How to use" rows={4} defaultValue={values?.howToUse} error={e.howToUse} />

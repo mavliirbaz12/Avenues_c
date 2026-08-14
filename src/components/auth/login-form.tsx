@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { AuthField, AuthDivider, GoogleButton } from "./auth-shell";
+import { PasswordField } from "./password-field";
 
 export function LoginForm({
   googleEnabled,
@@ -64,27 +65,21 @@ export function LoginForm({
           placeholder="your@email.com"
         />
 
-        <div>
-          <div className="mb-2 flex items-baseline justify-between gap-3">
-            <label htmlFor="password" className="field-label mb-0">
-              Password
-            </label>
+        <PasswordField
+          id="password"
+          name="password"
+          label="Password"
+          autoComplete="current-password"
+          required
+          labelAccessory={
             <Link
               href="/forgot-password"
               className="font-sans text-[0.6875rem] uppercase tracking-label text-stone transition-colors hover:text-gold-light"
             >
               Forgot?
             </Link>
-          </div>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="field"
-          />
-        </div>
+          }
+        />
 
         {error && (
           <p className="font-sans text-xs text-danger" role="alert">

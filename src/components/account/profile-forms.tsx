@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { updateProfile, changePassword } from "@/app/actions/account";
+import { PasswordField } from "@/components/auth/password-field";
 import { cn } from "@/lib/utils";
 import { FORM_IDLE } from "@/lib/form-state";
 
@@ -65,31 +66,28 @@ export function PasswordForm() {
 
   return (
     <form action={action} className="space-y-5" noValidate key={state.ok ? "done" : "editing"}>
-      <Field
+      <PasswordField
         id="c-current"
         name="current"
         label="Current password"
-        type="password"
         autoComplete="current-password"
         required
         error={state.fieldErrors?.current}
       />
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field
+        <PasswordField
           id="c-next"
           name="next"
           label="New password"
-          type="password"
           autoComplete="new-password"
           required
           hint="At least 8 characters, with a number."
           error={state.fieldErrors?.next}
         />
-        <Field
+        <PasswordField
           id="c-confirm"
           name="confirm"
           label="Confirm new password"
-          type="password"
           autoComplete="new-password"
           required
           error={state.fieldErrors?.confirm}

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/landing/hero";
-import { FeaturedCollection } from "@/components/landing/featured-collection";
+import { FeaturedSlider } from "@/components/landing/featured-slider";
+import { BrandBanner } from "@/components/landing/brand-banner";
 import { NotesStory } from "@/components/landing/notes-story";
+import { CollectionGrid } from "@/components/landing/collection-grid";
 import { BrandStory } from "@/components/landing/brand-story";
-import { SocialStrip } from "@/components/landing/social-strip";
 import { getFeaturedProductCards } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/env";
@@ -19,6 +20,18 @@ export const metadata: Metadata = {
 // and revalidate hourly. Admin mutations call revalidatePath to push through.
 export const revalidate = 3600;
 
+/**
+ * Landing page.
+ *
+ * Section rhythm: emotional intro → one fragrance in detail → brand conviction
+ * → note education → transact → story. The statement band and the note
+ * education deliberately sit between the two product sections, so the page
+ * never shows product imagery twice in a row — with five SKUs that is the
+ * difference between an editorial page and a padded one.
+ *
+ * The email capture lives in the footer, which follows immediately; a second
+ * newsletter form a screen above it would be the clearest template tell here.
+ */
 export default async function HomePage() {
   const [products, settings] = await Promise.all([
     getFeaturedProductCards(5),
@@ -27,20 +40,12 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero />
-
-      <FeaturedCollection
-        products={products}
-        eyebrow="The signature five"
-        title="Five fragrances, and no filler"
-        subtitle="Each one built around a single idea, and finished only when it lasted a full day on skin."
-      />
-
-      <NotesStory />
-
+      <Hero videoUrl={settings.heroVideoUrl} posterUrl={settings.heroPosterUrl} />
+      <FeaturedSlider products={products} />
+      <BrandBanner imageUrl={settings.brandBannerUrl} />
+      <NotesStory products={products} />
+      <CollectionGrid products={products} />
       <BrandStory />
-
-      <SocialStrip instagramUrl={settings.instagramUrl} />
     </>
   );
 }

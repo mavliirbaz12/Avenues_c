@@ -43,7 +43,7 @@ export default async function CustomerInvoicePage({
   const user = await getCurrentUser();
   const isOwner = Boolean(user && order.userId === user.id);
   if (!isOwner && !verifyOrderAccessToken(order.id, token)) {
-    redirect(`/track?order=${encodeURIComponent(order.orderNumber)}`);
+    redirect(`/track-order?order=${encodeURIComponent(order.orderNumber)}`);
   }
 
   if (!order.invoiceNumber) {

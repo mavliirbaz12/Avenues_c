@@ -3,19 +3,26 @@ import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
 import { Monogram } from "@/components/brand/monogram";
 
-const FACTS = [
-  { value: "05", label: "Fragrances" },
-  { value: "50ml", label: "Eau de parfum" },
-  { value: "8–10h", label: "On skin" },
-  { value: "India", label: "Made and bottled" },
-];
-
+/**
+ * "Know Avenues" — the story teaser.
+ *
+ * Cut to ONE paragraph on purpose. The previous three near-verbatim restated
+ * the opening of /about, and a teaser that paraphrases the page it teases
+ * gives the reader no reason to click.
+ *
+ * Structurally distinct from the brand statement band above: that one is
+ * full-bleed, centred and unclickable; this is an asymmetric block with a
+ * hairline arrow link. Two full-width banners a screen apart would be the
+ * repetition trap in a different key.
+ *
+ * The facts strip that used to live here now grounds the brand banner.
+ */
 export function BrandStory() {
   return (
-    <section className="relative border-y border-line bg-ink-deep py-section grain" aria-labelledby="story-heading">
-      <div className="shell relative z-[2] grid gap-14 lg:grid-cols-12 lg:gap-10">
+    <section className="py-section" aria-labelledby="story-heading">
+      <div className="shell grid items-center gap-14 lg:grid-cols-12 lg:gap-10">
         <Reveal className="lg:col-span-5">
-          <div className="relative flex h-full min-h-[18rem] items-center justify-center">
+          <div className="relative flex h-full min-h-[16rem] items-center justify-center">
             <Monogram className="h-40 w-40 opacity-90 sm:h-52 sm:w-52" />
             <div
               aria-hidden="true"
@@ -30,49 +37,26 @@ export function BrandStory() {
 
         <div className="lg:col-span-7">
           <Reveal>
-            <p className="micro-label-gold">Our story</p>
+            <p className="micro-label-gold">Know Avenues</p>
             <h2 id="story-heading" className="mt-5 max-w-xl font-display text-d3 font-light text-bone">
               We would rather make five well than fifty quickly
             </h2>
           </Reveal>
 
           <Reveal delay={0.08}>
-            <div className="mt-7 max-w-xl space-y-5 font-sans text-body-lg leading-relaxed text-stone">
-              <p>
-                Avenues started with a complaint. Good fragrance in India was
-                either imported and priced like jewellery, or affordable and gone
-                within the hour. There was very little in between.
-              </p>
-              <p>
-                So we built the in-between. Eau de parfum concentration, oils
-                sourced properly, and formulations tested through a Mumbai summer
-                rather than a European autumn — because a scent that survives
-                forty degrees and humidity is a different piece of engineering.
-              </p>
-              <p>
-                Five fragrances is not a soft launch. It is the whole catalogue,
-                and it stays that way until the sixth earns its place.
-              </p>
-            </div>
+            <p className="mt-7 max-w-xl font-sans text-body-lg leading-relaxed text-stone">
+              Good fragrance in India was either imported and priced like
+              jewellery, or affordable and gone within the hour. We built for the
+              gap in between — eau de parfum concentration, oils sourced
+              properly, and formulations tested through a Mumbai summer rather
+              than a European autumn.
+            </p>
           </Reveal>
 
           <Reveal delay={0.16}>
-            <dl className="mt-11 grid grid-cols-2 gap-x-6 gap-y-8 border-t border-line pt-9 sm:grid-cols-4">
-              {FACTS.map((f) => (
-                <div key={f.label}>
-                  <dt className="micro-label">{f.label}</dt>
-                  <dd className="mt-2.5 font-display text-3xl font-light text-gradient-gold">
-                    {f.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </Reveal>
-
-          <Reveal delay={0.22}>
             <Link
               href="/about"
-              className="group mt-10 inline-flex items-center gap-3 font-sans text-micro uppercase text-gold transition-colors hover:text-gold-light"
+              className="group mt-9 inline-flex items-center gap-3 font-sans text-micro uppercase text-gold transition-colors hover:text-gold-light"
             >
               Read the full story
               <ArrowRight

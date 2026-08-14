@@ -68,11 +68,10 @@ export default async function OrdersPage() {
           const extra = order.items.length > 2 ? order.items.length - 2 : 0;
 
           return (
-            <li key={order.id}>
-              <Link
-                href={`/order/${order.orderNumber}`}
-                className="group flex flex-wrap items-center gap-5 border border-line p-5 transition-colors duration-400 ease-smoke hover:border-gold/40"
-              >
+            <li
+              key={order.id}
+              className="group relative flex flex-wrap items-center gap-5 border border-line p-5 transition-colors duration-400 ease-smoke hover:border-gold/40"
+            >
                 {/* Item thumbnails, stacked */}
                 <div className="flex -space-x-3">
                   {order.items.slice(0, 2).map((item) => (
@@ -95,9 +94,15 @@ export default async function OrdersPage() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="font-sans text-sm text-bone transition-colors group-hover:text-gold-light">
+                  {/* Stretched link: covers the whole row so it stays one big
+                      target, while the Track button above it stays separately
+                      clickable. */}
+                  <Link
+                    href={`/order/${order.orderNumber}`}
+                    className="font-sans text-sm text-bone transition-colors after:absolute after:inset-0 group-hover:text-gold-light"
+                  >
                     {order.orderNumber}
-                  </p>
+                  </Link>
                   <p className="mt-1 font-sans text-xs text-stone">
                     {formatDate(order.placedAt ?? order.createdAt)} &middot;{" "}
                     {order.items.reduce((n, i) => n + i.quantity, 0)} item
@@ -120,8 +125,15 @@ export default async function OrdersPage() {
                   <span className="font-sans text-sm tabular-nums text-bone">
                     {formatPaise(order.totalPaise)}
                   </span>
+
+                  {/* z-10 lifts it above the stretched order link. */}
+                  <Link
+                    href={`/track-order?order=${encodeURIComponent(order.orderNumber)}`}
+                    className="btn btn-outline btn-sm relative z-10"
+                  >
+                    Track order
+                  </Link>
                 </div>
-              </Link>
             </li>
           );
         })}

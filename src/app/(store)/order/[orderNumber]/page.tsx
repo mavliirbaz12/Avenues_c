@@ -72,7 +72,7 @@ export default async function OrderPage({
   const hasToken = verifyOrderAccessToken(order.id, token);
 
   if (!isOwner && !hasToken) {
-    redirect(`/track?order=${encodeURIComponent(order.orderNumber)}`);
+    redirect(`/track-order?order=${encodeURIComponent(order.orderNumber)}`);
   }
 
   const justPlaced = one("placed") === "1";
@@ -175,11 +175,35 @@ export default async function OrderPage({
           )}
 
           {order.shipment?.waybill && (
-            <p className="mt-8 border-t border-line pt-5 font-sans text-sm text-stone">
-              Tracking number (AWB):{" "}
-              <span className="text-gold-light">{order.shipment.waybill}</span>
-              <span className="text-stone-dark"> · Delhivery</span>
-            </p>
+            <div className="mt-8 border-t border-line pt-5">
+              <p className="font-sans text-sm text-stone">
+                Tracking number (AWB):{" "}
+                {/* The courier URL is stored on the shipment — link it rather
+                    than making people copy a number into Delhivery's site. */}
+                <a
+                  href={
+                    order.shipment.trackingUrl ??
+                    `https://www.delhivery.com/track/package/${order.shipment.waybill}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gold-light underline decoration-gold/40 underline-offset-4 transition-colors hover:decoration-gold"
+                >
+                  {order.shipment.waybill}
+                </a>
+                <span className="text-stone-dark">
+                  {" "}
+                  &middot; {order.shipment.courierName ?? "Delhivery"}
+                </span>
+              </p>
+
+              <Link
+                href={`/track-order?order=${encodeURIComponent(order.orderNumber)}`}
+                className="btn btn-outline btn-sm mt-4"
+              >
+                Track order
+              </Link>
+            </div>
           )}
 
           {wa && (

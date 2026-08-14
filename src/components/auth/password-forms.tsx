@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { requestPasswordReset, resetPassword } from "@/app/actions/auth";
 import { AuthField } from "./auth-shell";
+import { PasswordField } from "./password-field";
 import { Sparkle } from "@/components/brand/sparkle";
 import { FORM_IDLE } from "@/lib/form-state";
 
@@ -66,20 +67,18 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form action={action} className="space-y-5" noValidate>
       <input type="hidden" name="token" value={token} />
-      <AuthField
+      <PasswordField
         id="password"
         name="password"
-        type="password"
         label="New password"
         autoComplete="new-password"
         required
         hint="At least 8 characters, with a number."
         error={state.fieldErrors?.password}
       />
-      <AuthField
+      <PasswordField
         id="confirm"
         name="confirm"
-        type="password"
         label="Confirm password"
         autoComplete="new-password"
         required
