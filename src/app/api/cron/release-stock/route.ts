@@ -19,9 +19,11 @@ export async function GET(req: NextRequest) {
   const header = req.headers.get("authorization") ?? "";
   const token = header.replace(/^Bearer\s+/i, "");
 
-  // Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` when the env var
-  // exists; we reuse AUTH_SECRET rather than introducing another secret.
-  if (token !== env.AUTH_SECRET) {
+  // Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` when that env var
+  // exists. Accept it if set, and otherwise fall back to AUTH_SECRET so the
+  // endpoint is never accidentally left unauthenticated.
+  const expected = process.env.CRON_SECRET || env.AUTH_SECRET;
+  if (!expected || token !== expected) {
     return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
   }
 

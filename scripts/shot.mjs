@@ -98,6 +98,20 @@ for (const vp of VIEWPORTS) {
     hasTouch: vp.width < 768,
   });
 
+  // --cart=<json> seeds the persisted cart store before navigating, so
+  // cart/checkout can be audited with real contents instead of empty states.
+  const cartArg = args.find((a) => a.startsWith("--cart="));
+  if (cartArg) {
+    const lines = cartArg.slice("--cart=".length);
+    await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.evaluate((json) => {
+      localStorage.setItem(
+        "avenues-cart",
+        JSON.stringify({ state: { lines: JSON.parse(json), couponCode: null }, version: 1 }),
+      );
+    }, lines);
+  }
+
   const url = `${BASE}${path}`;
   // Not networkidle0: the dev server holds an HMR websocket open, so the
   // network never goes idle and the wait always times out.
