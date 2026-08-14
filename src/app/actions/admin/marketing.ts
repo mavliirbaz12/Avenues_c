@@ -7,9 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { rupeeInputToPaise } from "@/lib/format";
 import { slugify } from "@/lib/utils";
-import type { AdminFormState } from "./products";
-
-export const ADMIN_FORM_IDLE: AdminFormState = { ok: false, message: "" };
+import type { FormState } from "@/lib/form-state";
 
 function collectErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -43,7 +41,7 @@ const couponSchema = z.object({
   isActive: z.coerce.boolean().default(false),
 });
 
-export async function saveCoupon(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+export async function saveCoupon(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdminActor();
 
   const parsed = couponSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -139,7 +137,7 @@ const collectionSchema = z.object({
   productIds: z.string().optional().or(z.literal("")),
 });
 
-export async function saveCollection(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+export async function saveCollection(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdminActor();
 
   const raw = Object.fromEntries(formData.entries()) as Record<string, string>;

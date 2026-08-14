@@ -3,12 +3,13 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { requestPasswordReset, resetPassword, AUTH_IDLE } from "@/app/actions/auth";
+import { requestPasswordReset, resetPassword } from "@/app/actions/auth";
 import { AuthField } from "./auth-shell";
 import { Sparkle } from "@/components/brand/sparkle";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export function ForgotPasswordForm() {
-  const [state, action] = useActionState(requestPasswordReset, AUTH_IDLE);
+  const [state, action] = useActionState(requestPasswordReset, FORM_IDLE);
 
   if (state.ok) {
     return (
@@ -46,7 +47,7 @@ export function ForgotPasswordForm() {
 }
 
 export function ResetPasswordForm({ token }: { token: string }) {
-  const [state, action] = useActionState(resetPassword, AUTH_IDLE);
+  const [state, action] = useActionState(resetPassword, FORM_IDLE);
 
   if (state.ok) {
     return (

@@ -62,6 +62,30 @@ const browser = await puppeteer.launch({
   args: ["--hide-scrollbars", "--disable-gpu", "--no-sandbox", "--force-color-profile=srgb"],
 });
 
+// --login signs in as the seeded admin before capturing, so /admin pages can
+// be audited. Credentials come from .env (SEED_ADMIN_EMAIL/PASSWORD).
+if (args.includes("--login")) {
+  const email = process.env.SEED_ADMIN_EMAIL ?? "admin@avenuesperfumes.com";
+  const password = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe!2026";
+  const page = await browser.newPage();
+  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  await page.waitForSelector("#email", { timeout: 60_000 });
+  // The SSR HTML has the fields before React attaches the submit handler —
+  // typing too early submits into the void. Wait for hydration to settle.
+  await page.waitForNetworkIdle({ idleTime: 800, timeout: 60_000 }).catch(() => {});
+  await new Promise((r) => setTimeout(r, 600));
+  await page.type("#email", email);
+  await page.type("#password", password);
+  await page.click("button[type=submit]");
+  // Sign-in is a fetch + client-side router.push, not a full navigation —
+  // wait for the URL to leave /login instead of a navigation event.
+  await page.waitForFunction(() => !location.pathname.startsWith("/login"), {
+    timeout: 60_000,
+  });
+  await page.close();
+  console.error(`logged in as ${email}`);
+}
+
 const written = [];
 
 for (const vp of VIEWPORTS) {

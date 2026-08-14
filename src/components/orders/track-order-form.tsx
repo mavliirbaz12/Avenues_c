@@ -2,10 +2,11 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { trackOrder, TRACK_IDLE } from "@/app/actions/track";
+import { trackOrder } from "@/app/actions/track";
+import { ACTION_IDLE } from "@/lib/form-state";
 
 export function TrackOrderForm({ prefillOrderNumber }: { prefillOrderNumber?: string }) {
-  const [state, action] = useActionState(trackOrder, TRACK_IDLE);
+  const [state, action] = useActionState(trackOrder, ACTION_IDLE);
 
   return (
     <form action={action} className="space-y-5" noValidate>

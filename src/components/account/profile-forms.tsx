@@ -2,8 +2,9 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { updateProfile, changePassword, FORM_IDLE } from "@/app/actions/account";
+import { updateProfile, changePassword } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export function ProfileForm({
   defaults,

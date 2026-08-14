@@ -6,10 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { orderAccessToken } from "@/lib/commerce/order-token";
 import { limitByIp } from "@/lib/rate-limit";
 import { PHONE_REGEX } from "@/lib/constants/india";
-
-export type TrackState = { ok: boolean; message: string };
-
-export const TRACK_IDLE: TrackState = { ok: false, message: "" };
+import type { SimpleActionState } from "@/lib/form-state";
 
 const schema = z.object({
   orderNumber: z
@@ -25,7 +22,7 @@ const schema = z.object({
  * with the checkout email or phone, and misses are answered with one generic
  * message so the form can't be used to probe which order numbers exist.
  */
-export async function trackOrder(_prev: TrackState, formData: FormData): Promise<TrackState> {
+export async function trackOrder(_prev: SimpleActionState, formData: FormData): Promise<SimpleActionState> {
   const limit = await limitByIp("track", 10, 300_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };
@@ -36,7 +33,7 @@ export async function trackOrder(_prev: TrackState, formData: FormData): Promise
     contact: formData.get("contact"),
   });
 
-  const MISS: TrackState = {
+  const MISS: SimpleActionState = {
     ok: false,
     message: "We couldn't find an order matching those details. Check both and try again.",
   };

@@ -3,13 +3,14 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { saveSettings } from "@/app/actions/admin/settings";
-import { ADMIN_FORM_IDLE } from "@/app/actions/admin/marketing";
+
 import type { StoreSettings } from "@/lib/settings";
 import { paiseToRupeeInput } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export function SettingsForm({ settings }: { settings: StoreSettings }) {
-  const [state, action] = useActionState(saveSettings, ADMIN_FORM_IDLE);
+  const [state, action] = useActionState(saveSettings, FORM_IDLE);
   const e = state.fieldErrors ?? {};
 
   return (

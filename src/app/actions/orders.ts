@@ -11,10 +11,7 @@ import { limitByIp } from "@/lib/rate-limit";
 import { sendEmail, emailShell, escapeHtml } from "@/lib/email";
 import { getStoreSettings } from "@/lib/settings";
 import { env, siteUrl } from "@/lib/env";
-
-export type OrderActionState = { ok: boolean; message: string };
-
-export const ORDER_ACTION_IDLE: OrderActionState = { ok: false, message: "" };
+import type { SimpleActionState } from "@/lib/form-state";
 
 /** Owner-or-token authorisation, shared by both customer order actions. */
 async function authoriseOrderAccess(orderId: string, accessToken: string | null) {
@@ -41,9 +38,9 @@ const cancelSchema = z.object({
 });
 
 export async function customerCancelOrder(
-  _prev: OrderActionState,
+  _prev: SimpleActionState,
   formData: FormData,
-): Promise<OrderActionState> {
+): Promise<SimpleActionState> {
   const limit = await limitByIp("cancel", 6, 600_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };
@@ -88,9 +85,9 @@ const returnSchema = z.object({
 });
 
 export async function requestReturn(
-  _prev: OrderActionState,
+  _prev: SimpleActionState,
   formData: FormData,
-): Promise<OrderActionState> {
+): Promise<SimpleActionState> {
   const limit = await limitByIp("return", 4, 600_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };

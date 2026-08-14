@@ -4,11 +4,12 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, Pencil, Trash2, Check } from "lucide-react";
 import { AddressFields, type AddressValues } from "./address-fields";
-import { saveAddress, deleteAddress, setDefaultAddress, FORM_IDLE } from "@/app/actions/account";
+import { saveAddress, deleteAddress, setDefaultAddress } from "@/app/actions/account";
 import { ADDRESS_TYPE_LABELS } from "@/lib/constants/india";
 import { useUI } from "@/store/ui";
 import { Sparkle } from "@/components/brand/sparkle";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export type SavedAddress = AddressValues & {
   id: string;

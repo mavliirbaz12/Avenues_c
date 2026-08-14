@@ -8,10 +8,7 @@ import { requireAdminActor } from "@/lib/admin-guard";
 import { createOrderShipment, syncOrderTracking } from "@/lib/shipping/sync";
 import { cancelOrder, CancelError } from "@/lib/commerce/cancellations";
 import { refundPayment } from "@/lib/payments/razorpay";
-
-export type AdminOrderActionState = { ok: boolean; message: string };
-
-export const ADMIN_ORDER_IDLE: AdminOrderActionState = { ok: false, message: "" };
+import type { SimpleActionState } from "@/lib/form-state";
 
 function revalidateOrder(orderId: string) {
   revalidatePath("/admin/orders");
@@ -22,7 +19,7 @@ function revalidateOrder(orderId: string) {
 /* Shipment                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export async function adminCreateShipment(orderId: string): Promise<AdminOrderActionState> {
+export async function adminCreateShipment(orderId: string): Promise<SimpleActionState> {
   await requireAdminActor();
   try {
     const shipment = await createOrderShipment(orderId);
@@ -34,7 +31,7 @@ export async function adminCreateShipment(orderId: string): Promise<AdminOrderAc
   }
 }
 
-export async function adminRefreshTracking(orderId: string): Promise<AdminOrderActionState> {
+export async function adminRefreshTracking(orderId: string): Promise<SimpleActionState> {
   await requireAdminActor();
   await syncOrderTracking(orderId, { force: true });
   revalidateOrder(orderId);
@@ -59,7 +56,7 @@ const MANUAL_MOVES: Partial<Record<OrderStatus, OrderStatus[]>> = {
 export async function adminSetStatus(
   orderId: string,
   to: OrderStatus,
-): Promise<AdminOrderActionState> {
+): Promise<SimpleActionState> {
   await requireAdminActor();
 
   const order = await prisma.order.findUnique({
@@ -100,9 +97,9 @@ const cancelSchema = z.object({
 });
 
 export async function adminCancelOrder(
-  _prev: AdminOrderActionState,
+  _prev: SimpleActionState,
   formData: FormData,
-): Promise<AdminOrderActionState> {
+): Promise<SimpleActionState> {
   await requireAdminActor();
 
   const parsed = cancelSchema.safeParse({
@@ -153,9 +150,9 @@ const returnResolveSchema = z.object({
  *  - REJECTED: order returns to DELIVERED with the note on record.
  */
 export async function adminResolveReturn(
-  _prev: AdminOrderActionState,
+  _prev: SimpleActionState,
   formData: FormData,
-): Promise<AdminOrderActionState> {
+): Promise<SimpleActionState> {
   await requireAdminActor();
 
   const parsed = returnResolveSchema.safeParse({
@@ -262,9 +259,9 @@ export async function adminResolveReturn(
 /* -------------------------------------------------------------------------- */
 
 export async function adminSaveNote(
-  _prev: AdminOrderActionState,
+  _prev: SimpleActionState,
   formData: FormData,
-): Promise<AdminOrderActionState> {
+): Promise<SimpleActionState> {
   await requireAdminActor();
 
   const orderId = String(formData.get("orderId") ?? "");

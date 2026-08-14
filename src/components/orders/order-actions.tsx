@@ -2,12 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import {
-  customerCancelOrder,
-  requestReturn,
-  ORDER_ACTION_IDLE,
-} from "@/app/actions/orders";
+import { customerCancelOrder, requestReturn } from "@/app/actions/orders";
 import { cn } from "@/lib/utils";
+import { ACTION_IDLE } from "@/lib/form-state";
 
 /**
  * Customer order controls: cancel before shipment, request a return after
@@ -25,7 +22,7 @@ export function OrderActions({
 }) {
   const [open, setOpen] = useState(false);
   const action = mode === "cancel" ? customerCancelOrder : requestReturn;
-  const [state, formAction] = useActionState(action, ORDER_ACTION_IDLE);
+  const [state, formAction] = useActionState(action, ACTION_IDLE);
 
   if (state.ok) {
     return (

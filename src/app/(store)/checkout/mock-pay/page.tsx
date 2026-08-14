@@ -6,7 +6,9 @@ import { ShieldAlert, Check, X, Loader2 } from "lucide-react";
 import { Monogram } from "@/components/brand/monogram";
 import { useCart } from "@/store/cart";
 import { formatPaise } from "@/lib/format";
-import { MOCK_PAYMENT_PREFIX, MOCK_SIGNATURE } from "@/lib/payments/razorpay";
+// From mock-constants, not razorpay.ts — importing the latter would pull
+// node:crypto and the Razorpay SDK into the client bundle.
+import { MOCK_PAYMENT_PREFIX, MOCK_SIGNATURE } from "@/lib/payments/mock-constants";
 
 /**
  * The mock payment gateway.

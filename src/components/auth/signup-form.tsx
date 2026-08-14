@@ -4,8 +4,9 @@ import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { signUp, AUTH_IDLE } from "@/app/actions/auth";
+import { signUp } from "@/app/actions/auth";
 import { AuthField, AuthDivider, GoogleButton } from "./auth-shell";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export function SignupForm({
   googleEnabled,
@@ -14,7 +15,7 @@ export function SignupForm({
   googleEnabled: boolean;
   next: string;
 }) {
-  const [state, action] = useActionState(signUp, AUTH_IDLE);
+  const [state, action] = useActionState(signUp, FORM_IDLE);
   const router = useRouter();
 
   // Creating the account and signing in are two steps; do the second one for

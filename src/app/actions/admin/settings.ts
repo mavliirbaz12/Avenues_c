@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { rupeeInputToPaise } from "@/lib/format";
-import type { AdminFormState } from "./products";
+import type { FormState } from "@/lib/form-state";
 
 const settingsSchema = z.object({
   shippingFlat: z.string().trim().min(1, "Flat shipping rate is required."),
@@ -42,7 +42,7 @@ const settingsSchema = z.object({
   facebookUrl: z.string().trim().url("Full URL, with https://").optional().or(z.literal("")),
 });
 
-export async function saveSettings(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+export async function saveSettings(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdminActor();
 
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData.entries()));

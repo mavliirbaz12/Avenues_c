@@ -9,14 +9,7 @@ import { limitByIp } from "@/lib/rate-limit";
 import { sendEmail, emailShell, escapeHtml } from "@/lib/email";
 import { claimGuestOrders } from "@/lib/commerce/claim-orders";
 import { siteUrl } from "@/lib/env";
-
-export type AuthState = {
-  ok: boolean;
-  message: string;
-  fieldErrors?: Record<string, string>;
-};
-
-export const AUTH_IDLE: AuthState = { ok: false, message: "" };
+import type { FormState } from "@/lib/form-state";
 
 const password = z
   .string()
@@ -41,7 +34,7 @@ const signupSchema = z.object({
   password,
 });
 
-export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
+export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
   const limit = await limitByIp("signup", 6, 600_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };
@@ -111,9 +104,9 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
 const RESET_TTL_MS = 60 * 60 * 1000; // one hour
 
 export async function requestPasswordReset(
-  _prev: AuthState,
+  _prev: FormState,
   formData: FormData,
-): Promise<AuthState> {
+): Promise<FormState> {
   const limit = await limitByIp("reset-request", 5, 900_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };
@@ -128,7 +121,7 @@ export async function requestPasswordReset(
 
   // Always report success. Telling the caller whether an address is registered
   // turns this form into an account-enumeration oracle.
-  const generic: AuthState = {
+  const generic: FormState = {
     ok: true,
     message: "If that address has an account, a reset link is on its way.",
   };
@@ -188,7 +181,7 @@ const resetSchema = z
     path: ["confirm"],
   });
 
-export async function resetPassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
+export async function resetPassword(_prev: FormState, formData: FormData): Promise<FormState> {
   const limit = await limitByIp("reset-submit", 10, 900_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };

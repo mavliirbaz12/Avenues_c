@@ -1,6 +1,7 @@
 import Razorpay from "razorpay";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env, integrations } from "@/lib/env";
+import { MOCK_ORDER_PREFIX, MOCK_PAYMENT_PREFIX, MOCK_SIGNATURE } from "./mock-constants";
 
 /**
  * Razorpay client with a first-class MOCK MODE.
@@ -19,9 +20,7 @@ const client = razorpayLive
   ? new Razorpay({ key_id: env.RAZORPAY_KEY_ID, key_secret: env.RAZORPAY_KEY_SECRET })
   : null;
 
-export const MOCK_ORDER_PREFIX = "order_mock_";
-export const MOCK_PAYMENT_PREFIX = "pay_mock_";
-export const MOCK_SIGNATURE = "mock_signature_ok";
+export { MOCK_ORDER_PREFIX, MOCK_PAYMENT_PREFIX, MOCK_SIGNATURE } from "./mock-constants";
 
 /** Creates a gateway order for the given amount. */
 export async function createGatewayOrder(args: {

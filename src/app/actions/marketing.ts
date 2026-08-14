@@ -7,14 +7,8 @@ import { limitByIp } from "@/lib/rate-limit";
 import { sendEmail, emailShell, escapeHtml } from "@/lib/email";
 import { getStoreSettings } from "@/lib/settings";
 import { env } from "@/lib/env";
-
-export type ActionState = {
-  ok: boolean;
-  message: string;
-  fieldErrors?: Record<string, string>;
-};
-
-export const IDLE: ActionState = { ok: false, message: "" };
+import { SUBJECT_LABELS, type SubjectKey } from "@/lib/form-state";
+import type { FormState } from "@/lib/form-state";
 
 /* -------------------------------------------------------------------------- */
 /* Newsletter                                                                  */
@@ -26,9 +20,9 @@ const newsletterSchema = z.object({
 });
 
 export async function subscribeNewsletter(
-  _prev: ActionState,
+  _prev: FormState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<FormState> {
   const limit = await limitByIp("newsletter", 5, 60_000);
   if (!limit.ok) {
     return { ok: false, message: `Too many attempts. Try again in ${limit.retryAfter}s.` };
@@ -67,14 +61,7 @@ export async function subscribeNewsletter(
 /* Enquiries                                                                   */
 /* -------------------------------------------------------------------------- */
 
-const SUBJECTS = ["ORDER_ISSUE", "PRODUCT_ENQUIRY", "BULK_CORPORATE", "OTHER"] as const;
-
-export const SUBJECT_LABELS: Record<(typeof SUBJECTS)[number], string> = {
-  ORDER_ISSUE: "Order issue",
-  PRODUCT_ENQUIRY: "Product enquiry",
-  BULK_CORPORATE: "Bulk & corporate order",
-  OTHER: "Other",
-};
+const SUBJECTS = Object.keys(SUBJECT_LABELS) as [SubjectKey, ...SubjectKey[]];
 
 const enquirySchema = z.object({
   name: z.string().trim().min(2, "Tell us your name.").max(120),
@@ -91,9 +78,9 @@ const enquirySchema = z.object({
 });
 
 export async function submitEnquiry(
-  _prev: ActionState,
+  _prev: FormState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<FormState> {
   const limit = await limitByIp("enquiry", 4, 300_000);
   if (!limit.ok) {
     return {

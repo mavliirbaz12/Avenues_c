@@ -3,10 +3,11 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { saveCollection, deleteCollection, ADMIN_FORM_IDLE } from "@/app/actions/admin/marketing";
+import { saveCollection, deleteCollection } from "@/app/actions/admin/marketing";
 import { AdminChip } from "./ui";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export type CollectionRow = {
   id: string;
@@ -132,7 +133,7 @@ function CollectionForm({
   products: ProductOption[];
   onDone: () => void;
 }) {
-  const [state, action] = useActionState(saveCollection, ADMIN_FORM_IDLE);
+  const [state, action] = useActionState(saveCollection, FORM_IDLE);
   const toast = useUI((s) => s.toast);
   const e = state.fieldErrors ?? {};
 

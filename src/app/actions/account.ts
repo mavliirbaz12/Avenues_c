@@ -8,14 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { limitByIp } from "@/lib/rate-limit";
 import { INDIAN_STATES, PHONE_REGEX, PINCODE_REGEX } from "@/lib/constants/india";
-
-export type FormState = {
-  ok: boolean;
-  message: string;
-  fieldErrors?: Record<string, string>;
-};
-
-export const FORM_IDLE: FormState = { ok: false, message: "" };
+import type { FormState } from "@/lib/form-state";
 
 async function requireUserId() {
   const session = await auth();
@@ -151,7 +144,6 @@ const addressSchema = z.object({
   isDefault: z.coerce.boolean().default(false),
 });
 
-export type AddressInput = z.infer<typeof addressSchema>;
 
 function readAddress(formData: FormData) {
   return addressSchema.safeParse({

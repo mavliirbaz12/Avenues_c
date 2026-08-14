@@ -2,9 +2,10 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { submitEnquiry, SUBJECT_LABELS, IDLE } from "@/app/actions/marketing";
+import { submitEnquiry } from "@/app/actions/marketing";
 import { Sparkle } from "@/components/brand/sparkle";
 import { cn } from "@/lib/utils";
+import { SUBJECT_LABELS, FORM_IDLE } from "@/lib/form-state";
 
 /**
  * One form, two densities. `compact` drops the phone field and shrinks the
@@ -23,7 +24,7 @@ export function EnquiryForm({
   defaultSubject?: keyof typeof SUBJECT_LABELS;
   defaultMessage?: string;
 }) {
-  const [state, action] = useActionState(submitEnquiry, IDLE);
+  const [state, action] = useActionState(submitEnquiry, FORM_IDLE);
   const uid = compact ? "cf" : "ef";
 
   if (state.ok) {

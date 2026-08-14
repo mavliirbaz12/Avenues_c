@@ -3,8 +3,9 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { ArrowRight } from "lucide-react";
-import { subscribeNewsletter, IDLE } from "@/app/actions/marketing";
+import { subscribeNewsletter } from "@/app/actions/marketing";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export function NewsletterForm({
   source = "footer",
@@ -13,7 +14,7 @@ export function NewsletterForm({
   source?: string;
   className?: string;
 }) {
-  const [state, action] = useActionState(subscribeNewsletter, IDLE);
+  const [state, action] = useActionState(subscribeNewsletter, FORM_IDLE);
 
   if (state.ok) {
     return (

@@ -4,11 +4,12 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { CouponType } from "@prisma/client";
 import { Plus, Pencil } from "lucide-react";
-import { saveCoupon, toggleCoupon, ADMIN_FORM_IDLE } from "@/app/actions/admin/marketing";
+import { saveCoupon, toggleCoupon } from "@/app/actions/admin/marketing";
 import { formatPaise, paiseToRupeeInput, formatDate } from "@/lib/format";
 import { AdminChip } from "./ui";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export type CouponRow = {
   id: string;
@@ -127,7 +128,7 @@ function CouponLine({ coupon, onEdit, disabled }: { coupon: CouponRow; onEdit: (
 }
 
 function CouponForm({ coupon, onDone }: { coupon?: CouponRow; onDone: () => void }) {
-  const [state, action] = useActionState(saveCoupon, ADMIN_FORM_IDLE);
+  const [state, action] = useActionState(saveCoupon, FORM_IDLE);
   const [type, setType] = useState<CouponType>(coupon?.type ?? CouponType.PERCENTAGE);
   const toast = useUI((s) => s.toast);
   const e = state.fieldErrors ?? {};

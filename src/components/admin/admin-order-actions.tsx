@@ -4,17 +4,10 @@ import { useActionState, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { OrderStatus, ReturnStatus } from "@prisma/client";
 import { Truck, RefreshCw, Loader2 } from "lucide-react";
-import {
-  adminCreateShipment,
-  adminRefreshTracking,
-  adminSetStatus,
-  adminCancelOrder,
-  adminResolveReturn,
-  adminSaveNote,
-  ADMIN_ORDER_IDLE,
-} from "@/app/actions/admin/orders";
+import { adminCreateShipment, adminRefreshTracking, adminSetStatus, adminCancelOrder, adminResolveReturn, adminSaveNote } from "@/app/actions/admin/orders";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { ACTION_IDLE } from "@/lib/form-state";
 
 /** The action rail on an admin order: ship, track, move, cancel, resolve returns. */
 export function AdminOrderActions({
@@ -100,7 +93,7 @@ export function AdminOrderActions({
 }
 
 function CancelForm({ orderId, status }: { orderId: string; status: OrderStatus }) {
-  const [state, action] = useActionState(adminCancelOrder, ADMIN_ORDER_IDLE);
+  const [state, action] = useActionState(adminCancelOrder, ACTION_IDLE);
   const [open, setOpen] = useState(false);
 
   const cancellable = (
@@ -160,7 +153,7 @@ function ReturnResolver({
   returnStatus: ReturnStatus;
   canRefund: boolean;
 }) {
-  const [state, action] = useActionState(adminResolveReturn, ADMIN_ORDER_IDLE);
+  const [state, action] = useActionState(adminResolveReturn, ACTION_IDLE);
 
   if (state.ok) return <p className="font-sans text-xs text-gold-light" role="status">{state.message}</p>;
   if (returnStatus === ReturnStatus.COMPLETED || returnStatus === ReturnStatus.REJECTED) return null;
@@ -213,7 +206,7 @@ function ReturnSubmit({ decision, label, primary }: { decision: string; label: s
 }
 
 export function AdminNoteForm({ orderId, note }: { orderId: string; note: string | null }) {
-  const [state, action] = useActionState(adminSaveNote, ADMIN_ORDER_IDLE);
+  const [state, action] = useActionState(adminSaveNote, ACTION_IDLE);
 
   return (
     <form action={action}>

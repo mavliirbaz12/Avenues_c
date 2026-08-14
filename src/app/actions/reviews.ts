@@ -7,14 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { limitByIp } from "@/lib/rate-limit";
 import { isVerifiedBuyer } from "@/lib/commerce/reviews";
-
-export type ReviewState = {
-  ok: boolean;
-  message: string;
-  fieldErrors?: Record<string, string>;
-};
-
-export const REVIEW_IDLE: ReviewState = { ok: false, message: "" };
+import type { FormState } from "@/lib/form-state";
 
 const schema = z.object({
   productId: z.string().min(1),
@@ -33,7 +26,7 @@ const schema = z.object({
  * moderation — it will not appear on the product page or move the aggregate
  * rating until approved.
  */
-export async function submitReview(_prev: ReviewState, formData: FormData): Promise<ReviewState> {
+export async function submitReview(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await auth().catch(() => null);
   const userId = session?.user?.id;
   if (!userId) {

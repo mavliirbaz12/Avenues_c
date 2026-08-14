@@ -8,16 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { slugify } from "@/lib/utils";
 import { rupeeInputToPaise } from "@/lib/format";
-
-export type AdminFormState = {
-  ok: boolean;
-  message: string;
-  fieldErrors?: Record<string, string>;
-  /** Set on create so the client can move to the editor URL. */
-  redirectTo?: string;
-};
-
-export const ADMIN_FORM_IDLE: AdminFormState = { ok: false, message: "" };
+import type { FormState } from "@/lib/form-state";
 
 /** "Bergamot, Lavender" → ["Bergamot", "Lavender"] */
 function csvList(input: string, max = 12) {
@@ -82,7 +73,7 @@ const productSchema = z.object({
   metaDescription: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
-export async function saveProduct(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+export async function saveProduct(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdminActor();
 
   const raw = Object.fromEntries(
@@ -177,7 +168,7 @@ const variantSchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 
-export async function saveVariant(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+export async function saveVariant(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdminActor();
 
   const parsed = variantSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -231,7 +222,7 @@ export async function saveVariant(_prev: AdminFormState, formData: FormData): Pr
   return { ok: true, message: d.id ? "Variant saved." : "Variant added." };
 }
 
-export async function deleteVariant(variantId: string): Promise<AdminFormState> {
+export async function deleteVariant(variantId: string): Promise<FormState> {
   await requireAdminActor();
 
   const variant = await prisma.variant.findUnique({

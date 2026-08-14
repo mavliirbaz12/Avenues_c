@@ -4,9 +4,10 @@ import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Gender } from "@prisma/client";
-import { saveProduct, ADMIN_FORM_IDLE } from "@/app/actions/admin/products";
+import { saveProduct } from "@/app/actions/admin/products";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export type ProductFormValues = {
   id?: string;
@@ -34,7 +35,7 @@ export type ProductFormValues = {
 };
 
 export function ProductForm({ values }: { values?: ProductFormValues }) {
-  const [state, action] = useActionState(saveProduct, ADMIN_FORM_IDLE);
+  const [state, action] = useActionState(saveProduct, FORM_IDLE);
   const router = useRouter();
   const toast = useUI((s) => s.toast);
 

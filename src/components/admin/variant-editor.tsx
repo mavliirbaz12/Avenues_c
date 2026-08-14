@@ -3,11 +3,12 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, Trash2, Pencil } from "lucide-react";
-import { saveVariant, deleteVariant, ADMIN_FORM_IDLE } from "@/app/actions/admin/products";
+import { saveVariant, deleteVariant } from "@/app/actions/admin/products";
 import { formatPaise, paiseToRupeeInput } from "@/lib/format";
 import { AdminChip } from "./ui";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export type VariantRow = {
   id: string;
@@ -159,7 +160,7 @@ function VariantForm({
   variant?: VariantRow;
   onDone: () => void;
 }) {
-  const [state, action] = useActionState(saveVariant, ADMIN_FORM_IDLE);
+  const [state, action] = useActionState(saveVariant, FORM_IDLE);
   const toast = useUI((s) => s.toast);
   const e = state.fieldErrors ?? {};
 

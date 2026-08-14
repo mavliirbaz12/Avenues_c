@@ -3,9 +3,10 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { submitReview, REVIEW_IDLE } from "@/app/actions/reviews";
+import { submitReview } from "@/app/actions/reviews";
 import { Sparkle } from "@/components/brand/sparkle";
 import { cn } from "@/lib/utils";
+import { FORM_IDLE } from "@/lib/form-state";
 
 export function ReviewForm({
   productId,
@@ -20,7 +21,7 @@ export function ReviewForm({
   alreadyReviewed: boolean;
   slug: string;
 }) {
-  const [state, action] = useActionState(submitReview, REVIEW_IDLE);
+  const [state, action] = useActionState(submitReview, FORM_IDLE);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
 
