@@ -17,7 +17,7 @@ import { GoldArc } from "@/components/brand/gold-arc";
 import { Sparkle } from "@/components/brand/sparkle";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
 import { syncOrderTracking } from "@/lib/shipping/sync";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, FileText } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Your order",
@@ -216,7 +216,21 @@ export default async function OrderPage({
         {/* Receipt */}
         <aside className="lg:col-span-5">
           <div className="card p-6 sm:p-8">
-            <h2 className="font-display text-2xl font-light text-bone">Receipt</h2>
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 className="font-display text-2xl font-light text-bone">Receipt</h2>
+              {order.invoiceNumber && (
+                <Link
+                  href={`/order/${order.orderNumber}/invoice${
+                    hasToken ? `?t=${token}` : isOwner ? `?t=${orderAccessToken(order.id)}` : ""
+                  }`}
+                  target="_blank"
+                  className="inline-flex items-center gap-2 font-sans text-micro uppercase text-gold transition-colors hover:text-gold-light"
+                >
+                  <FileText className="h-3.5 w-3.5" strokeWidth={1.4} />
+                  Invoice
+                </Link>
+              )}
+            </div>
 
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {order.items.map((item) => (
