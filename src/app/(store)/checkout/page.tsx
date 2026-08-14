@@ -32,7 +32,9 @@ export default async function CheckoutPage() {
     ]);
 
     if (dbUser) {
-      user = { name: dbUser.name ?? "", email: dbUser.email, phone: dbUser.phone ?? "" };
+      // A phone-OTP account may have no email yet — checkout's email field
+      // starts empty and the address they type gets captured on the order.
+      user = { name: dbUser.name ?? "", email: dbUser.email ?? "", phone: dbUser.phone ?? "" };
     }
     savedAddresses = rows.map((a) => ({
       id: a.id,

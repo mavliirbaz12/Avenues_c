@@ -41,11 +41,27 @@ export default async function AdminCustomerDetailPage({
       </Link>
 
       <div className="mt-4">
-        <AdminPageHeader title={customer.name ?? customer.email}>
+        <AdminPageHeader
+          title={customer.name ?? customer.email ?? `+91 ${customer.phone ?? ""}`.trim()}
+        >
           <p className="mt-2 font-sans text-xs text-stone">
-            <a href={`mailto:${customer.email}`} className="hover:text-gold-light">{customer.email}</a>
-            {customer.phone && <> · <a href={`tel:${customer.phone}`} className="hover:text-gold-light">{customer.phone}</a></>}
-            {" · joined "}{formatDate(customer.createdAt)}
+            {customer.email ? (
+              <a href={`mailto:${customer.email}`} className="hover:text-gold-light">
+                {customer.email}
+              </a>
+            ) : (
+              <span className="text-stone-dark">Phone-OTP account, no email yet</span>
+            )}
+            {customer.phone && (
+              <>
+                {" · "}
+                <a href={`tel:${customer.phone}`} className="hover:text-gold-light">
+                  {customer.phone}
+                </a>
+              </>
+            )}
+            {" · joined "}
+            {formatDate(customer.createdAt)}
           </p>
         </AdminPageHeader>
       </div>

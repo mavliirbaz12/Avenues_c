@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { LoginForm } from "@/components/auth/login-form";
+import { LoginMethods } from "@/components/auth/login-methods";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { integrations } from "@/lib/env";
 
@@ -63,8 +63,9 @@ export default async function LoginPage({
         </>
       }
     >
-      <LoginForm
+      <LoginMethods
         googleEnabled={integrations.google}
+        smsLive={integrations.sms}
         next={next}
         initialError={errorCode ? (ERRORS[errorCode] ?? "Something went wrong signing in.") : undefined}
       />

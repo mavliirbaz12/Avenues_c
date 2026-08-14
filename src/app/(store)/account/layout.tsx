@@ -20,7 +20,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
         <h1 className="mt-4 font-display text-d3 font-light text-bone">
           {user.name ?? "Welcome back"}
         </h1>
-        <p className="mt-2 font-sans text-sm text-stone">{user.email}</p>
+        <p className="mt-2 font-sans text-sm text-stone">
+          {/* Phone-OTP accounts may not have an email yet. */}
+          {user.email ?? "Signed in by phone"}
+        </p>
       </header>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-12 lg:gap-14">

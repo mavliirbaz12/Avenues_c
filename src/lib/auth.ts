@@ -4,10 +4,12 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import type { Provider } from "next-auth/providers";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { env, integrations } from "./env";
-import { claimGuestOrders } from "./commerce/claim-orders";
+import { normalisePhone } from "./sms";
+import { claimGuestOrders, claimGuestOrdersByPhone } from "./commerce/claim-orders";
 
 /**
  * Auth.js v5.
@@ -56,6 +58,60 @@ const providers: Provider[] = [
         name: user.name,
         image: user.image,
         role: user.role,
+      };
+    },
+  }),
+
+  Credentials({
+    id: "phone-otp",
+    name: "Phone",
+    credentials: {
+      phone: { label: "Phone", type: "tel" },
+      code: { label: "One-time code", type: "text" },
+    },
+    /**
+     * Verifies the code issued by requestLoginOtp() and finds-or-creates the
+     * account. Attempts are counted per code and capped at 5; success
+     * consumes the code so it can never be replayed.
+     */
+    async authorize(raw) {
+      const phone = normalisePhone(String(raw?.phone ?? ""));
+      const code = String(raw?.code ?? "").replace(/\D/g, "");
+      if (!phone || code.length !== 6) return null;
+
+      const otp = await prisma.phoneOtp.findFirst({
+        where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!otp || otp.attempts >= 5) return null;
+
+      const hash = createHash("sha256").update(code).digest("hex");
+      if (hash !== otp.codeHash) {
+        await prisma.phoneOtp.update({
+          where: { id: otp.id },
+          data: { attempts: { increment: 1 } },
+        });
+        return null;
+      }
+
+      await prisma.phoneOtp.update({
+        where: { id: otp.id },
+        data: { consumedAt: new Date() },
+      });
+
+      const user = await prisma.user.upsert({
+        where: { phone },
+        update: {},
+        create: { phone, role: "CUSTOMER" },
+      });
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        role: user.role,
+        phone: user.phone,
       };
     },
   }),
@@ -115,14 +171,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   events: {
     /**
-     * A guest can check out with just an email. When someone later signs up or
-     * signs in with that same address, their past orders are attached to the
-     * account so the order history is not empty and tracking just works.
+     * A guest can check out with just contact details. When someone later
+     * authenticates with that same email (password/Google) or phone (OTP),
+     * their past guest orders attach to the account, so history and tracking
+     * simply work.
      */
     async signIn({ user }) {
-      if (user?.id && user.email) {
+      if (!user?.id) return;
+      if (user.email) {
         await claimGuestOrders(user.id, user.email).catch((err) =>
           console.error("[auth] claiming guest orders failed:", err),
+        );
+      }
+      const phone = (user as { phone?: string | null }).phone;
+      if (phone) {
+        await claimGuestOrdersByPhone(user.id, phone).catch((err) =>
+          console.error("[auth] claiming guest orders by phone failed:", err),
         );
       }
     },

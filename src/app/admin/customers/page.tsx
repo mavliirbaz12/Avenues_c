@@ -98,7 +98,7 @@ export default async function AdminCustomersPage({
                       <Link href={`/admin/customers/${c.id}`} className="after:absolute after:inset-0">
                         <span className="block text-bone">{c.name ?? "—"}</span>
                         <span className="block text-stone-dark">
-                          {c.email}
+                          {c.email ?? "phone-only"}
                           {c.phone && ` · ${c.phone}`}
                         </span>
                       </Link>

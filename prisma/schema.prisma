@@ -117,11 +117,15 @@ enum EnquiryStatus {
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String    @unique
+  // Nullable because phone-OTP signins create accounts with no email yet.
+  // Unique still holds — Postgres permits many NULLs in a unique index.
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
-  phone         String?
-  passwordHash  String? // null for OAuth-only accounts
+  // Normalised to the bare 10 digits. Unique so phone-OTP login can resolve
+  // an account unambiguously.
+  phone         String?   @unique
+  passwordHash  String? // null for OAuth-only and phone-OTP-only accounts
   role          Role      @default(CUSTOMER)
 
   createdAt DateTime @default(now())
@@ -178,6 +182,21 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// One-time codes for phone-OTP login. Only the sha256 of the code is stored;
+// the code itself exists nowhere but the SMS (or, in mock mode, the server
+// console). Requesting a fresh code consumes all outstanding ones.
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String // bare 10 digits
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
 }
 
 model PasswordResetToken {

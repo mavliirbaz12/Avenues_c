@@ -66,7 +66,9 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     });
 
     // Anything they bought as a guest with this address becomes theirs.
-    await claimGuestOrders(user.id, user.email).catch(() => {});
+    // `email` is the validated form value — user.email is now nullable in the
+    // type system because phone-OTP accounts exist, but a signup always has one.
+    await claimGuestOrders(user.id, email).catch(() => {});
 
     await sendEmail({
       to: email,
@@ -133,8 +135,9 @@ export async function requestPasswordReset(
     select: { id: true, email: true, name: true, passwordHash: true },
   });
 
-  // OAuth-only accounts have no password to reset.
-  if (!user || !user.passwordHash) return generic;
+  // OAuth-only and phone-OTP-only accounts have no password to reset — and
+  // the latter also have no inbox to send a link to.
+  if (!user || !user.passwordHash || !user.email) return generic;
 
   const token = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(token).digest("hex");

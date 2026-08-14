@@ -63,6 +63,7 @@ one. Leave the keys blank and:
 | **Resend** | Emails print to the server console in full, including password-reset links you can paste straight into a browser. |
 | **Cloudinary** | Image upload is disabled with an explanatory notice; the storefront falls back to the engraved-bottle SVG placeholder. |
 | **Google OAuth** | The "Continue with Google" button is not rendered at all — no dead button. |
+| **MSG91 (SMS)** | Phone-OTP login works end to end; the 6-digit code prints to the server console instead of texting. |
 
 The admin dashboard shows a banner naming exactly which integrations are
 still mocked. The mock signature is rejected the instant real Razorpay keys
@@ -248,6 +249,13 @@ npx untun@latest tunnel http://localhost:3000     # or ngrok/cloudflared
 - [ ] `AUTH_SECRET` generated fresh (never reuse the dev value)
 - [ ] Admin password changed from the seeded default
 - [ ] `NEXT_PUBLIC_SITE_URL` set to the real domain, no trailing slash
+
+**Phone OTP login**
+- [ ] MSG91 account with DLT registration done (TRAI one-time: sender ID + an
+      OTP template containing the `##otp##` variable; MSG91's onboarding
+      walks you through it, allow a few days)
+- [ ] `MSG91_AUTH_KEY` and `MSG91_TEMPLATE_ID` set — until then OTPs print to
+      the server console only
 
 **Payments**
 - [ ] Razorpay **live** keys in `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`

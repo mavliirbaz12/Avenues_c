@@ -28,7 +28,9 @@ export default async function ProfilePage() {
           <ProfileForm
             defaults={{
               name: user.name ?? "",
-              email: user.email,
+              // Phone-OTP accounts have no email yet; the form shows the
+              // field empty and read-only either way.
+              email: user.email ?? "",
               phone: user.phone ?? "",
             }}
           />

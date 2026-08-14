@@ -33,6 +33,9 @@ const schema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional().default(""),
   CLOUDINARY_FOLDER: z.string().optional().default("avenues"),
 
+  MSG91_AUTH_KEY: z.string().optional().default(""),
+  MSG91_TEMPLATE_ID: z.string().optional().default(""),
+
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().optional().default("Avenues <onboarding@resend.dev>"),
   EMAIL_ADMIN: z.string().optional().default(""),
@@ -64,6 +67,7 @@ export const integrations = {
     env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET,
   ),
   resend: Boolean(env.RESEND_API_KEY),
+  sms: Boolean(env.MSG91_AUTH_KEY && env.MSG91_TEMPLATE_ID),
 } as const;
 
 export const siteUrl = env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");

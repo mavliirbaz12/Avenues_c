@@ -25,3 +25,33 @@ export async function claimGuestOrders(userId: string, email: string) {
 
   return result.count;
 }
+
+/**
+ * The phone-OTP twin of the email claim. Signing in with an OTP proves
+ * control of the number, so guest orders placed with that contact phone
+ * belong to this account. Matches on the bare 10 digits — checkout stores
+ * phones as typed, which may carry a +91 or spacing.
+ */
+export async function claimGuestOrdersByPhone(userId: string, phone10: string) {
+  if (!/^\d{10}$/.test(phone10)) return 0;
+
+  // No SQL "digits-only" normalisation without raw queries — candidate set is
+  // tiny (guest orders only), so filter in memory.
+  const candidates = await prisma.order.findMany({
+    where: { userId: null, phone: { contains: phone10.slice(-4) } },
+    select: { id: true, phone: true },
+  });
+
+  const ids = candidates
+    .filter((o) => o.phone.replace(/\D/g, "").endsWith(phone10))
+    .map((o) => o.id);
+  if (ids.length === 0) return 0;
+
+  const result = await prisma.order.updateMany({
+    where: { id: { in: ids } },
+    data: { userId },
+  });
+
+  console.info(`[orders] attached ${result.count} guest order(s) by phone to user ${userId}`);
+  return result.count;
+}

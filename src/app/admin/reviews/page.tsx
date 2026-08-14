@@ -76,7 +76,7 @@ export default async function AdminReviewsPage({
                 isVerifiedBuyer: r.isVerifiedBuyer,
                 createdAt: r.createdAt,
                 userName: r.user.name,
-                userEmail: r.user.email,
+                userEmail: r.user.email ?? "phone-only account",
                 productName: r.product.name,
                 productSlug: r.product.slug,
               }}
