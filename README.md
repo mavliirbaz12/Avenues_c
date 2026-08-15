@@ -16,7 +16,8 @@ Auth.js · Razorpay · Delhivery · Cloudinary · Resend.
 6. [Webhooks](#webhooks)
 7. [Going live: the checklist](#going-live-the-checklist)
 8. [Scripts](#scripts)
-9. [Conventions worth knowing before you edit](#conventions-worth-knowing-before-you-edit)
+9. [Tests](#tests)
+10. [Conventions worth knowing before you edit](#conventions-worth-knowing-before-you-edit)
 
 ---
 
@@ -295,8 +296,11 @@ npx untun@latest tunnel http://localhost:3000     # or ngrok/cloudflared
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Dev server |
-| `npm run build` | `prisma generate` + production build |
+| `npm run dev` | Dev server (Turbopack) |
+| `npm run build` | Frame sequence + `prisma generate` + production build |
+| `npm run gen:sequence` | Regenerate the landing scroll-reveal frames into `public/sequence/` |
+| `npm run test:e2e` | Full Playwright suite against a fresh test database |
+| `npm run test:e2e:smoke` | `@smoke` only — the critical path |
 | `npm run typecheck` | `tsc --noEmit` — the fast correctness gate |
 | `npm run db:migrate` | Create + apply a migration (development) |
 | `npm run db:deploy` | Apply pending migrations (production) |
@@ -319,6 +323,30 @@ node scripts/shot.mjs cart --cart='[…]'  # seed the cart to audit real content
 
 Pass routes **without** a leading slash — under Git Bash, MSYS rewrites a bare
 `/` argument into a Windows path before Node sees it.
+
+---
+
+## Tests
+
+```bash
+npm run typecheck        # fast gate
+npm run test:e2e         # 405 Playwright specs, desktop + mobile
+npm run test:e2e:smoke   # critical path only (what CI runs per PR)
+```
+
+The E2E suite runs against a **production build** and an isolated
+`avenues_test` database, with every third-party integration in mock mode. It
+needs Docker running.
+
+Full documentation — the run flow, mock contracts, fixtures, route-coverage
+map and known gaps — is in **[`e2e/README.md`](e2e/README.md)**. The defects it
+found while being written, and the ones still open, are in
+**[`e2e/FINDINGS.md`](e2e/FINDINGS.md)**.
+
+One rule worth knowing before you add a `loading.tsx`: it is a Suspense
+boundary, and Next commits the response head as soon as it streams the
+fallback — so any route beneath one that calls `notFound()` will serve its 404
+page with a **200** status. See the note in `src/components/ui/skeletons.tsx`.
 
 ---
 

@@ -33,8 +33,17 @@ test.describe("shop", () => {
 
     await page.goto("/shop");
     await openFilters(page);
-    await main(page).getByRole("button", { name: /^him/i }).click();
-    await page.waitForURL(/gender=/);
+
+    // Retry the whole interaction, not just the assertion. The facet chips are
+    // client-side: Playwright will happily click one the moment it is painted,
+    // which can be before React has attached its handler, and that click is
+    // simply lost. Re-clicking until the URL moves is the honest fix — waiting
+    // longer before a single click only makes the race rarer.
+    const chip = main(page).getByRole("button", { name: /^him/i });
+    await expect(async () => {
+      await chip.click();
+      await expect(page).toHaveURL(/gender=/, { timeout: 2_000 });
+    }).toPass({ timeout: 25_000 });
 
     for (const p of men) {
       const short = p.name.replace(/^Avenues\s+/i, "");
@@ -138,9 +147,18 @@ test.describe("search", () => {
 
   test("the search API is rate limited", async ({ request }) => {
     // 40 requests per minute per IP; fire past it and expect a 429.
+    //
+    // Burns its own IP rather than the shared one. The limiter is an in-memory
+    // Map on the server, the dev server is reused between runs, and the UI
+    // search specs above go out from the browser's address — so exhausting the
+    // default bucket here left them randomly 429ing on the next run and in the
+    // mobile project. Isolating this to 198.51.100.99 keeps the test honest
+    // without poisoning anything else.
     const codes: number[] = [];
     for (let i = 0; i < 55; i++) {
-      const r = await request.get(`/api/search?q=rate${i}`);
+      const r = await request.get(`/api/search?q=rate${i}`, {
+        headers: { "x-forwarded-for": "198.51.100.99" },
+      });
       codes.push(r.status());
       if (r.status() === 429) break;
     }
