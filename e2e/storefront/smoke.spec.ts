@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures";
+import { test, expect, allowConsoleErrors } from "../fixtures";
 
 /**
  * The fast critical path. If any of this is red, nothing else is worth
@@ -52,6 +52,7 @@ test.describe("@smoke storefront reachability", () => {
 
   for (const path of NOT_FOUND_ROUTES) {
     test(`${path} returns a real 404`, async ({ page }) => {
+      allowConsoleErrors(page);
       const res = await page.goto(path);
       expect(res?.status(), `${path} must be status 404, not just 404-looking`).toBe(404);
       await expect(page.getByText(/stack trace|webpack|ReferenceError/i)).toHaveCount(0);

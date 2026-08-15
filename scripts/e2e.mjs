@@ -33,9 +33,16 @@ const env = {
 };
 
 function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, {
+  const useShell = process.platform === "win32";
+  // With shell:true Windows re-splits argv on whitespace, so anything with a
+  // space (`--grep some name`) arrives as several arguments. Quote them back.
+  const safe = useShell
+    ? args.map((a) => (/\s/.test(a) && !/^".*"$/.test(a) ? `"${a}"` : a))
+    : args;
+
+  const r = spawnSync(cmd, safe, {
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: useShell,
     env,
     ...opts,
   });

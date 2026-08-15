@@ -33,6 +33,24 @@ export type ConsoleWatcher = {
   ignore: () => void;
 };
 
+/**
+ * Lets any helper reach a page's watcher, so `allowConsoleErrors(page)` works
+ * for the role fixtures too and not just the bare `page`.
+ */
+const watchers = new WeakMap<Page, ConsoleWatcher>();
+
+/**
+ * Opt this page out of the console-error assertion.
+ *
+ * For specs that navigate somewhere deliberately broken — a 404, a rejected
+ * API call — where Chromium logs "Failed to load resource" and that IS the
+ * expected outcome. Call it in the test that provokes the error, never
+ * globally: the whole value of the check is that it is on by default.
+ */
+export function allowConsoleErrors(page: Page) {
+  watchers.get(page)?.ignore();
+}
+
 function watchConsole(page: Page): ConsoleWatcher {
   const errors: string[] = [];
   let active = true;
@@ -49,13 +67,15 @@ function watchConsole(page: Page): ConsoleWatcher {
     errors.push(`[pageerror] ${err.message}`);
   });
 
-  return {
+  const watcher: ConsoleWatcher = {
     errors,
     ignore: () => {
       active = false;
       errors.length = 0;
     },
   };
+  watchers.set(page, watcher);
+  return watcher;
 }
 
 type Fixtures = {
