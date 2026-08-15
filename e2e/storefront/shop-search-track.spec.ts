@@ -194,6 +194,14 @@ test.describe("track order", () => {
 });
 
 test.describe("contact and enquiry", () => {
+  // Enquiry submission is rate limited per IP. One submission per project is
+  // well inside the budget, but `--repeat-each` fires a dozen in a couple of
+  // minutes and the limiter — correctly — starts refusing them. Giving this
+  // group its own address keeps the spec honest under repetition without
+  // touching the limit.
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.77" } });
+
+
   test("@smoke a valid enquiry is stored", async ({ page }) => {
     const message = `E2E enquiry ${Date.now()}`;
 

@@ -130,3 +130,18 @@ Flake sources found and removed rather than retried away:
   that appear nowhere in the palette (`text-bone` at 20% opacity over ink). The
   scan now pauses the slider and waits for opacity to become *stable* — not to
   reach 1, since many elements sit at a fixed fractional opacity by design.
+- **Clicks landing before hydration.** Playwright clicks a control the moment
+  it is painted, which can precede React attaching the handler — the click is
+  then simply lost. Two spots hit this (the shop filter toggle and its facet
+  chips). Both now retry the *interaction* until the app responds, rather than
+  waiting longer before a single click, which only makes the race rarer.
+  Related: `isVisible()` and `.count()` do not auto-wait, so neither is safe as
+  a branch condition on a freshly loaded page.
+
+### A note on `--repeat-each`
+
+Rate-limited forms are not repeat-safe by default: `--repeat-each=6` fires a
+dozen enquiries in two minutes and the limiter correctly refuses them. The
+contact specs pin their own `x-forwarded-for` so repetition stays meaningful.
+If you add a spec that submits a throttled form, do the same rather than
+raising the limit.

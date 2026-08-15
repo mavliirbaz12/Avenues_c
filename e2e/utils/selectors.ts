@@ -1,4 +1,4 @@
-import type { Page, Locator } from "@playwright/test";
+import { expect, type Page, type Locator } from "@playwright/test";
 
 /**
  * Scoping helpers.
@@ -49,16 +49,27 @@ export async function openCouponField(scope: Locator) {
  * instead of being duplicated per viewport.
  */
 export async function openFilters(page: Page) {
-  // The control is labelled "Filter" and gains a "(n)" count once facets are
-  // active, so match on the prefix rather than the whole string.
+  // The facet chips carry their result count ("Him 2"), so match the prefix.
+  const facet = page.getByRole("button", { name: /^(him|her|anyone)\b/i }).first();
+
+  // Desktop keeps them on screen permanently.
+  if (await facet.isVisible().catch(() => false)) return;
+
+  // Below `lg` they collapse behind a control labelled "Filter", which gains a
+  // "(n)" count once facets are active.
+  //
+  // Retry the open, don't just wait longer before one click. `isVisible()`
+  // does not auto-wait, so a single check can run before the toggle is
+  // painted and silently skip — and the toggle is client-side, so even a
+  // landed click is lost if React has not attached its handler yet. Looping
+  // until a facet is genuinely reachable covers both.
   const toggle = page.getByRole("button", { name: /^filter\b/i }).first();
-  if (await toggle.isVisible().catch(() => false)) {
-    await toggle.click();
-    // The panel animates open; wait for a facet to be clickable. The chips
-    // carry their result count ("Him 2"), so match the prefix, not the whole
-    // label.
-    await page.getByRole("button", { name: /^(him|her|anyone)\b/i }).first().waitFor();
-  }
+  await expect(async () => {
+    if (!(await facet.isVisible().catch(() => false))) {
+      await toggle.click({ timeout: 5_000 });
+    }
+    await expect(facet).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 25_000 });
 }
 
 /**
