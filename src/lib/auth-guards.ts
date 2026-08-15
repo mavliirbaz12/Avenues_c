@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
 
@@ -10,10 +11,16 @@ import { auth } from "./auth";
  * anyway. Guarding in the layout keeps the check next to the data it protects.
  */
 
-export async function getCurrentUser() {
+/**
+ * Request-scoped memo. Without it the JWT is decoded once per caller, and the
+ * callers stack up: on /account/orders it ran three times (store layout,
+ * account layout, then the page itself). `cache()` collapses those to one
+ * decode per request without any caller needing to thread the user down.
+ */
+export const getCurrentUser = cache(async () => {
   const session = await auth();
   return session?.user ?? null;
-}
+});
 
 /** Redirects to sign-in, preserving where the user was headed. */
 export async function requireUser(returnTo: string) {

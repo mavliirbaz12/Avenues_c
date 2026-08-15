@@ -4,8 +4,8 @@ import { Logo } from "@/components/brand/logo";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
 import { EnquiryForm } from "@/components/forms/enquiry-form";
-import { prisma } from "@/lib/prisma";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
+import { getNavFragrances } from "@/lib/catalog";
 
 const COMPANY = [
   { href: "/about", label: "Our story" },
@@ -24,14 +24,7 @@ const LEGAL = [
 export async function SiteFooter() {
   const [settings, products] = await Promise.all([
     getStoreSettings(),
-    prisma.product
-      .findMany({
-        where: { isActive: true },
-        select: { slug: true, name: true },
-        orderBy: { sortOrder: "asc" },
-        take: 8,
-      })
-      .catch(() => []),
+    getNavFragrances(),
   ]);
 
   const wa = whatsappLink(

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -59,12 +60,18 @@ const detailSelect = {
   // arrays readonly, which Prisma's generated input types reject.
 } satisfies Prisma.ProductSelect;
 
-async function getProduct(slug: string) {
+/**
+ * Memoized because both `generateMetadata` and the page body need the full
+ * product, and Next runs them as separate calls in the same request. React's
+ * fetch dedupe does not cover raw Prisma calls, so without `cache()` every PDP
+ * view queried this row twice.
+ */
+const getProduct = cache(async (slug: string) => {
   return prisma.product.findFirst({
     where: { slug, isActive: true },
     select: detailSelect,
   });
-}
+});
 
 export async function generateMetadata({
   params,

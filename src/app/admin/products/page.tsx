@@ -11,10 +11,25 @@ export const dynamic = "force-dynamic";
 const LOW_STOCK_AT = 10;
 
 export default async function AdminProductsPage() {
+  // `select`, not `include`. The previous `include` pulled every Product
+  // column — four @db.Text fields (description, sensoryNarrative, howToUse,
+  // caution) plus the notes, occasions and whyChoose arrays — and full Variant
+  // rows, none of which this list renders. On a catalogue with real long-form
+  // copy that is a large transfer for a page showing names and stock counts.
   const products = await prisma.product.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    include: {
-      variants: { orderBy: { sortOrder: "asc" } },
+    take: 200,
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      gender: true,
+      isActive: true,
+      isFeatured: true,
+      variants: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, size: true, stock: true, pricePaise: true, isActive: true },
+      },
       images: { where: { isPrimary: true }, take: 1, select: { url: true } },
       _count: { select: { reviews: true } },
     },

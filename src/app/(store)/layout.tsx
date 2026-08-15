@@ -8,7 +8,7 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { SessionSync } from "@/components/providers/session-sync";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
-import { prisma } from "@/lib/prisma";
+import { getNavFragrances } from "@/lib/catalog";
 
 /** The storefront shell: announcement strip, nav, overlays, footer, channels. */
 export default async function StoreLayout({
@@ -16,14 +16,7 @@ export default async function StoreLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const [settings, fragrances, user] = await Promise.all([
     getStoreSettings(),
-    prisma.product
-      .findMany({
-        where: { isActive: true },
-        select: { slug: true, name: true },
-        orderBy: { sortOrder: "asc" },
-        take: 8,
-      })
-      .catch(() => []),
+    getNavFragrances(),
     getCurrentUser().catch(() => null),
   ]);
 

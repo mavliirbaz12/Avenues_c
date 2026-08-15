@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Prisma, type Gender } from "@prisma/client";
 import { prisma } from "./prisma";
 
@@ -104,6 +105,26 @@ export function toProductCard(row: ProductCardRow): ProductCard {
     hoverImage: row.images[1] ?? null,
   };
 }
+
+/**
+ * Slug + name for every active fragrance, for the nav dropdown and the footer
+ * column. Both render on every storefront page and both used to issue this
+ * query independently — identical text, twice per navigation. `cache()` makes
+ * the second one free.
+ *
+ * Swallows errors like the callers did: a dead database should cost the site
+ * its nav links, not the whole shell.
+ */
+export const getNavFragrances = cache(async () => {
+  return prisma.product
+    .findMany({
+      where: { isActive: true },
+      select: { slug: true, name: true },
+      orderBy: { sortOrder: "asc" },
+      take: 8,
+    })
+    .catch(() => []);
+});
 
 export async function getActiveProductCards(args?: {
   where?: Prisma.ProductWhereInput;

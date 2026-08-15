@@ -142,7 +142,8 @@ model User {
   stockNotifications StockNotification[]
   reviews            Review[]
 
-  @@index([role])
+  // The admin customer list filters role then sorts by signup date.
+  @@index([role, createdAt])
 }
 
 model Account {
@@ -322,6 +323,9 @@ model Variant {
 
   @@unique([productId, size])
   @@index([productId, sortOrder])
+  // Drives the dashboard low-stock widget, which filters on isActive + stock
+  // and sorts by stock ascending — previously a seq scan plus a sort.
+  @@index([isActive, stock])
 }
 
 model ProductImage {
@@ -592,6 +596,14 @@ model Order {
   @@index([createdAt])
   @@index([email])
   @@index([phone])
+  // The admin order list filters by status then sorts by date. Two separate
+  // single-column indexes can't serve that — Postgres picks one and sorts the
+  // rest in memory.
+  @@index([status, createdAt])
+  // Dashboard revenue aggregates filter on placedAt, which had no index at all.
+  @@index([status, placedAt])
+  // The COD tab on the admin order list was a full table scan.
+  @@index([paymentMethod])
 }
 
 model OrderItem {
@@ -760,6 +772,10 @@ model NewsletterSubscriber {
   email     String   @unique
   source    String? // "footer", "landing"
   createdAt DateTime @default(now())
+
+  // Admin lists newest-first; without this it scanned and sorted every
+  // subscriber to show a page of 100.
+  @@index([createdAt])
 }
 
 // ---------------------------------------------------------------------------

@@ -17,10 +17,15 @@ export const dynamic = "force-dynamic";
  * covers pages; every server action separately calls requireAdminActor().
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
-
-  // Work-queue badges: things waiting on a human.
-  const [newOrders, pendingReviews, newEnquiries] = await Promise.all([
+  // The guard rides along in the same batch rather than blocking ahead of it.
+  // It used to be awaited first, so every admin page paid a JWT decode before
+  // the three badge counts had even started — four serial round-trips on a
+  // route group that is force-dynamic and runs this on every single load.
+  //
+  // requireAdmin() redirects on failure, so an unauthorised visitor still
+  // never sees the counts; they are simply discarded with the render.
+  const [, newOrders, pendingReviews, newEnquiries] = await Promise.all([
+    requireAdmin(),
     prisma.order.count({ where: { status: OrderStatus.CONFIRMED } }),
     prisma.review.count({ where: { status: ReviewStatus.PENDING } }),
     prisma.enquiry.count({ where: { status: EnquiryStatus.NEW } }),
