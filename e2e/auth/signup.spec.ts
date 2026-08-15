@@ -23,7 +23,7 @@ function uniqueEmail() {
 }
 
 test.describe("signup", () => {
-  test("@smoke creates an account and lands signed in", async ({ page }) => {
+  test("@smoke @desktop creates an account and lands signed in", async ({ page }) => {
     const email = uniqueEmail();
     created.push(email);
 

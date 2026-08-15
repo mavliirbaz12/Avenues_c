@@ -36,8 +36,16 @@ const config: Config = {
           dim: "#CFC7B9",
         },
         stone: {
-          DEFAULT: "#9A938A", // secondary text
-          dark: "#6B655D", // tertiary / disabled
+          DEFAULT: "#9A938A", // secondary text — 6.4:1 on ink
+          // Tertiary text: struck-through MRP, breadcrumbs, the statutory
+          // "inclusive of all taxes" lines, review empty states.
+          //
+          // Was #6B655D, which measured 3.41:1 on ink — under the WCAG AA
+          // floor of 4.5:1 for body text, and it is used for legally required
+          // copy that a customer has to be able to read. #868075 is 4.9:1 on
+          // ink and 4.7:1 on the raised surface, while staying clearly quieter
+          // than `stone` so the type hierarchy still reads.
+          dark: "#868075",
         },
         bordeaux: {
           DEFAULT: "#3A1220", // rare accent: sale + offer tags only
@@ -46,7 +54,10 @@ const config: Config = {
         // Semantic states, desaturated to sit inside the dark palette.
         success: "#5E8C6A",
         warning: "#C9873B",
-        danger: "#B4544E",
+        // Was #B4544E — 4.04:1 on ink, under the AA floor. Error messages and
+        // the "Out" stock badge are precisely the copy that must not be hard
+        // to read. #C56A63 is 5.1:1 on ink, 4.9:1 on the raised surface.
+        danger: "#C56A63",
       },
       fontFamily: {
         display: ["var(--font-display)", "Cormorant Garamond", "serif"],

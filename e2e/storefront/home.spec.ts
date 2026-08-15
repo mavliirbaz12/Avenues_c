@@ -22,7 +22,7 @@ test.describe("landing page", () => {
     await expect(strip).toHaveCount(0);
   });
 
-  test("@smoke nav carries visible labels, not mystery icons", async ({ page }) => {
+  test("@smoke @desktop nav carries visible labels, not mystery icons", async ({ page }) => {
     await page.goto("/");
     const bar = nav(page);
 
@@ -37,7 +37,7 @@ test.describe("landing page", () => {
     }
   });
 
-  test("fragrances dropdown lists every active product by name", async ({ page }) => {
+  test("@desktop fragrances dropdown lists every active product by name", async ({ page }) => {
     const products = await db.product.findMany({
       where: { isActive: true },
       select: { name: true, slug: true },

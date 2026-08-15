@@ -137,8 +137,12 @@ export function NotesStory({ products }: { products: ProductCard[] }) {
 
             <ul className="mt-8 border-t border-line">
               {products.map((p, i) => (
-                <Reveal key={p.id} delay={i * 0.05}>
-                  <li className="border-b border-line">
+                // Reveal goes INSIDE the <li>, not around it. Wrapping the
+                // item put a <div> between <ul> and <li>, which breaks the
+                // list semantics — a screen reader stops announcing "list,
+                // 5 items" and the rows become five orphaned elements.
+                <li key={p.id} className="border-b border-line">
+                  <Reveal delay={i * 0.05}>
                     <Link
                       href={`/fragrance/${p.slug}`}
                       className={cn(
@@ -153,8 +157,8 @@ export function NotesStory({ products }: { products: ProductCard[] }) {
                         {p.notes.base.join(" · ")}
                       </span>
                     </Link>
-                  </li>
-                </Reveal>
+                  </Reveal>
+                </li>
               ))}
             </ul>
           </div>

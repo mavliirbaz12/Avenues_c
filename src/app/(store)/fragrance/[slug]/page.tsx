@@ -171,13 +171,23 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               Home
             </Link>
           </li>
-          <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+          {/* Separators live inside <li>: an <ol> may only directly contain
+              <li>, and a bare SVG between items breaks the list semantics so
+              a screen reader stops announcing it as a breadcrumb at all. */}
+          <li aria-hidden="true" className="flex items-center">
+            <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+          </li>
           <li>
             <Link href="/shop" className="transition-colors hover:text-gold-light">
               Shop
             </Link>
           </li>
-          <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+          {/* Separators live inside <li>: an <ol> may only directly contain
+              <li>, and a bare SVG between items breaks the list semantics so
+              a screen reader stops announcing it as a breadcrumb at all. */}
+          <li aria-hidden="true" className="flex items-center">
+            <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+          </li>
           <li aria-current="page" className="text-stone">
             {shortName}
           </li>

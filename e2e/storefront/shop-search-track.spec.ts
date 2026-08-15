@@ -1,5 +1,5 @@
 import { test, expect, allowConsoleErrors } from "../fixtures";
-import { main, nav } from "../utils/selectors";
+import { main, openFilters, openSearch } from "../utils/selectors";
 import { db } from "../utils/db";
 
 test.afterAll(() => db.$disconnect());
@@ -16,7 +16,12 @@ test.describe("shop", () => {
       const short = p.name.replace(/^Avenues\s+/i, "");
       await expect(main(page).getByRole("link", { name: new RegExp(short, "i") }).first()).toBeVisible();
     }
-    await expect(main(page).getByText(new RegExp(`${products.length} fragrance`, "i"))).toBeVisible();
+    // The "N fragrances" counter is desktop-only chrome (lg:block), so assert
+    // the cards themselves — which is the thing that actually matters.
+    const hrefs = await main(page)
+      .locator('a[href^="/fragrance/"]')
+      .evaluateAll((els) => els.map((e) => (e as HTMLAnchorElement).getAttribute("href")!));
+    expect(new Set(hrefs).size).toBe(products.length);
   });
 
   test("gender filter narrows to the right products", async ({ page }) => {
@@ -27,6 +32,7 @@ test.describe("shop", () => {
     test.skip(men.length === 0, "no MEN products seeded");
 
     await page.goto("/shop");
+    await openFilters(page);
     await main(page).getByRole("button", { name: /^him/i }).click();
     await page.waitForURL(/gender=/);
 
@@ -102,9 +108,7 @@ test.describe("shop", () => {
 test.describe("search", () => {
   test("@smoke finds a product by name", async ({ page }) => {
     await page.goto("/");
-    await nav(page).getByRole("button", { name: /search/i }).click();
-
-    const box = page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
+    const box = await openSearch(page);
     await box.fill("night drip");
     await expect(page.getByRole("link", { name: /night drip/i }).first()).toBeVisible({
       timeout: 15_000,
@@ -115,9 +119,7 @@ test.describe("search", () => {
     // Vanilla is a Night Drip base note — searching the smell, not the label,
     // is how people actually shop for perfume.
     await page.goto("/");
-    await nav(page).getByRole("button", { name: /search/i }).click();
-
-    const box = page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
+    const box = await openSearch(page);
     await box.fill("vanilla");
     await expect(page.getByRole("link", { name: /night drip/i }).first()).toBeVisible({
       timeout: 15_000,
@@ -126,9 +128,7 @@ test.describe("search", () => {
 
   test("a nonsense query shows an elegant empty state", async ({ page }) => {
     await page.goto("/");
-    await nav(page).getByRole("button", { name: /search/i }).click();
-
-    const box = page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
+    const box = await openSearch(page);
     await box.fill("qwertyuiopzxcv");
 
     await expect(page.getByText(/nothing|no match|no result/i).first()).toBeVisible({

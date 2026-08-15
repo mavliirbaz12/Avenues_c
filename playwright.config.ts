@@ -59,6 +59,9 @@ export default defineConfig({
       name: "chromium-desktop",
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      // @mobile marks specs about the small-viewport layout — the hamburger
+      // menu, the sticky buy bar — which do not exist at 1440px.
+      grepInvert: /@mobile/,
     },
     {
       name: "mobile",
@@ -67,6 +70,11 @@ export default defineConfig({
       // The admin panel is a desktop tool; running its specs at 412px tests a
       // layout nobody uses. Storefront and checkout run on both.
       testIgnore: /admin\//,
+      // @desktop marks assertions about affordances that only exist on wide
+      // viewports — the nav's text labels (hidden below 1400px by design) and
+      // the hover-opened Fragrances menu. Mobile has its own equivalents in
+      // storefront/mobile-nav.spec.ts rather than these being skipped blind.
+      grepInvert: /@desktop/,
     },
   ],
 
