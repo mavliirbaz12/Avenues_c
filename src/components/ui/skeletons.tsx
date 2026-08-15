@@ -14,6 +14,29 @@ import { cn } from "@/lib/utils";
  * than none: the page visibly reflows the moment content arrives.
  *
  * `.skeleton` (globals.css) carries the gold shimmer.
+ *
+ * ---------------------------------------------------------------------------
+ * WHERE A `loading.tsx` MAY GO — read before adding one
+ *
+ * A `loading.tsx` is a Suspense boundary, and Next commits the response head
+ * as soon as it starts streaming the fallback. Any route UNDER that boundary
+ * that later calls `notFound()` therefore serves the 404 UI with a **200**
+ * status. For a product page that means Google indexes "Fragrance not found"
+ * as a real page. Verified here: with a boundary above it,
+ * /fragrance/<unknown> returned 200; with none, 404.
+ *
+ * So boundaries live only on subtrees where nothing calls `notFound()`:
+ *
+ *   /shop      ✓  always renders a grid
+ *   /account   ✓  guarded by redirect, never notFound
+ *   /admin     ✓  its [id] routes DO notFound, accepted deliberately — admin
+ *                 is auth-gated and noindex, so the status costs nothing,
+ *                 and these are the slowest routes in the app
+ *
+ *   (store)/            ✗ would shadow /fragrance/[slug] and /order/[n]
+ *   fragrance/[slug]/   ✗ 404s on an unknown slug
+ *   order/[orderNumber] ✗ 404s on an unknown order
+ * ---------------------------------------------------------------------------
  */
 
 export function SkeletonLine({

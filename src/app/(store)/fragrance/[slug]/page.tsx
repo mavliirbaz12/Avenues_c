@@ -80,7 +80,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProduct(slug);
-  if (!product) return { title: "Fragrance not found" };
+  // notFound(), not a "Fragrance not found" title. Returning metadata here
+  // let Next commit a 200 head and start streaming before the page body's own
+  // notFound() ran, so an unknown slug served the 404 UI with a 200 status —
+  // which Google would happily index as a real page. Bailing during metadata
+  // generation is what actually sets the status.
+  if (!product) notFound();
 
   const url = `${siteUrl}/fragrance/${product.slug}`;
   const title = product.metaTitle ?? `${product.name} — ${product.tagline}`;
