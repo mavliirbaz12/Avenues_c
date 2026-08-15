@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/landing/hero";
+import { BottleReveal } from "@/components/landing/bottle-reveal";
 import { FeaturedSlider } from "@/components/landing/featured-slider";
 import { BrandBanner } from "@/components/landing/brand-banner";
 import { NotesStory } from "@/components/landing/notes-story";
@@ -49,6 +50,7 @@ export default async function HomePage() {
   return (
     <>
       <Hero videoUrl={settings.heroVideoUrl} posterUrl={settings.heroPosterUrl} />
+      <BottleReveal />
       <FeaturedSlider products={products} />
       <BrandBanner imageUrl={settings.brandBannerUrl} />
       <NotesStory products={products} />

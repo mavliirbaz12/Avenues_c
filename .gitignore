@@ -35,3 +35,7 @@ prisma/dev.db-journal
 .vscode/*
 !.vscode/extensions.json
 coverage/
+
+# Generated bottle-reveal frames (npm run gen:sequence). 240 binaries that
+# rebuild deterministically from the vector source — not worth versioning.
+public/sequence/

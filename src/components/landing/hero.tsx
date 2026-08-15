@@ -78,8 +78,11 @@ export function Hero({
           animate={reduce ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.76, ease: [0.22, 1, 0.36, 1] }}
         >
-          <Link href="#collection" className="btn btn-primary btn-lg">
-            Explore the collection
+          {/* Points at the reveal, not the shop grid: the brief wants the
+              first CTA to hand you to the motion showpiece rather than skip
+              past it. The grid gets its own CTA at the end of the sequence. */}
+          <Link href="#reveal" className="btn btn-primary btn-lg">
+            Discover
           </Link>
         </motion.div>
       </div>
