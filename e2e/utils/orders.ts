@@ -1,0 +1,106 @@
+import type { APIRequestContext } from "@playwright/test";
+import { db } from "./db";
+
+/**
+ * Places an order through the real POST /api/checkout.
+ *
+ * Used by specs that need an order to exist (account history, admin lists,
+ * cancellation) without driving the whole checkout UI first. The UI path is
+ * covered separately in checkout.spec.ts — this is for arranging state, and it
+ * still exercises the real pricing, stock and order-creation code rather than
+ * inserting rows behind the app's back.
+ */
+
+export const TEST_ADDRESS = {
+  fullName: "Test Customer",
+  phone: "9812345670",
+  line1: "12 Carter Road",
+  line2: "Bandra West",
+  landmark: "Opposite the bakery",
+  city: "Mumbai",
+  state: "Maharashtra",
+  pincode: "400050",
+} as const;
+
+/** A pincode the mock Delhivery client always reports as unserviceable. */
+export const UNSERVICEABLE_PINCODE = "999999";
+
+/**
+ * Guarantees a product has stock before a spec spends it.
+ *
+ * Order specs consume inventory, and the oversell test deliberately drives a
+ * variant to zero. Without this, spec order and previous runs decide whether a
+ * later test can buy anything — the classic way an E2E suite becomes
+ * "sometimes red".
+ */
+export async function ensureStock(slug: string, stock = 50) {
+  const variant = await db.variant.findFirst({
+    where: { product: { slug } },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true },
+  });
+  if (!variant) throw new Error(`No variant for ${slug}`);
+  return db.variant.update({
+    where: { id: variant.id },
+    data: { stock, isActive: true },
+    select: { id: true, pricePaise: true, stock: true, productId: true },
+  });
+}
+
+export async function firstSellableVariant(slug?: string) {
+  return db.variant.findFirst({
+    where: {
+      isActive: true,
+      stock: { gt: 0 },
+      ...(slug ? { product: { slug } } : { product: { isActive: true } }),
+    },
+    select: { id: true, pricePaise: true, stock: true, productId: true },
+  });
+}
+
+let ipCounter = 0;
+
+/**
+ * A distinct client IP per simulated buyer.
+ *
+ * /api/checkout allows 10 orders per IP per five minutes, and this suite
+ * places far more than that. Rather than weakening the limit for tests — it is
+ * exactly the kind of protection worth keeping honest — each order arrives
+ * from its own address via X-Forwarded-For, which is what `clientIp()` reads.
+ * It also makes the oversell race truthful: two different buyers, not one
+ * customer double-clicking.
+ */
+export function nextClientIp() {
+  ipCounter += 1;
+  return `203.0.113.${(ipCounter % 250) + 1}`;
+}
+
+export async function placeOrder(
+  request: APIRequestContext,
+  opts: {
+    variantId: string;
+    quantity?: number;
+    paymentMethod?: "COD" | "RAZORPAY";
+    email?: string;
+    phone?: string;
+    couponCode?: string | null;
+    /** Override to make two calls share, or deliberately not share, a bucket. */
+    clientIp?: string;
+  },
+) {
+  const res = await request.post("/api/checkout", {
+    headers: { "x-forwarded-for": opts.clientIp ?? nextClientIp() },
+    data: {
+      items: [{ variantId: opts.variantId, quantity: opts.quantity ?? 1 }],
+      email: opts.email ?? "customer@test.dev",
+      phone: opts.phone ?? TEST_ADDRESS.phone,
+      paymentMethod: opts.paymentMethod ?? "COD",
+      couponCode: opts.couponCode ?? null,
+      termsAccepted: true,
+      address: TEST_ADDRESS,
+      saveToBook: false,
+    },
+  });
+
+  return { status: res.status(), body: await res.json().catch(() => null) };
+}
