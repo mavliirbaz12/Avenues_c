@@ -152,7 +152,7 @@ export function AddressFields({
             required
             defaultValue={values?.state ?? ""}
             aria-invalid={errors?.state ? true : undefined}
-            className={cn("field", errors?.state && "field-error")}
+            className={cn("field select-field", errors?.state && "field-error")}
           >
             <option value="" disabled className="bg-surface-raised">
               Choose

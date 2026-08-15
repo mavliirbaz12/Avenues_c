@@ -65,7 +65,7 @@ export function ProductForm({ values }: { values?: ProductFormValues }) {
         <div className="grid gap-5 sm:grid-cols-3">
           <div>
             <label htmlFor="pf-gender" className="field-label">For</label>
-            <select id="pf-gender" name="gender" defaultValue={values?.gender ?? "UNISEX"} className="field">
+            <select id="pf-gender" name="gender" defaultValue={values?.gender ?? "UNISEX"} className="field select-field">
               <option value="MEN" className="bg-surface-raised">Men</option>
               <option value="WOMEN" className="bg-surface-raised">Women</option>
               <option value="UNISEX" className="bg-surface-raised">Unisex</option>

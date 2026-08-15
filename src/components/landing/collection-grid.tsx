@@ -14,7 +14,7 @@ export function CollectionGrid({ products }: { products: ProductCardData[] }) {
   if (products.length === 0) return null;
 
   return (
-    <section id="collection" className="scroll-mt-24 py-section" aria-labelledby="collection-heading">
+    <section id="collection" className="scroll-mt-[calc(var(--header-h)+2rem)] py-section" aria-labelledby="collection-heading">
       <div className="shell">
         <Reveal className="text-center">
           <p className="micro-label-gold">The collection</p>

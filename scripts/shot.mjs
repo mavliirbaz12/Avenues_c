@@ -154,9 +154,13 @@ for (const vp of VIEWPORTS) {
     });
   }
   if (scrollTo) {
+    // scrollIntoView, not a hardcoded pixel offset — it honours the element's
+    // `scroll-margin-top`, which is exactly what a real `#hash` navigation
+    // does. A fixed offset lies in both directions: it faked clipping on
+    // sections that clear the header fine, and would hide clipping on ones
+    // that don't.
     await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 90);
+      document.querySelector(sel)?.scrollIntoView({ block: "start" });
     }, scrollTo);
     await new Promise((r) => setTimeout(r, 1200));
   }

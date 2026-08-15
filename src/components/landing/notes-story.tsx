@@ -67,7 +67,7 @@ export function NotesStory({ products }: { products: ProductCard[] }) {
   const reduce = useReducedMotion();
 
   return (
-    <section id="notes" className="relative scroll-mt-24 py-section" aria-labelledby="notes-heading">
+    <section id="notes" className="relative scroll-mt-[calc(var(--header-h)+2rem)] py-section" aria-labelledby="notes-heading">
       <div className="shell">
         <Reveal className="text-center">
           <p className="micro-label-gold">The pyramid</p>

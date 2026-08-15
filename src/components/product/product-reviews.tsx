@@ -58,7 +58,7 @@ export async function ProductReviews({
   const maxCount = Math.max(1, ...dist.map((d) => d.count));
 
   return (
-    <section id="reviews" className="scroll-mt-24 border-t border-line py-section" aria-labelledby="reviews-heading">
+    <section id="reviews" className="scroll-mt-[calc(var(--header-h)+2rem)] border-t border-line py-section" aria-labelledby="reviews-heading">
       <div className="shell">
         <Reveal className="text-center">
           <p className="micro-label-gold">Worn and judged</p>

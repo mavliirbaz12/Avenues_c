@@ -128,7 +128,7 @@ export function FilterBar({
               value={params.get("sort") ?? "featured"}
               onChange={(e) => setSort(e.target.value)}
               aria-label="Sort products"
-              className="cursor-pointer border border-line bg-surface-sunken px-3 py-2 font-sans text-xs text-bone
+              className="select-field appearance-none border border-line bg-surface-sunken py-2 pl-3 font-sans text-xs text-bone
                          transition-colors hover:border-line-strong focus:border-gold/70 focus:outline-none"
             >
               {SORTS.map((s) => (

@@ -168,6 +168,26 @@
     border-radius: 2px;
   }
 
+  /*
+   * Selects need their own treatment. `.field` sets `appearance-none`, which
+   * strips the native arrow and leaves a dropdown looking exactly like a text
+   * input — no affordance at all. Leaving the native arrow on instead is the
+   * other failure: it is the one piece of raw browser chrome on the site, and
+   * it renders in the OS accent colour against the dark palette.
+   *
+   * So: draw the chevron ourselves as an inline SVG background, matched to the
+   * 1.4 stroke weight and gold used by the lucide icons in the nav. Padded on
+   * the right so long option text never runs under it.
+   */
+  .select-field {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9a24b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    background-size: 0.875rem;
+    padding-right: 2.5rem;
+    cursor: pointer;
+  }
+
   .field-error {
     @apply border-danger/60 focus:border-danger;
   }

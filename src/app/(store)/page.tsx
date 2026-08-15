@@ -34,7 +34,15 @@ export const revalidate = 3600;
  */
 export default async function HomePage() {
   const [products, settings] = await Promise.all([
-    getFeaturedProductCards(5),
+    // Guarded like the layout and footer queries. This page is prerendered at
+    // build time, so an unreachable database used to fail `next build`
+    // outright — a transient blip during deploy should not take the whole
+    // release down. The product sections each render nothing on an empty
+    // array, so the hero, statement band and story still ship.
+    getFeaturedProductCards(5).catch((err) => {
+      console.error("[home] featured products unavailable:", err);
+      return [];
+    }),
     getStoreSettings(),
   ]);
 

@@ -154,7 +154,7 @@ function CouponForm({ coupon, onDone }: { coupon?: CouponRow; onDone: () => void
         <Small id="cp-code" name="code" label="Code" required defaultValue={coupon?.code} placeholder="WELCOME10" error={e.code} />
         <div>
           <label htmlFor="cp-type" className="field-label">Type</label>
-          <select id="cp-type" name="type" value={type} onChange={(ev) => setType(ev.target.value as CouponType)} className="field">
+          <select id="cp-type" name="type" value={type} onChange={(ev) => setType(ev.target.value as CouponType)} className="field select-field">
             <option value="PERCENTAGE" className="bg-surface-raised">Percentage off</option>
             <option value="FLAT" className="bg-surface-raised">Flat ₹ off</option>
           </select>

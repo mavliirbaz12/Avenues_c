@@ -88,7 +88,7 @@ export function EnquiryForm({
               id={`${uid}-subject`}
               name="subject"
               defaultValue={defaultSubject ?? "PRODUCT_ENQUIRY"}
-              className="field"
+              className="field select-field"
             >
               {Object.entries(SUBJECT_LABELS).map(([value, label]) => (
                 <option key={value} value={value} className="bg-surface-raised">
