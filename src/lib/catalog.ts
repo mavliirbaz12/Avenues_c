@@ -169,12 +169,22 @@ export async function getActiveProductCards(args?: {
   return rows.map(toProductCard);
 }
 
+/**
+ * Featured FRAGRANCES for the landing slider and collection grid.
+ *
+ * Explicitly excludes combos: a set is featured through its own band, and a
+ * gift box sitting inside "Five fragrances, and no filler" makes both the
+ * heading and the count wrong.
+ */
 export async function getFeaturedProductCards(take = 5) {
-  const featured = await getActiveProductCards({ where: { isFeatured: true }, take });
+  const featured = await getActiveProductCards({
+    where: { isFeatured: true, type: "SINGLE" },
+    take,
+  });
   if (featured.length > 0) return featured;
   // Nothing flagged featured in admin — fall back to the catalogue order so
   // the landing page never renders an empty strip.
-  return getActiveProductCards({ take });
+  return getActiveProductCards({ where: { type: "SINGLE" }, take });
 }
 
 export async function getRelatedProductCards(product: {

@@ -18,8 +18,9 @@ test.describe("shop", () => {
     }
     // The "N fragrances" counter is desktop-only chrome (lg:block), so assert
     // the cards themselves — which is the thing that actually matters.
+    // Both kinds live in Shop All, each at its canonical route.
     const hrefs = await main(page)
-      .locator('a[href^="/fragrance/"]')
+      .locator('a[href^="/fragrance/"], a[href^="/set/"]')
       .evaluateAll((els) => els.map((e) => (e as HTMLAnchorElement).getAttribute("href")!));
     expect(new Set(hrefs).size).toBe(products.length);
   });

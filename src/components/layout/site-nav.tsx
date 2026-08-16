@@ -19,10 +19,11 @@ export type NavFragrance = { slug: string; name: string };
  * Every control carries a visible label or a count — no icon is left for a
  * first-time visitor to decode.
  *
- * The six primary links keep their words at every desktop width. The four
- * utility controls need ~1620px to share the line with them, which is what
- * adding "Gift sets" cost; below that they fall back to icons carrying the
- * same `aria-label`s, rather than letting the bar collide with the logo.
+ * Adding "Gift sets" made six primary links, which briefly overran the bar and
+ * collided with the logo at 1440. The fix was to tighten the link row rather
+ * than drop the utility words: labels still appear from ~1400px, and below
+ * that the cluster falls back to icons carrying the same `aria-label`s rather
+ * than wrapping to two rows.
  */
 export function SiteNav({
   isAuthed,
@@ -261,7 +262,7 @@ function IconButton({
         )}
       </span>
       {text && (
-        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1620px]:inline">
+        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1400px]:inline">
           {text}
         </span>
       )}

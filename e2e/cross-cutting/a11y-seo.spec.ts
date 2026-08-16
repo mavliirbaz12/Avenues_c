@@ -193,12 +193,14 @@ test.describe("metadata", () => {
     const xml = await sitemap.text();
 
     // Every active product should be listed.
+    // Canonical route per kind: fragrances under /fragrance, sets under /set.
     const products = await db.product.findMany({
       where: { isActive: true },
-      select: { slug: true },
+      select: { slug: true, type: true },
     });
     for (const p of products) {
-      expect(xml, `sitemap should list ${p.slug}`).toContain(`/fragrance/${p.slug}`);
+      const route = p.type === "COMBO" ? `/set/${p.slug}` : `/fragrance/${p.slug}`;
+      expect(xml, `sitemap should list ${p.slug} at ${route}`).toContain(route);
     }
   });
 

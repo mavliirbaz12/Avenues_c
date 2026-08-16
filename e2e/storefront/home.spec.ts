@@ -62,7 +62,7 @@ test.describe("landing page", () => {
     await page.goto("/");
     await expect(main(page).getByRole("heading", { level: 1 })).toBeVisible();
 
-    const cta = main(page).getByRole("link", { name: /discover/i });
+    const cta = main(page).getByRole("link", { name: "Discover", exact: true });
     await expect(cta).toBeVisible();
     await expect(cta).toHaveAttribute("href", "#reveal");
   });
@@ -89,9 +89,11 @@ test.describe("landing page", () => {
     await expect(explore).toHaveAttribute("href", /\/fragrance\//);
   });
 
-  test("@smoke collection grid renders every active product with a price", async ({ page }) => {
+  test("@smoke collection grid renders every active fragrance with a price", async ({ page }) => {
+    // Fragrances only — a gift set is featured through its own band, not
+    // inside "Five fragrances, and no filler".
     const products = await db.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, type: "SINGLE" },
       select: { name: true, slug: true },
     });
 

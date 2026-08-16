@@ -146,7 +146,7 @@ test.describe("gift sets — storefront", () => {
     }
   });
 
-  test("@smoke Gift sets is a first-class nav item", async ({ page }) => {
+  test("@smoke @desktop Gift sets is a first-class nav item", async ({ page }) => {
     await page.goto("/");
     await expect(nav(page).getByRole("link", { name: /gift sets/i })).toHaveAttribute(
       "href",

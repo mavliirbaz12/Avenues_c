@@ -28,7 +28,7 @@ test.describe("mobile navigation", () => {
     const menu = page.getByRole("dialog").or(page.locator("[data-mobile-menu]")).first();
     const scope = (await menu.count()) ? menu : page;
 
-    for (const label of [/shop all/i, /know avenues/i, /track order/i, /contact/i]) {
+    for (const label of [/shop all/i, /gift sets/i, /know avenues/i, /track order/i, /contact/i]) {
       await expect(scope.getByRole("link", { name: label }).first()).toBeVisible();
     }
     await expect(scope.getByRole("link", { name: /night drip/i }).first()).toBeVisible();
