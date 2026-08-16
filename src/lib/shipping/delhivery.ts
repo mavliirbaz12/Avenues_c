@@ -86,6 +86,14 @@ export async function checkPincode(pincode: string): Promise<PincodeResult> {
 
 export type CreateShipmentArgs = {
   orderNumber: string;
+  /**
+   * The pickup location, exactly as registered in the Delhivery panel.
+   *
+   * Passed in rather than read from env here, so the admin-editable store
+   * setting is what actually governs it — a founder changing warehouses should
+   * not need a redeploy. Falls back to DELHIVERY_PICKUP_NAME.
+   */
+  pickupName?: string | null;
   paymentMode: "Prepaid" | "COD";
   codAmountPaise: number;
   totalPaise: number;
@@ -109,6 +117,19 @@ export async function createShipment(
     // Deterministic synthetic AWB per order, so retries reuse the same number.
     const waybill = `MOCK${String(hashCode(args.orderNumber)).padStart(10, "0")}`;
     return { waybill, mock: true, raw: { mock: true, createdFor: args.orderNumber } };
+  }
+
+  // Admin setting wins, env is the fallback. Delhivery matches this string
+  // against a registered ClientWarehouse and rejects the whole request if it
+  // is blank or misspelled — so fail here with a message that says what to do,
+  // rather than surfacing "ClientWarehouse matching query does not exist".
+  const pickupName = (args.pickupName || env.DELHIVERY_PICKUP_NAME || "").trim();
+  if (!pickupName) {
+    throw new Error(
+      "No Delhivery pickup location is configured. Set it in Admin → Settings → " +
+        "Pickup location name (or DELHIVERY_PICKUP_NAME), using the exact name " +
+        "registered in your Delhivery panel.",
+    );
   }
 
   const payload = {

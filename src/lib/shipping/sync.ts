@@ -226,6 +226,10 @@ export async function createOrderShipment(orderId: string) {
 
   const created = await createShipment({
     orderNumber: order.orderNumber,
+    // Admin → Settings → "Pickup location name". This field was previously
+    // stored and editable but never read, so changing it in the panel had no
+    // effect and shipments silently used the env var instead.
+    pickupName: settings.delhiveryPickupName,
     paymentMode: order.paymentMethod === "COD" ? "COD" : "Prepaid",
     codAmountPaise: order.paymentMethod === "COD" ? order.totalPaise : 0,
     totalPaise: order.totalPaise,
