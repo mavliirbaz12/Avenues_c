@@ -86,3 +86,24 @@ export async function openSearch(page: Page) {
   }
   return page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
 }
+
+/**
+ * Opens the email + password form on /login.
+ *
+ * The Phone OTP tab only exists when SMS is configured (`integrations.sms`).
+ * With MSG91 unset — which is the E2E environment, and the launch
+ * configuration until DLT registration clears — the page renders the password
+ * form alone with no tab bar. This tolerates both, so the suite does not pin
+ * the app to one of them.
+ */
+export async function openEmailLogin(page: Page) {
+  await page.goto("/login");
+  const tab = page.getByRole("tab", { name: "Email" });
+  if (await tab.isVisible().catch(() => false)) await tab.click();
+  return main(page);
+}
+
+/** True when the login page is offering phone OTP. */
+export async function phoneOtpOffered(page: Page) {
+  return page.getByRole("tab", { name: "Phone OTP" }).isVisible().catch(() => false);
+}

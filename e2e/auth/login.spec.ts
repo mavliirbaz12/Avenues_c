@@ -1,6 +1,6 @@
 import { test, expect, allowConsoleErrors } from "../fixtures";
 import { CUSTOMER } from "../utils/env";
-import { main } from "../utils/selectors";
+import { main, openEmailLogin, phoneOtpOffered } from "../utils/selectors";
 
 /**
  * Login behaviour. Signing in *successfully* is already proven by global
@@ -9,22 +9,30 @@ import { main } from "../utils/selectors";
  */
 
 async function openEmailTab(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByRole("tab", { name: "Email" }).click();
+  await openEmailLogin(page);
 }
 
 test.describe("login", () => {
-  test("@smoke defaults to the phone tab and switches to email", async ({ page }) => {
+  test("@smoke phone OTP is offered only when SMS is configured", async ({ page }) => {
+    // Without MSG91 the app prints codes to the server console, which is
+    // useless in production — so the option is hidden rather than offered and
+    // broken. This asserts whichever state the environment is in, and that the
+    // password door always works.
     await page.goto("/login");
+    const otp = await phoneOtpOffered(page);
 
-    const phoneTab = page.getByRole("tab", { name: "Phone OTP" });
-    const emailTab = page.getByRole("tab", { name: "Email" });
+    if (otp) {
+      const phoneTab = page.getByRole("tab", { name: "Phone OTP" });
+      await expect(phoneTab).toHaveAttribute("aria-selected", "true");
+      await expect(main(page).getByLabel("Mobile number")).toBeVisible();
+      await page.getByRole("tab", { name: "Email" }).click();
+    } else {
+      // No tab bar at all — a disabled tab raises a question the page cannot
+      // answer.
+      await expect(page.getByRole("tablist")).toHaveCount(0);
+      await expect(main(page).getByLabel("Mobile number")).toHaveCount(0);
+    }
 
-    await expect(phoneTab).toHaveAttribute("aria-selected", "true");
-    await expect(main(page).getByLabel("Mobile number")).toBeVisible();
-
-    await emailTab.click();
-    await expect(emailTab).toHaveAttribute("aria-selected", "true");
     await expect(main(page).getByLabel("Email", { exact: true })).toBeVisible();
     await expect(main(page).getByLabel("Password", { exact: true })).toBeVisible();
   });
@@ -127,6 +135,13 @@ test.describe("login", () => {
 });
 
 test.describe("phone OTP", () => {
+  // Skipped wholesale when SMS is unconfigured — there is no phone door to
+  // test, which is itself asserted above.
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/login");
+    test.skip(!(await phoneOtpOffered(page)), "SMS is not configured in this environment");
+  });
+
   test("requests a code and asks for six digits", async ({ page }) => {
     await page.goto("/login");
     const form = main(page);

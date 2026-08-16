@@ -1,7 +1,7 @@
 import { test as setup, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { ADMIN, CUSTOMER, STORAGE } from "./utils/env";
-import { main } from "./utils/selectors";
+import { openEmailLogin } from "./utils/selectors";
 
 /**
  * Signs in once per role and parks the session for every other spec to reuse.
@@ -24,13 +24,10 @@ async function signIn(
   creds: { email: string; password: string },
   landsOn: RegExp,
 ) {
-  await page.goto("/login");
-
-  await page.getByRole("tab", { name: "Email" }).click();
-
-  // Scoped to <main>: the footer's compact enquiry form has its own "Email"
-  // field on every page, so an unscoped label lookup is ambiguous.
-  const form = main(page);
+  // Tolerates both layouts: with SMS configured the page shows tabs, without
+  // it the password form stands alone. Scoped to <main> because the footer's
+  // compact enquiry form has its own "Email" field on every page.
+  const form = await openEmailLogin(page);
   const email = form.getByLabel("Email", { exact: true });
   await expect(email).toBeVisible();
   await email.fill(creds.email);

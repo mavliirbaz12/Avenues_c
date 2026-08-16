@@ -6,9 +6,17 @@ import { PhoneOtpForm } from "./phone-otp-form";
 import { cn } from "@/lib/utils";
 
 /**
- * The two ways in: email+password and phone OTP. A tab bar rather than two
- * stacked forms — most Indian D2C customers reach for the phone number first,
- * but the seeded admin and email accounts still need the password door.
+ * The ways in.
+ *
+ * Phone OTP is offered ONLY when SMS is actually configured (`smsLive`, i.e.
+ * MSG91 credentials are present). Without them the app falls back to printing
+ * the code to the server console, which is fine in development and useless in
+ * production — a customer would be asked for a code that never arrives.
+ *
+ * So on a deploy without SMS this renders as a single email + password form,
+ * with no tab bar to explain. The day DLT registration clears and the MSG91
+ * keys are set, the tabs return on their own: no code change, no redeploy of
+ * logic, just environment.
  */
 export function LoginMethods({
   smsLive,
@@ -19,14 +27,20 @@ export function LoginMethods({
   next: string;
   initialError?: string;
 }) {
-  const [method, setMethod] = useState<"phone" | "email">(initialError ? "email" : "phone");
+  // Default to email whenever OTP is unavailable, and whenever we arrived
+  // here from a failed password attempt.
+  const [method, setMethod] = useState<"phone" | "email">(
+    !smsLive || initialError ? "email" : "phone",
+  );
+
+  if (!smsLive) {
+    // One door, no tab bar. A disabled tab would be worse than none: it raises
+    // a question the page cannot answer.
+    return <LoginForm next={next} initialError={initialError} />;
+  }
 
   return (
     <div>
-      {/* Google sits ABOVE the tabs. Nested inside the Email tab it was
-          invisible to anyone landing on the default Phone OTP tab — which is
-          most people. It is not a "method" in the same sense; it is one click. */}
-
       <div role="tablist" aria-label="Sign-in method" className="mb-7 grid grid-cols-2 border border-line">
         <Tab active={method === "phone"} onClick={() => setMethod("phone")}>
           Phone OTP
