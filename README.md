@@ -114,11 +114,40 @@ Points that matter:
 ### 2. App (Vercel)
 
 1. Import the Git repository. Vercel detects Next.js; leave the build command
-   as the default (`npm run build`, which runs `prisma generate` first).
-2. Add every variable from `.env.example` under *Settings → Environment
-   Variables*. At minimum: `DATABASE_URL`, `AUTH_SECRET`,
-   `NEXT_PUBLIC_SITE_URL` (your real domain, no trailing slash),
-   `AUTH_TRUST_HOST=true`.
+   as the default. `npm run build` runs three steps: `gen:sequence` (renders
+   the landing scroll-reveal frames into `public/sequence/` — they are
+   gitignored and rebuilt every deploy, which is why `sharp` is a
+   devDependency and must not be pruned), then `prisma generate`, then
+   `next build`.
+
+   The build does **not** need database access: every page that queries at
+   build time is guarded, so a cold or unreachable database delays the first
+   request rather than failing the release.
+
+2. Add the environment variables. **Required or the app will not boot:**
+
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | the Railway string from step 1 |
+   | `AUTH_SECRET` | a **fresh** `openssl rand -base64 32` — never the dev one |
+   | `NEXT_PUBLIC_SITE_URL` | your domain, no trailing slash |
+   | `AUTH_TRUST_HOST` | `true` |
+
+   **Required before taking real money:**
+
+   | Variable | Without it |
+   |---|---|
+   | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `NEXT_PUBLIC_RAZORPAY_KEY_ID` | checkout stays in mock mode and takes no payment |
+   | `RAZORPAY_WEBHOOK_SECRET` | payments confirm only via the browser callback — a dropped connection after paying leaves the order PENDING forever |
+   | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_ADMIN` | no customer receives an order confirmation |
+   | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | product images cannot be uploaded at all |
+   | `DELHIVERY_API_TOKEN`, `DELHIVERY_PICKUP_NAME` | no shipment is created; fulfilment is manual |
+
+   **Safe to leave blank:** `MSG91_*` (the phone-OTP tab hides itself until
+   these are set — see below), `UPSTASH_*` (rate limits fall back to an
+   in-process Map, correct on a single instance), `NEXT_PUBLIC_GA4_ID`,
+   `NEXT_PUBLIC_META_PIXEL_ID`.
+
 3. Deploy.
 
 ### 3. Schema + seed
@@ -143,6 +172,37 @@ never left unauthenticated either way.
 
 `regions: ["bom1"]` puts the functions in Mumbai — worth keeping for an
 India-only store, and worth matching to your database region.
+
+### 5. Sign-in methods
+
+Customers sign in with **email + password**. Phone OTP exists and is tested,
+but the login page hides it while `MSG91_AUTH_KEY` / `MSG91_TEMPLATE_ID` are
+blank: without them the code prints to the server log, so a customer would be
+asked for something that never arrives. Set both — after India DLT registration
+clears — and the tab returns with no code change.
+
+Google sign-in has been removed; the provider is unregistered, so
+`/api/auth/signin/google` starts no flow.
+
+### 6. First-run checklist
+
+```bash
+# from your laptop, against the production database
+DATABASE_URL="<railway-url>" npx prisma migrate deploy
+DATABASE_URL="<railway-url>" npm run db:seed
+```
+
+Then, in this order:
+
+1. Sign in at `/login` with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` and
+   **change the password immediately** — the seed sets it on create only, so
+   editing the env var and re-seeding will not update an existing admin.
+2. Admin → Settings: WhatsApp number, support email, the statutory
+   manufacturer name and address, and the Delhivery pickup location name
+   **exactly** as registered in your Delhivery panel.
+3. Upload real product images (needs Cloudinary configured).
+4. Place one COD order end to end, then one card order, and confirm the
+   confirmation email arrives and the Delhivery shipment is created.
 
 ---
 
