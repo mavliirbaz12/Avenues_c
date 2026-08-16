@@ -26,7 +26,7 @@ export function CartLineRow({
   return (
     <li className="flex gap-4 py-5">
       <Link
-        href={`/fragrance/${line.slug}`}
+        href={line.type === "COMBO" ? `/set/${line.slug}` : `/fragrance/${line.slug}`}
         onClick={onNavigate}
         className={cn(
           "relative shrink-0 overflow-hidden border border-line bg-ink-deep",
@@ -50,7 +50,7 @@ export function CartLineRow({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <Link
-              href={`/fragrance/${line.slug}`}
+              href={line.type === "COMBO" ? `/set/${line.slug}` : `/fragrance/${line.slug}`}
               onClick={onNavigate}
               className="font-display text-lg font-light leading-tight text-bone transition-colors hover:text-gold-light"
             >

@@ -68,7 +68,10 @@ const detailSelect = {
  */
 const getProduct = cache(async (slug: string) => {
   return prisma.product.findFirst({
-    where: { slug, isActive: true },
+    // type matters: Product.slug is shared with gift sets, and without this a
+    // set resolved here as well as at /set/<slug> — two URLs for one product,
+    // which splits its SEO and contradicts the canonical tag.
+    where: { slug, isActive: true, type: "SINGLE" },
     select: detailSelect,
   });
 });

@@ -16,6 +16,11 @@ type Result = {
   shortName: string;
   tagline: string;
   gender: string;
+  /** SINGLE or COMBO — a set gets a contents line instead of a size. */
+  type: "SINGLE" | "COMBO";
+  itemCount: number;
+  /** Canonical route, computed server-side so both kinds link correctly. */
+  href: string;
   pricePaise: number | null;
   size: string | null;
   inStock: boolean;
@@ -205,7 +210,7 @@ export function SearchOverlay() {
                   {results.map((r) => (
                     <li key={r.slug}>
                       <Link
-                        href={`/fragrance/${r.slug}`}
+                        href={r.href}
                         onClick={close}
                         className="group flex items-center gap-4 border border-transparent p-3
                                    transition-colors duration-400 ease-smoke hover:border-line hover:bg-surface/60"

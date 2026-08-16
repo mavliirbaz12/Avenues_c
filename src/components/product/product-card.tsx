@@ -37,7 +37,8 @@ export function ProductCard({
   return (
     <article className={cn("group relative flex flex-col", className)}>
       <Link
-        href={`/fragrance/${product.slug}`}
+        // Canonical route, so a combo card links to /set/… not /fragrance/….
+        href={product.href}
         className="flex flex-1 flex-col focus-visible:outline-none"
         aria-label={`${product.name} — ${product.tagline}`}
       >
@@ -127,6 +128,7 @@ export function ProductCard({
                   pricePaise: v.pricePaise,
                   mrpPaise: v.mrpPaise,
                   imageUrl: product.image?.url ?? null,
+                  type: product.type,
                   maxStock: v.stock,
                 }
               : null

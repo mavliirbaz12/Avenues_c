@@ -26,6 +26,35 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   });
   if (!order) notFound();
 
+  /**
+   * Packing list for any gift set on this order.
+   *
+   * Read live rather than snapshotted onto OrderItem: what matters at the
+   * bench is what the box contains TODAY. If the composition changed after the
+   * order was placed, the packer must follow the current recipe, not a stale
+   * copy — the customer is shipped whatever the set is now.
+   */
+  const comboContents = new Map<string, { name: string; sizeLabel: string }[]>();
+  const variantIds = order.items.map((i) => i.variantId).filter((v): v is string => Boolean(v));
+  if (variantIds.length) {
+    const rows = await prisma.comboItem.findMany({
+      where: { combo: { type: "COMBO", variants: { some: { id: { in: variantIds } } } } },
+      orderBy: { position: "asc" },
+      select: {
+        sizeLabel: true,
+        product: { select: { name: true } },
+        combo: { select: { variants: { select: { id: true } } } },
+      },
+    });
+    for (const r of rows) {
+      for (const v of r.combo.variants) {
+        const list = comboContents.get(v.id) ?? [];
+        list.push({ name: r.product.name, sizeLabel: r.sizeLabel });
+        comboContents.set(v.id, list);
+      }
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <Link href="/admin/orders" className="inline-flex items-center gap-2 font-sans text-[0.6875rem] uppercase tracking-label text-stone transition-colors hover:text-gold-light">
@@ -73,12 +102,31 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <h2 className="border-b border-line px-4 py-3 font-sans text-xs uppercase tracking-wide2 text-bone">Items</h2>
             <ul className="divide-y divide-line">
               {order.items.map((item) => (
-                <li key={item.id} className="flex items-baseline gap-4 px-4 py-3 font-sans text-xs">
-                  <span className="min-w-0 flex-1 text-bone">
-                    {item.productName} <span className="text-stone-dark">· {item.variantSize} · {item.sku}</span>
-                  </span>
-                  <span className="text-stone-dark">× {item.quantity}</span>
-                  <span className="w-20 text-right tabular-nums text-bone">{formatPaise(item.totalPaise)}</span>
+                <li key={item.id} className="px-4 py-3 font-sans text-xs">
+                  <div className="flex items-baseline gap-4">
+                    <span className="min-w-0 flex-1 text-bone">
+                      {item.productName} <span className="text-stone-dark">· {item.variantSize} · {item.sku}</span>
+                    </span>
+                    <span className="text-stone-dark">× {item.quantity}</span>
+                    <span className="w-20 text-right tabular-nums text-bone">{formatPaise(item.totalPaise)}</span>
+                  </div>
+
+                  {/* What goes in the box, for whoever is packing it. */}
+                  {item.variantId && comboContents.has(item.variantId) && (
+                    <ul
+                      className="mt-2 space-y-1 border-l border-gold/30 pl-3"
+                      data-testid="packing-contents"
+                    >
+                      {comboContents.get(item.variantId)!.map((c, n) => (
+                        <li key={n} className="text-stone">
+                          {c.name} <span className="text-stone-dark">· {c.sizeLabel}</span>
+                          {item.quantity > 1 && (
+                            <span className="text-stone-dark"> × {item.quantity}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>

@@ -127,7 +127,7 @@ export function FeaturedSlider({ products }: { products: ProductCard[] }) {
                 </p>
 
                 <div className="mt-8 flex flex-wrap items-center gap-5">
-                  <Link href={`/fragrance/${product.slug}`} className="btn btn-outline btn-lg">
+                  <Link href={product.href} className="btn btn-outline btn-lg">
                     Explore the fragrance
                   </Link>
                   {variant && (

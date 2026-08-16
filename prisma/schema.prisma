@@ -28,6 +28,19 @@ enum Gender {
   UNISEX
 }
 
+/**
+ * A combo is a Product, not a separate model.
+ * Everything commercial here is keyed on Variant — cart intents, the atomic
+ * stock decrement and its oversell guard, order line items, stock
+ * notifications. A combo modelled as a Product with exactly one Variant
+ * inherits all of it unchanged, and its Variant carries the packaged SKU's own
+ * stock, which is deliberately unrelated to the stock of the bottles inside.
+ */
+enum ProductType {
+  SINGLE
+  COMBO
+}
+
 enum AddressType {
   HOME
   WORK
@@ -242,13 +255,13 @@ model Address {
 // ---------------------------------------------------------------------------
 
 model Product {
-  id            String  @id @default(cuid())
-  slug          String  @unique
+  id            String @id @default(cuid())
+  slug          String @unique
   name          String
   tagline       String // "Bold. Fresh. Powerful."
   highlight     String // "Make your presence unforgettable."
-  description   String  @db.Text
-  concentration String  @default("Eau De Parfum")
+  description   String @db.Text
+  concentration String @default("Eau De Parfum")
   gender        Gender
 
   // Fragrance pyramid — three ordered arrays so the storefront can render
@@ -274,6 +287,22 @@ model Product {
   // Legal Metrology (Packaged Commodities Rules) — shown on the PDP.
   countryOfOrigin String @default("India")
 
+  type ProductType @default(SINGLE)
+
+  // COMBO only. Free text so the founder can write "Worth ₹2,499 bought
+  // separately" without the storefront doing arithmetic it might get wrong
+  // when a member product's price changes. Rendered only when non-empty.
+  savingsNote String?
+
+  /**
+   * Whether coupon codes may discount this line.
+   * Sets are already priced below the sum of their parts, so combos are
+   * created with this OFF — the industry norm, and the reason a checkout must
+   * be able to apply a code to some lines and not others rather than
+   * accepting or rejecting the whole cart.
+   */
+  couponEligible Boolean @default(true)
+
   isActive   Boolean @default(true)
   isFeatured Boolean @default(false)
   sortOrder  Int     @default(0)
@@ -295,23 +324,54 @@ model Product {
   wishlistedBy WishlistItem[]
   reviews      Review[]
 
+  // What this combo contains (COMBO only), and which combos contain this
+  // fragrance (SINGLE only). Two named relations because both sides are
+  // Product.
+  comboItems ComboItem[] @relation("ComboContents")
+  inCombos   ComboItem[] @relation("ComboMembership")
+
   @@index([isActive, sortOrder])
   @@index([gender])
+  @@index([type, isActive])
+}
+
+/**
+ * One fragrance inside a combo.
+ * `sizeLabel` is descriptive, not a sellable Variant: a 10ml bottle in a
+ * discovery set need not exist as its own SKU. Nothing here caps how many rows
+ * a combo may have — the schema, the validation and the storefront layout all
+ * handle any count from 1 upward.
+ */
+model ComboItem {
+  id        String @id @default(cuid())
+  comboId   String
+  productId String
+  sizeLabel String // "10ml" — a label describing the box contents
+  position  Int    @default(0)
+
+  combo   Product @relation("ComboContents", fields: [comboId], references: [id], onDelete: Cascade)
+  product Product @relation("ComboMembership", fields: [productId], references: [id], onDelete: Restrict)
+
+  // The same fragrance may appear twice at different sizes, but not twice at
+  // the same one.
+  @@unique([comboId, productId, sizeLabel])
+  @@index([comboId, position])
+  @@index([productId])
 }
 
 model Variant {
-  id         String  @id @default(cuid())
-  productId  String
-  size       String // "50ml", "100ml" — also the Legal Metrology net quantity
-  sku        String  @unique
-  mrpPaise   Int // struck-through price, inclusive of all taxes
-  pricePaise Int // what the customer actually pays
-  stock      Int     @default(0)
+  id          String  @id @default(cuid())
+  productId   String
+  size        String // "50ml", "100ml" — also the Legal Metrology net quantity
+  sku         String  @unique
+  mrpPaise    Int // struck-through price, inclusive of all taxes
+  pricePaise  Int // what the customer actually pays
+  stock       Int     @default(0)
   // Shipped weight including carton, in grams. Delhivery requires it on
   // shipment creation and prices slabs off it.
-  weightGrams Int    @default(250)
-  isActive   Boolean @default(true)
-  sortOrder  Int     @default(0)
+  weightGrams Int     @default(250)
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -790,11 +850,11 @@ model StoreSetting {
   id Int @id @default(1)
 
   // Shipping economics
-  shippingFlatPaise         Int     @default(7900) // ₹79
-  freeShippingThresholdPaise Int    @default(99900) // free at ₹999 and above
-  codEnabled                Boolean @default(true)
-  codFeePaise               Int     @default(4900) // ₹49
-  codMaxOrderPaise          Int? // refuse COD above this value; null = no cap
+  shippingFlatPaise          Int     @default(7900) // ₹79
+  freeShippingThresholdPaise Int     @default(99900) // free at ₹999 and above
+  codEnabled                 Boolean @default(true)
+  codFeePaise                Int     @default(4900) // ₹49
+  codMaxOrderPaise           Int? // refuse COD above this value; null = no cap
 
   // Delhivery
   delhiveryPickupName String?
@@ -833,10 +893,10 @@ model StoreSetting {
   announcementEnabled Boolean @default(true)
   // Hero background video. Blank falls back to the poster image, and failing
   // that to a designed void — see components/landing/hero-media.tsx.
-  heroVideoUrl  String?
-  heroPosterUrl String?
+  heroVideoUrl        String?
+  heroPosterUrl       String?
   // Full-bleed image behind the brand statement band.
-  brandBannerUrl String?
+  brandBannerUrl      String?
 
   updatedAt DateTime @updatedAt
 }

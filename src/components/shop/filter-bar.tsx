@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
  */
 
 export type FacetData = {
+  /** Fragrance vs gift set. Omitted entirely when no sets exist. */
+  kinds: { value: string; label: string; count: number }[];
   genders: { value: string; label: string; count: number }[];
   sizes: { value: string; count: number }[];
   priceBuckets: { value: string; label: string; count: number }[];
@@ -82,7 +84,11 @@ export function FilterBar({
 
   const q = params.get("q");
   const activeCount =
-    selected("gender").size + selected("size").size + selected("price").size + (q ? 1 : 0);
+    selected("kind").size +
+    selected("gender").size +
+    selected("size").size +
+    selected("price").size +
+    (q ? 1 : 0);
 
   function clearAll() {
     push(new URLSearchParams());
@@ -104,8 +110,9 @@ export function FilterBar({
           </button>
 
           <p className="hidden font-sans text-micro uppercase text-stone lg:block">
+            {/* "items", not "fragrances" — the catalogue now holds sets too. */}
             {matched === total
-              ? `${total} fragrance${total === 1 ? "" : "s"}`
+              ? `${total} item${total === 1 ? "" : "s"}`
               : `${matched} of ${total}`}
           </p>
         </div>
@@ -176,6 +183,21 @@ export function FilterBar({
                   count={s.count}
                 >
                   {s.value}
+                </Chip>
+              ))}
+            </FacetGroup>
+          )}
+
+          {facets.kinds.length > 1 && (
+            <FacetGroup label="Kind">
+              {facets.kinds.map((k) => (
+                <Chip
+                  key={k.value}
+                  active={selected("kind").has(k.value)}
+                  onClick={() => toggle("kind", k.value)}
+                  count={k.count}
+                >
+                  {k.label}
                 </Chip>
               ))}
             </FacetGroup>

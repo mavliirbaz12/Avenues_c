@@ -5,8 +5,9 @@ import { FeaturedSlider } from "@/components/landing/featured-slider";
 import { BrandBanner } from "@/components/landing/brand-banner";
 import { NotesStory } from "@/components/landing/notes-story";
 import { CollectionGrid } from "@/components/landing/collection-grid";
+import { ComboBand } from "@/components/landing/combo-band";
 import { BrandStory } from "@/components/landing/brand-story";
-import { getFeaturedProductCards } from "@/lib/catalog";
+import { getFeaturedProductCards, getFeaturedCombo } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/env";
 
@@ -34,7 +35,7 @@ export const revalidate = 3600;
  * newsletter form a screen above it would be the clearest template tell here.
  */
 export default async function HomePage() {
-  const [products, settings] = await Promise.all([
+  const [products, settings, featuredSet] = await Promise.all([
     // Guarded like the layout and footer queries. This page is prerendered at
     // build time, so an unreachable database used to fail `next build`
     // outright — a transient blip during deploy should not take the whole
@@ -45,6 +46,12 @@ export default async function HomePage() {
       return [];
     }),
     getStoreSettings(),
+    // Same guard: no set, or an unreachable database, simply means the band
+    // does not render.
+    getFeaturedCombo().catch((err) => {
+      console.error("[home] featured combo unavailable:", err);
+      return null;
+    }),
   ]);
 
   return (
@@ -54,6 +61,7 @@ export default async function HomePage() {
       <FeaturedSlider products={products} />
       <BrandBanner imageUrl={settings.brandBannerUrl} />
       <NotesStory products={products} />
+      <ComboBand set={featuredSet} />
       <CollectionGrid products={products} />
       <BrandStory />
     </>

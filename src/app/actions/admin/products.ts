@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { slugify } from "@/lib/utils";
 import { rupeeInputToPaise } from "@/lib/format";
-import type { FormState } from "@/lib/form-state";
+import type { FormState, SimpleActionState } from "@/lib/form-state";
+import { combosContaining } from "@/lib/catalog";
 
 /** "Bergamot, Lavender" → ["Bergamot", "Lavender"] */
 function csvList(input: string, max = 12) {
@@ -120,7 +121,18 @@ export async function saveProduct(_prev: FormState, formData: FormData): Promise
 
   try {
     if (d.id) {
-      const before = await prisma.product.findUnique({ where: { id: d.id }, select: { slug: true } });
+      const before = await prisma.product.findUnique({
+        where: { id: d.id },
+        select: { slug: true, isActive: true },
+      });
+
+      // Going live -> retired is the destructive transition; guard it here
+      // because this checkbox, not toggleProductActive, is what admins use.
+      if (before?.isActive && !d.isActive) {
+        const refusal = await blockedByCombos(d.id);
+        if (refusal) return { ok: false, message: refusal };
+      }
+
       await prisma.product.update({ where: { id: d.id }, data });
       revalidateProduct(before?.slug, slug);
       return { ok: true, message: "Saved." };
@@ -145,8 +157,46 @@ function revalidateProduct(oldSlug: string | undefined, newSlug: string) {
   if (oldSlug && oldSlug !== newSlug) revalidatePath(`/fragrance/${oldSlug}`);
 }
 
-export async function toggleProductActive(productId: string, isActive: boolean) {
+/**
+ * Refuses to retire a fragrance that an active gift set contains.
+ *
+ * There is no hard delete in this admin — retiring is the destructive
+ * operation, and it is the one that can break a set, because a set page reads
+ * its members live. Retiring a member would leave a box whose contents no
+ * longer link anywhere.
+ *
+ * Called from BOTH paths that can retire something: the product form's "Live
+ * on the storefront" checkbox, which is what an admin actually uses, and
+ * toggleProductActive. Retiring the SET itself is always allowed — nothing
+ * depends on it.
+ */
+async function blockedByCombos(productId: string): Promise<string | null> {
+  const blocking = await combosContaining(productId);
+  if (blocking.length === 0) return null;
+
+  const names = blocking.map((c) => c.name).join(", ");
+  return (
+    `This fragrance is inside ${blocking.length} active gift set` +
+    `${blocking.length === 1 ? "" : "s"} (${names}). ` +
+    `Remove it from ${blocking.length === 1 ? "that set" : "those sets"}, ` +
+    `or retire the set first.`
+  );
+}
+
+/**
+ * Activate or retire a product.
+ */
+export async function toggleProductActive(
+  productId: string,
+  isActive: boolean,
+): Promise<SimpleActionState> {
   await requireAdminActor();
+
+  if (!isActive) {
+    const refusal = await blockedByCombos(productId);
+    if (refusal) return { ok: false, message: refusal };
+  }
+
   const product = await prisma.product.update({
     where: { id: productId },
     data: { isActive },
@@ -154,6 +204,8 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
   });
   revalidateProduct(product.slug, product.slug);
   revalidatePath("/admin/products");
+  revalidatePath("/sets");
+  return { ok: true, message: isActive ? "Back on the storefront." : "Retired." };
 }
 
 /* -------------------------------------------------------------------------- */

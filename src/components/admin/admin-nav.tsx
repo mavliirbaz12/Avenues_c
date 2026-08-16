@@ -14,6 +14,7 @@ import {
   Mail,
   Settings,
   Store,
+  Gift,
 } from "lucide-react";
 import { Monogram } from "@/components/brand/monogram";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const LINKS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/combos", label: "Gift sets", icon: Gift },
   { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
   { href: "/admin/collections", label: "Collections", icon: Layers },
   { href: "/admin/reviews", label: "Reviews", icon: Star },

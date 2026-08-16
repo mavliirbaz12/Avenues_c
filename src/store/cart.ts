@@ -26,6 +26,14 @@ export type CartLine = {
   pricePaise: number;
   mrpPaise: number;
   imageUrl: string | null;
+  /**
+   * SINGLE or COMBO, so a cart row can link to the right route.
+   *
+   * Optional on purpose: the cart is persisted to localStorage, and a customer
+   * who added items before sets existed has rows without it. Absent means
+   * SINGLE, which is what every one of those rows is.
+   */
+  type?: "SINGLE" | "COMBO";
   /** Snapshot of available stock, used to clamp the quantity stepper. */
   maxStock: number;
   quantity: number;

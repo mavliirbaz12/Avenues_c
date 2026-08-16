@@ -1,4 +1,4 @@
-import { CouponType, PaymentMethod } from "@prisma/client";
+import { CouponType, PaymentMethod, type ProductType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings, type StoreSettings } from "@/lib/settings";
 
@@ -24,6 +24,10 @@ export type PricedLine = {
   size: string;
   sku: string;
   imageUrl: string | null;
+  /** SINGLE fragrance or COMBO gift set — the cart renders them differently. */
+  type: ProductType;
+  /** Whether a coupon code may discount this line. Sets default to false. */
+  couponEligible: boolean;
   mrpPaise: number;
   unitPricePaise: number;
   quantity: number;
@@ -41,7 +45,15 @@ export type DroppedLine = {
 
 export type CouponOutcome =
   | { status: "none" }
-  | { status: "applied"; code: string; couponId: string; discountPaise: number; label: string }
+  | {
+      status: "applied";
+      code: string;
+      couponId: string;
+      discountPaise: number;
+      label: string;
+      /** Shown beside the discount when some lines were excluded. */
+      note?: string;
+    }
   | { status: "rejected"; code: string; message: string };
 
 export type PricedCart = {
@@ -67,7 +79,19 @@ export type PricedCart = {
 
 export async function evaluateCoupon(args: {
   code: string;
+  /**
+   * The value a coupon may discount — the sum of coupon-eligible lines only,
+   * NOT the cart subtotal.
+   *
+   * Gift sets are priced below the sum of their parts and are created
+   * coupon-ineligible, so a cart can legitimately contain both kinds. Both the
+   * minimum-order test and the percentage calculation run against this figure:
+   * otherwise a customer could clear a ₹999 minimum with an ineligible set and
+   * take the discount on a ₹200 eligible item beside it.
+   */
   subtotalPaise: number;
+  /** True when at least one line was left out of that figure. */
+  hasIneligibleLines?: boolean;
   userId?: string | null;
 }): Promise<CouponOutcome> {
   const code = args.code.trim().toUpperCase();
@@ -79,6 +103,17 @@ export async function evaluateCoupon(args: {
   // used to enumerate which codes exist.
   if (!coupon || !coupon.isActive) {
     return { status: "rejected", code, message: "That code isn't valid." };
+  }
+
+  // Valid code, but nothing in the cart it can touch.
+  if (args.subtotalPaise <= 0) {
+    return {
+      status: "rejected",
+      code,
+      message: args.hasIneligibleLines
+        ? "Gift sets are already discounted, so coupon codes don't apply to them."
+        : "That code doesn't apply to this cart.",
+    };
   }
 
   const now = new Date();
@@ -133,7 +168,18 @@ export async function evaluateCoupon(args: {
     return { status: "rejected", code, message: "That code doesn't apply to this cart." };
   }
 
-  return { status: "applied", code, couponId: coupon.id, discountPaise, label };
+  return {
+    status: "applied",
+    code,
+    couponId: coupon.id,
+    discountPaise,
+    label,
+    // The cart shows this beside the discount so a customer is never left
+    // wondering why the number is smaller than they expected.
+    ...(args.hasIneligibleLines
+      ? { note: "Applied to eligible items. Gift sets are already discounted." }
+      : {}),
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -176,6 +222,8 @@ export async function priceCart(
               slug: true,
               name: true,
               isActive: true,
+              type: true,
+              couponEligible: true,
               images: {
                 orderBy: [{ isPrimary: "desc" }, { position: "asc" }],
                 take: 1,
@@ -213,6 +261,8 @@ export async function priceCart(
       size: v.size,
       sku: v.sku,
       imageUrl: v.product.images[0]?.url ?? null,
+      type: v.product.type,
+      couponEligible: v.product.couponEligible,
       mrpPaise: v.mrpPaise,
       unitPricePaise: v.pricePaise,
       quantity,
@@ -225,8 +275,20 @@ export async function priceCart(
   const subtotalPaise = lines.reduce((n, l) => n + l.totalPaise, 0);
   const mrpTotalPaise = lines.reduce((n, l) => n + l.mrpPaise * l.quantity, 0);
 
+  // Only eligible lines can be discounted; the rest still count toward the
+  // order total, free shipping and COD limits.
+  const eligibleSubtotalPaise = lines
+    .filter((l) => l.couponEligible)
+    .reduce((n, l) => n + l.totalPaise, 0);
+  const hasIneligibleLines = lines.some((l) => !l.couponEligible);
+
   const coupon = opts.couponCode
-    ? await evaluateCoupon({ code: opts.couponCode, subtotalPaise, userId: opts.userId })
+    ? await evaluateCoupon({
+        code: opts.couponCode,
+        subtotalPaise: eligibleSubtotalPaise,
+        hasIneligibleLines,
+        userId: opts.userId,
+      })
     : ({ status: "none" } as CouponOutcome);
 
   const discountPaise = coupon.status === "applied" ? coupon.discountPaise : 0;

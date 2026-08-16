@@ -397,12 +397,122 @@ async function seedSettings() {
   console.log("  settings     store defaults");
 }
 
+
+/**
+ * One example gift set.
+ *
+ * A combo is a Product with type COMBO and exactly one Variant carrying the
+ * packaged SKU's own stock — deliberately unrelated to the stock of the bottles
+ * inside, because selling the box does not consume 50ml inventory.
+ *
+ * This seed happens to contain four fragrances. Nothing in the codebase may
+ * rely on that: the admin builder, the storefront layouts and the validation
+ * all handle any count from one upward.
+ */
+const COMBO_SLUG = "discovery-set";
+const COMBO_CONTENTS = [
+  { slug: "night-drip", sizeLabel: "10ml" },
+  { slug: "intense", sizeLabel: "10ml" },
+  { slug: "white-oud", sizeLabel: "10ml" },
+  { slug: "blue-mist", sizeLabel: "10ml" },
+];
+
+async function seedCombos() {
+  const members = await prisma.product.findMany({
+    where: { slug: { in: COMBO_CONTENTS.map((c) => c.slug) } },
+    select: { id: true, slug: true },
+  });
+  const idBySlug = new Map(members.map((m) => [m.slug, m.id]));
+
+  const combo = await prisma.product.upsert({
+    where: { slug: COMBO_SLUG },
+    update: { type: "COMBO", isActive: true },
+    create: {
+      slug: COMBO_SLUG,
+      name: "Avenues Discovery Set",
+      tagline: "Four. Ways. In.",
+      highlight: "Find the one that is yours before you commit to a full bottle.",
+      description:
+        "Four of the house in miniature, boxed together. Wear each for a week and " +
+        "let your skin decide — every fragrance behaves differently on different " +
+        "people, and no description substitutes for a day of wearing one. The set " +
+        "is priced below the sum of its parts because the point is discovery, not " +
+        "a bargain.",
+      type: "COMBO",
+      gender: "UNISEX",
+      concentration: "Eau De Parfum",
+      longevity: "8-10 hours",
+      // A set has no pyramid of its own — its contents each have one, and the
+      // storefront reads them live from the referenced products.
+      notesTop: [],
+      notesHeart: [],
+      notesBase: [],
+      occasions: ["Gifting", "Trying something new"],
+      whyChoose: [
+        "Four full-strength eau de parfums, not diluted testers",
+        "10ml is roughly a hundred sprays — enough to know",
+        "Arrives boxed, so it works as a gift without wrapping",
+      ],
+      howToUse:
+        "Wear one at a time, for a full day. Spray on pulse points, never rub — " +
+        "friction crushes the top notes before they open.",
+      caution:
+        "For external use only. Keep away from direct sunlight and open flame. " +
+        "Discontinue if irritation occurs.",
+      sensoryNarrative: "",
+      bestFor: "Anyone new to the house, and anyone shopping for someone else.",
+      savingsNote: "Worth ₹4,796 if bought as full bottles",
+      // Sets are already priced below the sum of their parts, so codes do not
+      // stack on top. Admin can turn this on per set.
+      couponEligible: false,
+      isFeatured: true,
+      sortOrder: 0,
+      metaTitle: "Avenues Discovery Set — four fragrances, 10ml each",
+      metaDescription:
+        "Four Avenues eau de parfums at 10ml each, boxed. Try the house before committing to a full bottle.",
+    },
+    select: { id: true },
+  });
+
+  await prisma.variant.upsert({
+    where: { sku: "AVN-SET-DISCOVERY" },
+    update: { mrpPaise: 149900 },
+    create: {
+      productId: combo.id,
+      size: `${COMBO_CONTENTS.length} x 10ml`,
+      sku: "AVN-SET-DISCOVERY",
+      mrpPaise: 149900, // ₹1,499
+      pricePaise: 119900, // ₹1,199
+      stock: 20,
+      weightGrams: 400,
+      isActive: true,
+      sortOrder: 0,
+    },
+  });
+
+  // Replace the contents wholesale so re-seeding reflects the list above
+  // rather than accumulating rows.
+  await prisma.comboItem.deleteMany({ where: { comboId: combo.id } });
+  await prisma.comboItem.createMany({
+    data: COMBO_CONTENTS.flatMap((c, i) => {
+      const productId = idBySlug.get(c.slug);
+      return productId
+        ? [{ comboId: combo.id, productId, sizeLabel: c.sizeLabel, position: i }]
+        : [];
+    }),
+  });
+
+  const count = await prisma.comboItem.count({ where: { comboId: combo.id } });
+  console.log(`  combo        Avenues Discovery Set (${count} fragrances)`);
+}
+
 async function main() {
   console.log("\nSeeding Avenues\n");
   await seedSettings();
   await seedAdmin();
   await seedProducts();
   await seedCollections();
+  await seedCombos();
   await seedSampleCoupon();
   console.log("\nDone.\n");
 }

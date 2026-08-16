@@ -45,6 +45,7 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   const many = (k: string) => new Set(one(k).split(",").filter(Boolean));
 
   const q = one("q").trim();
+  const kindFilter = many("kind");
   const genderFilter = many("gender");
   const sizeFilter = many("size");
   const priceFilter = many("price");
@@ -57,6 +58,13 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   const base: Card[] = q ? await searchProducts(q, 50) : all;
 
   const facets: FacetData = {
+    // Only offered once sets exist — a lone "Fragrances (5)" chip is noise.
+    kinds: [
+      { value: "SINGLE", label: "Fragrances" },
+      { value: "COMBO", label: "Gift sets" },
+    ]
+      .map((k) => ({ ...k, count: all.filter((p) => p.type === k.value).length }))
+      .filter((k) => k.count > 0),
     genders: (Object.keys(GENDER_LABEL) as Gender[])
       .map((g) => ({
         value: g,
@@ -79,6 +87,7 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   };
 
   let products = base.filter((p) => {
+    if (kindFilter.size && !kindFilter.has(p.type)) return false;
     if (genderFilter.size && !genderFilter.has(p.gender)) return false;
     if (sizeFilter.size && !(p.defaultVariant && sizeFilter.has(p.defaultVariant.size))) return false;
     if (priceFilter.size) {
@@ -100,7 +109,8 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   }
   // "newest" and "featured" already come out of the query in the right order.
 
-  const filtered = genderFilter.size || sizeFilter.size || priceFilter.size || q;
+  const filtered =
+    kindFilter.size || genderFilter.size || sizeFilter.size || priceFilter.size || q;
 
   return (
     <>

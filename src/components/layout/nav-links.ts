@@ -6,6 +6,7 @@
  */
 export const NAV_LINKS = [
   { href: "/shop", label: "Shop all" },
+  { href: "/sets", label: "Gift sets" },
   { href: "/about", label: "Know Avenues" },
   { href: "/track-order", label: "Track order" },
   { href: "/contact", label: "Contact" },

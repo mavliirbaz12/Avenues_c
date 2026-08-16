@@ -17,9 +17,12 @@ export type NavFragrance = { slug: string; name: string };
  * Primary navigation.
  *
  * Every control carries a visible label or a count — no icon is left for a
- * first-time visitor to decode. Labels need ~1400px to share a line with the
- * five nav links; below that the cluster falls back to icons carrying the same
- * `aria-label`s, rather than letting the bar wrap to two rows.
+ * first-time visitor to decode.
+ *
+ * The six primary links keep their words at every desktop width. The four
+ * utility controls need ~1620px to share the line with them, which is what
+ * adding "Gift sets" cost; below that they fall back to icons carrying the
+ * same `aria-label`s, rather than letting the bar collide with the logo.
  */
 export function SiteNav({
   isAuthed,
@@ -72,7 +75,7 @@ export function SiteNav({
           <Logo size="md" />
         </div>
 
-        <ul className="hidden items-center gap-6 lg:flex xl:gap-8 2xl:gap-9">
+        <ul className="hidden items-center gap-4 lg:flex xl:gap-6 2xl:gap-7">
           <li>
             <FragrancesMenu fragrances={fragrances} />
           </li>
@@ -93,7 +96,7 @@ export function SiteNav({
           })}
         </ul>
 
-        <div className="flex items-center gap-0.5 sm:gap-1.5">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           <IconButton
             label="Search fragrances"
             text="Search"
@@ -258,7 +261,7 @@ function IconButton({
         )}
       </span>
       {text && (
-        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1400px]:inline">
+        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1620px]:inline">
           {text}
         </span>
       )}
