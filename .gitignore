@@ -36,9 +36,10 @@ prisma/dev.db-journal
 !.vscode/extensions.json
 coverage/
 
-# Generated bottle-reveal frames (npm run gen:sequence). 240 binaries that
-# rebuild deterministically from the vector source — not worth versioning.
-public/sequence/
+# public/sequence/ IS committed. The frames are cut from assets/hero-reveal.mp4
+# with ffmpeg, which Vercel's build image does not have — so they are generated
+# locally via `npm run gen:sequence` and versioned. See the header of
+# scripts/gen-bottle-sequence.mjs.
 
 # Playwright
 /test-results/

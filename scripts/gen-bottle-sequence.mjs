@@ -1,174 +1,147 @@
 /**
- * Generates the scroll-reveal frame sequence.
+ * Generates the scroll-reveal frame sequence from the product film.
  *
- * The landing page pins a section and scrubs through these frames as you
- * scroll: an extreme macro on the engraved monogram pulling back to the whole
- * bottle. Run via `npm run gen:sequence`; output lands in public/sequence/
- * and is gitignored, so it regenerates on deploy rather than committing 240
- * binaries.
+ *   npm run gen:sequence
  *
- * WHY RE-RENDER RATHER THAN CROP ONE BIG RASTER
- * The bottle is vector. Rendering the SVG once and extracting crops would
- * upscale the macro frames into mush — frame 0 shows a region 32 units wide
- * out of a 240-unit artboard, a 7.5x magnification. Re-rasterising per frame
- * keeps the gold engraving sharp at every zoom level, which is the whole point
- * of opening on it.
+ * Source: assets/hero-reveal.mp4 — the 16:9 studio clip of the bottle on silk.
+ * Output: public/sequence/{lg,sm}-NNNN.webp, which ARE committed.
  *
- * WHY GEOMETRIC INTERPOLATION
- * Lerping the viewBox width linearly reads as an accelerating zoom, because
- * perceived zoom tracks the ratio, not the difference. Stepping it
- * geometrically (w0 * (w1/w0)^t) gives the constant-rate pull-back a camera
- * would.
+ * WHY THIS IS NOT PART OF `npm run build`
+ * It shells out to ffmpeg, and Vercel's build image does not have ffmpeg. So
+ * the frames are generated here, on a machine that does, and committed. Run it
+ * again whenever the film changes; nothing else needs to know.
  *
- * NOTE: the SVG below mirrors src/components/brand/bottle-figure.tsx. It is
- * duplicated rather than imported because that file is a TSX client component
- * using useId(), which this plain Node script cannot render. Both are
- * placeholder art — when real bottle photography or a turntable render
- * arrives, the frames are dropped into public/sequence/ directly and this
- * script goes away. Keep them in sync until then.
+ * WHY TWO DIFFERENT CROPS
+ * The film is 16:9. The pinned stage is roughly 1.6:1 on a laptop and 0.46:1 on
+ * a phone — those cannot be served by one frame without either cropping the
+ * bottle out of shot or letterboxing it into a stamp.
+ *
+ *   lg  the full 16:9 frame, padded top and bottom to 1.6:1
+ *   sm  a 4:5 centre crop (verified to keep the bottle in shot across the whole
+ *       clip), padded to roughly phone ratio
+ *
+ * Both are padded with the page's own ink, so the canvas can use `cover` and
+ * the padding is invisible against the background — no letterbox bars, no
+ * cropped subject, and no special-casing in the component.
  */
-import { mkdir, writeFile, readdir, rm } from "node:fs/promises";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import sharp from "sharp";
 
+const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const SOURCE = join(ROOT, "assets", "hero-reveal.mp4");
 const OUT = join(ROOT, "public", "sequence");
 
 /** Must match FRAME_COUNT in src/components/landing/bottle-reveal.tsx. */
 const FRAMES = 120;
 
+const INK = "0x0B0B0D";
+
 /**
- * Frame aspect matches the device it plays on, so the canvas fills the pinned
- * stage without letterboxing. Rendering everything at the bottle's native 2:3
- * left black bars down both sides of a laptop screen — the section has to read
- * as full-bleed, not as a portrait image floating in a void.
- *
- * `endW` is the viewBox width of the final frame: wide enough that the whole
- * bottle (240x360 on the artboard) fits inside the matching height.
+ * Source geometry, from `ffprobe`: 1024x576, 24fps, ~6s, 145 frames.
+ * The 4:5 crop is 461 wide centred at x=281 — checked frame by frame against
+ * the clip so the bottle never leaves the crop.
  */
-const SIZES = [
-  { name: "lg", width: 1200, height: 750, endW: 600 }, // 1.6:1 — laptop/desktop
-  { name: "sm", width: 640, height: 1100, endW: 268 }, // 0.58:1 — phone portrait
+const VARIANTS = [
+  {
+    name: "lg",
+    // Whole frame, padded to the desktop stage ratio.
+    filter: `scale=1280:720,pad=1280:800:0:40:${INK}`,
+  },
+  {
+    name: "sm",
+    // 4:5 centre crop, then padded tall for a phone.
+    filter: `crop=461:576:281:0,scale=640:800,pad=640:1300:0:250:${INK}`,
+  },
 ];
 
-const INK = "#0B0B0D";
-const TINT = "#C9A24B"; // Avenues gold — the hero bottle, not a per-scent tint.
-
-// Camera path. Start: tight on the monogram, which sits at (120, 214) on the
-// artboard. End: the whole bottle, recomposed centre-frame at (120, 180).
-const START_CENTRE = { cx: 120, cy: 214 };
-const END_CENTRE = { cx: 120, cy: 180 };
-/** Opening viewBox width — 32 units of a 240-unit artboard, a 7.5x macro. */
-const START_W = 32;
-
-const lerp = (a, b, t) => a + (b - a) * t;
-
-function viewBoxAt(t, size) {
-  // Geometric on width, linear on the centre: the camera dollies back at a
-  // constant perceived rate while drifting up to recompose.
-  const w = START_W * Math.pow(size.endW / START_W, t);
-  const h = w * (size.height / size.width);
-  const cx = lerp(START_CENTRE.cx, END_CENTRE.cx, t);
-  const cy = lerp(START_CENTRE.cy, END_CENTRE.cy, t);
-  return `${cx - w / 2} ${cy - h / 2} ${w} ${h}`;
-}
-
-function bottleSvg(viewBox, width, height) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${width}" height="${height}">
-  <defs>
-    <radialGradient id="halo" cx="50%" cy="56%" r="46%">
-      <stop offset="0%" stop-color="${TINT}" stop-opacity="0.34"/>
-      <stop offset="55%" stop-color="${TINT}" stop-opacity="0.09"/>
-      <stop offset="100%" stop-color="${TINT}" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#26262B"/><stop offset="34%" stop-color="#141417"/>
-      <stop offset="72%" stop-color="#0C0C0E"/><stop offset="100%" stop-color="#1A1A1F"/>
-    </linearGradient>
-    <linearGradient id="cap" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1F1F24"/><stop offset="22%" stop-color="#3A3A42"/>
-      <stop offset="46%" stop-color="#131316"/><stop offset="78%" stop-color="#2A2A31"/>
-      <stop offset="100%" stop-color="#0E0E10"/>
-    </linearGradient>
-    <linearGradient id="spec" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#F2EDE3" stop-opacity="0"/>
-      <stop offset="45%" stop-color="#F2EDE3" stop-opacity="0.16"/>
-      <stop offset="100%" stop-color="#F2EDE3" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="rim" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="${TINT}" stop-opacity="0"/>
-      <stop offset="40%" stop-color="${TINT}" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="${TINT}" stop-opacity="0.12"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="10%" y1="0%" x2="90%" y2="100%">
-      <stop offset="0%" stop-color="#F0DBA4"/><stop offset="45%" stop-color="#C9A24B"/>
-      <stop offset="100%" stop-color="#8A6B2A"/>
-    </linearGradient>
-  </defs>
-
-  <ellipse cx="120" cy="196" rx="112" ry="140" fill="url(#halo)"/>
-
-  <rect x="94" y="30" width="52" height="62" rx="3" fill="url(#cap)"/>
-  <rect x="94" y="30" width="52" height="62" rx="3" fill="none" stroke="#3A3A42" stroke-width="0.6"/>
-  <rect x="102" y="92" width="36" height="14" rx="1.5" fill="#0E0E10" stroke="#2E2E35" stroke-width="0.5"/>
-
-  <path d="M64 138 C64 118 82 106 120 106 C158 106 176 118 176 138 L176 316 C176 325 170 330 161 330 L79 330 C70 330 64 325 64 316 Z"
-        fill="url(#glass)" stroke="#33333A" stroke-width="0.8"/>
-
-  <path d="M64 140 C64 120 82 108 118 107" stroke="url(#rim)" stroke-width="1.6" fill="none"/>
-  <path d="M66 150 L66 314" stroke="url(#rim)" stroke-width="1.4" fill="none"/>
-  <path d="M174 150 L174 314" stroke="url(#rim)" stroke-width="1" fill="none" opacity="0.55"/>
-
-  <rect x="80" y="132" width="16" height="176" rx="8" fill="url(#spec)"/>
-
-  <g transform="translate(120 214) scale(0.66) translate(-50 -50)" opacity="0.92">
-    <path d="M69.4 14.2 A43 43 0 1 1 30.6 14.2 A39 39 0 1 0 69.4 14.2 Z" fill="url(#gold)"/>
-    <path d="M50 20 L74.5 76 L63.5 76 L50 44 L37.5 76 L30.5 76 Z" fill="url(#gold)"/>
-    <path d="M27 71.5 C36 60 56 55 71 56.8 C81 58 89 62.5 94 69.5 C88.5 63.5 80.5 59.8 71 58.7 C56.5 57 39.5 61.8 27 71.5 Z" fill="url(#gold)"/>
-  </g>
-
-  <ellipse cx="120" cy="333" rx="62" ry="7" fill="#000" opacity="0.55"/>
-</svg>`;
+async function ffmpegAvailable() {
+  try {
+    await run("ffmpeg", ["-version"]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function main() {
+  if (!existsSync(SOURCE)) {
+    console.error(
+      `Missing ${SOURCE}.\n` +
+        "The committed frames in public/sequence/ are what the site actually " +
+        "serves, so this is only an error if you meant to regenerate them.",
+    );
+    process.exit(1);
+  }
+
+  if (!(await ffmpegAvailable())) {
+    console.error(
+      "ffmpeg is not on PATH. Install it (winget install Gyan.FFmpeg) and re-run.\n" +
+        "This script is deliberately NOT part of `npm run build` — the frames it " +
+        "produces are committed, because the deploy environment has no ffmpeg.",
+    );
+    process.exit(1);
+  }
+
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
 
-  let bytes = 0;
+  // Resample 145 source frames down to exactly FRAMES, evenly across the clip.
+  const total = 145;
+  const fps = (24 * FRAMES) / total;
 
-  for (const size of SIZES) {
-    const height = size.height;
+  for (const v of VARIANTS) {
+    await run("ffmpeg", [
+      "-v", "error",
+      "-i", SOURCE,
+      "-vf", `fps=${fps.toFixed(4)},${v.filter}`,
+      "-frames:v", String(FRAMES),
+      "-c:v", "libwebp",
+      "-quality", "78",
+      "-compression_level", "5",
+      "-an",
+      join(OUT, `${v.name}-%04d.webp`),
+      "-y",
+    ]);
 
-    for (let i = 0; i < FRAMES; i++) {
-      const t = FRAMES === 1 ? 1 : i / (FRAMES - 1);
-      const svg = bottleSvg(viewBoxAt(t, size), size.width, height);
-
-      const buf = await sharp(Buffer.from(svg), { density: 300 })
-        .resize(size.width, height, { fit: "fill" })
-        // Bake the page background in. A transparent PNG would cost alpha
-        // bytes for a canvas that always draws onto the same ink ground.
-        .flatten({ background: INK })
-        .webp({ quality: 82, effort: 5 })
-        .toBuffer();
-
-      const name = `${size.name}-${String(i).padStart(4, "0")}.webp`;
-      await writeFile(join(OUT, name), buf);
-      bytes += buf.length;
+    // ffmpeg numbers from 1; the component asks for 0000-0119.
+    const files = (await readdir(OUT)).filter((f) => f.startsWith(`${v.name}-`)).sort();
+    const { rename } = await import("node:fs/promises");
+    for (let i = 0; i < files.length; i++) {
+      await rename(join(OUT, files[i]), join(OUT, `${v.name}-tmp-${String(i).padStart(4, "0")}.webp`));
     }
-
-    process.stdout.write(`  ${size.name}: ${FRAMES} frames @ ${size.width}x${height}\n`);
+    for (let i = 0; i < files.length; i++) {
+      await rename(
+        join(OUT, `${v.name}-tmp-${String(i).padStart(4, "0")}.webp`),
+        join(OUT, `${v.name}-${String(i).padStart(4, "0")}.webp`),
+      );
+    }
+    console.log(`  ${v.name}: ${files.length} frames`);
   }
 
   const files = await readdir(OUT);
-  const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
-  console.log(`\n${files.length} frames written to public/sequence/ — ${mb(bytes)} total`);
+  let bytes = 0;
+  for (const f of files) bytes += (await stat(join(OUT, f))).size;
 
-  // Report per-variant totals, since the mobile budget is the one that matters.
-  for (const size of SIZES) {
-    const own = files.filter((f) => f.startsWith(`${size.name}-`));
-    console.log(`  ${size.name}: ${own.length} frames`);
+  console.log(`\n${files.length} frames → public/sequence/  (${(bytes / 1024 / 1024).toFixed(2)} MB)`);
+  for (const v of VARIANTS) {
+    const own = files.filter((f) => f.startsWith(`${v.name}-`));
+    let b = 0;
+    for (const f of own) b += (await stat(join(OUT, f))).size;
+    console.log(`  ${v.name}: ${own.length} frames, ${(b / 1024 / 1024).toFixed(2)} MB`);
+  }
+
+  if (files.length !== FRAMES * VARIANTS.length) {
+    console.error(
+      `\nExpected ${FRAMES * VARIANTS.length} frames, got ${files.length}. ` +
+        "The component indexes 0000-0119 per variant and falls back to the " +
+        "nearest decoded frame, so a gap degrades smoothness silently — worth fixing.",
+    );
+    process.exit(1);
   }
 }
 

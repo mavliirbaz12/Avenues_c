@@ -392,6 +392,10 @@ async function seedSettings() {
       announcementText: "Free shipping on all orders",
       announcementHref: "/shop",
       announcementEnabled: true,
+      // Founder-supplied brand photography, served from /public rather than
+      // Cloudinary: these are fixed brand assets that ship with the build, not
+      // admin uploads. Admin → Settings can still point this elsewhere.
+      brandBannerUrl: "/brand-banner.webp",
     },
   });
   console.log("  settings     store defaults");
