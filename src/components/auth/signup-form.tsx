@@ -7,15 +7,13 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { signUp } from "@/app/actions/auth";
-import { AuthField, AuthDivider, GoogleButton } from "./auth-shell";
+import { AuthField } from "./auth-shell";
 import { PasswordField } from "./password-field";
 import { FORM_IDLE } from "@/lib/form-state";
 
 export function SignupForm({
-  googleEnabled,
   next,
 }: {
-  googleEnabled: boolean;
   next: string;
 }) {
   const [state, action] = useActionState(signUp, FORM_IDLE);
@@ -58,12 +56,6 @@ export function SignupForm({
 
   return (
     <div className="space-y-6">
-      {googleEnabled && (
-        <>
-          <GoogleButton next={next} />
-          <AuthDivider />
-        </>
-      )}
 
       <form id="signup-form" action={submit} className="space-y-5" noValidate>
         <AuthField

@@ -64,7 +64,6 @@ export default async function LoginPage({
       }
     >
       <LoginMethods
-        googleEnabled={integrations.google}
         smsLive={integrations.sms}
         next={next}
         initialError={errorCode ? (ERRORS[errorCode] ?? "Something went wrong signing in.") : undefined}

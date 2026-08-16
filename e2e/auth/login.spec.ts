@@ -85,34 +85,23 @@ test.describe("login", () => {
     await expect(password).toHaveAttribute("type", "password");
   });
 
-  test("@smoke Google sign-in is offered above the tabs and starts the OAuth handoff", async ({
-    page,
-  }) => {
-    await page.goto("/login");
-
-    // Above the tab bar on purpose: nested inside the Email tab it was
-    // invisible to anyone landing on the default Phone OTP tab.
-    const google = main(page).getByRole("button", { name: /google/i });
-    await expect(google).toBeVisible();
-
-    // On-brand, not Google's default light button.
-    await expect(google).toHaveCSS("background-color", /rgba?\(\s*(1[0-9]|2[0-9]|[0-9])\s*,/);
-
-    // Start the handoff but never complete it — assert we leave for the
-    // provider rather than following a real OAuth round-trip.
-    const [request] = await Promise.all([
-      page.waitForRequest(
-        (r) => /accounts\.google\.com|\/api\/auth\/(signin|callback)\/google/.test(r.url()),
-        { timeout: 15_000 },
-      ),
-      google.click(),
-    ]);
-    expect(request.url()).toMatch(/google/);
+  test("@smoke no social sign-in is offered", async ({ page }) => {
+    // Google sign-in was removed deliberately. Asserting its absence, rather
+    // than just deleting the old spec, stops a half-finished re-enable from
+    // shipping a button that leads nowhere.
+    for (const path of ["/login", "/signup"]) {
+      await page.goto(path);
+      await expect(main(page).getByRole("button", { name: /google/i })).toHaveCount(0);
+      await expect(main(page).getByText(/continue with/i)).toHaveCount(0);
+    }
   });
 
-  test("Google sign-in is also offered on signup", async ({ page }) => {
-    await page.goto("/signup");
-    await expect(main(page).getByRole("button", { name: /google/i })).toBeVisible();
+  test("the Google OAuth endpoint does not start a flow", async ({ request }) => {
+    // The provider is unregistered, not merely hidden, so this URL must not
+    // begin a handshake for anyone who types it directly.
+    const res = await request.get("/api/auth/signin/google", { maxRedirects: 0 });
+    const location = res.headers()["location"] ?? "";
+    expect(location, "must not redirect to Google").not.toMatch(/accounts\.google\.com/);
   });
 
   test("forgot-password link reaches the request form and it reports success", async ({ page }) => {

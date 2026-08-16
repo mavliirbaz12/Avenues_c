@@ -59,16 +59,7 @@ export function testEnv(): Record<string, string> {
     // Fixed so sessions minted in global setup stay valid for the whole run.
     AUTH_SECRET: "e2e-fixed-auth-secret-do-not-use-outside-tests-0000000000",
 
-    // Google is the one integration deliberately switched ON, because the app
-    // only renders the "Continue with Google" button when both vars are set
-    // (`integrations.google` in src/lib/env.ts) and the brief requires that
-    // button to be tested. These are not real credentials: the spec asserts
-    // the click reaches the NextAuth signin endpoint and stops there. No OAuth
-    // round-trip is ever completed.
-    AUTH_GOOGLE_ID: "e2e-google-client-id.apps.googleusercontent.com",
-    AUTH_GOOGLE_SECRET: "e2e-google-client-secret",
-
-    // --- Every other integration blank => mock mode -----------------------
+    // --- Every integration blank => mock mode -----------------------------
     RAZORPAY_KEY_ID: "",
     RAZORPAY_KEY_SECRET: "",
     RAZORPAY_WEBHOOK_SECRET: "e2e_razorpay_webhook_secret",

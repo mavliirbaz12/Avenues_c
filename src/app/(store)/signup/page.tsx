@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignupForm } from "@/components/auth/signup-form";
 import { getCurrentUser } from "@/lib/auth-guards";
-import { integrations } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Create an account",
@@ -46,7 +45,7 @@ export default async function SignupPage({
         </>
       }
     >
-      <SignupForm googleEnabled={integrations.google} next={next} />
+      <SignupForm next={next} />
     </AuthShell>
   );
 }

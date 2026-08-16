@@ -4,15 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { AuthField, AuthDivider, GoogleButton } from "./auth-shell";
+import { AuthField } from "./auth-shell";
 import { PasswordField } from "./password-field";
 
 export function LoginForm({
-  googleEnabled,
   next,
   initialError,
 }: {
-  googleEnabled: boolean;
   next: string;
   initialError?: string;
 }) {
@@ -47,12 +45,6 @@ export function LoginForm({
 
   return (
     <div className="space-y-6">
-      {googleEnabled && (
-        <>
-          <GoogleButton next={next} />
-          <AuthDivider />
-        </>
-      )}
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
         <AuthField

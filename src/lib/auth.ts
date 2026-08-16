@@ -1,13 +1,12 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
 import type { Provider } from "next-auth/providers";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "./prisma";
-import { env, integrations } from "./env";
+import { env } from "./env";
 import { normalisePhone } from "./sms";
 import { claimGuestOrders, claimGuestOrdersByPhone } from "./commerce/claim-orders";
 
@@ -15,12 +14,12 @@ import { claimGuestOrders, claimGuestOrdersByPhone } from "./commerce/claim-orde
  * Auth.js v5.
  *
  * Session strategy is JWT because the credentials provider cannot use database
- * sessions. The Prisma adapter is still wired up so Google accounts get proper
- * User/Account rows and can be linked.
+ * sessions. The Prisma adapter stays wired up: it owns the User rows both
+ * providers resolve against, and keeps the door open for an OAuth provider
+ * later without a migration.
  *
- * The Google provider is only registered when both halves of the key pair are
- * present — the sign-in page checks the same flag, so an unconfigured OAuth
- * never renders a button that leads to a broken callback.
+ * Two ways in, both first-party: email + password, and a phone OTP. There is
+ * deliberately no social login — see the note above the providers array.
  */
 
 const credentialsSchema = z.object({
@@ -117,15 +116,17 @@ const providers: Provider[] = [
   }),
 ];
 
-if (integrations.google) {
-  providers.push(
-    Google({
-      clientId: env.AUTH_GOOGLE_ID,
-      clientSecret: env.AUTH_GOOGLE_SECRET,
-      allowDangerousEmailAccountLinking: true,
-    }),
-  );
-}
+// Google sign-in is deliberately not offered. Customers sign in with email +
+// password or with a phone OTP.
+//
+// The provider is left out entirely rather than merely hidden: registering it
+// keeps /api/auth/signin/google live, so anyone hitting that URL directly
+// would start an OAuth flow with no button to explain it and no supported
+// account-linking path behind it.
+//
+// To re-enable, restore the Google provider here and the GoogleButton in
+// auth-shell.tsx, and register the callback URL in Google Cloud Console as
+// <site>/api/auth/callback/google — note the order of those last two segments.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
