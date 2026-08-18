@@ -93,9 +93,13 @@ async function sendViaBrevo({ to, subject, html, replyTo }: SendArgs) {
 }
 
 export async function sendEmail({ to, subject, html, replyTo }: SendArgs) {
+  // A caller's own reply-to wins; otherwise fall back to the configured
+  // inbox. Applied here rather than at each call site so no future message can
+  // be sent from a no-mailbox address with nowhere for the answer to go.
+  const reply = replyTo || env.EMAIL_REPLY_TO || undefined;
   if (!resend && integrations.brevo) {
     try {
-      return await sendViaBrevo({ to, subject, html, replyTo });
+      return await sendViaBrevo({ to, subject, html, replyTo: reply });
     } catch (err) {
       console.error("[email] brevo send threw:", err);
       return { ok: false as const, mocked: false as const };
@@ -110,7 +114,7 @@ export async function sendEmail({ to, subject, html, replyTo }: SendArgs) {
         "───── EMAIL (mock mode — no RESEND_API_KEY or BREVO_API_KEY) ─────",
         `To:      ${recipients}`,
         `Subject: ${subject}`,
-        replyTo ? `Reply-to: ${replyTo}` : null,
+        reply ? `Reply-to: ${reply}` : null,
         "",
         stripTags(html),
         "───────────────────────────────────────────────────────────────",
@@ -128,7 +132,7 @@ export async function sendEmail({ to, subject, html, replyTo }: SendArgs) {
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
-      ...(replyTo ? { replyTo } : {}),
+      ...(reply ? { replyTo: reply } : {}),
     });
     if (result.error) {
       console.error("[email] send failed:", result.error);

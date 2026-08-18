@@ -47,6 +47,16 @@ const schema = z.object({
    * customers get nothing.
    */
   BREVO_API_KEY: z.string().optional().default(""),
+  /**
+   * Where replies land.
+   *
+   * Needed the moment mail is sent FROM a domain that has no mailbox. The
+   * footer of every message says "reply to this email and a person will
+   * answer"; sending from orders@avenuesperfume.com without this would make
+   * that a lie, and silently — the customer replies, nothing bounces to them,
+   * and nobody ever sees it.
+   */
+  EMAIL_REPLY_TO: z.string().optional().default(""),
   EMAIL_ADMIN: z.string().optional().default(""),
 
   NEXT_PUBLIC_GA4_ID: z.string().optional().default(""),
