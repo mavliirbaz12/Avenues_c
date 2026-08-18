@@ -17,6 +17,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "seed:images": "tsx scripts/seed-images.ts",
     "postinstall": "prisma generate",
     "gen:logo": "node scripts/gen-logo.mjs",
     "gen:sequence": "node scripts/gen-bottle-sequence.mjs",
