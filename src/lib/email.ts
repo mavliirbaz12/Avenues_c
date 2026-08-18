@@ -4,9 +4,23 @@ import { env, integrations, siteUrl } from "./env";
 /**
  * Transactional email.
  *
- * MOCK MODE (no RESEND_API_KEY): every message is printed to the server
- * console in full, including password-reset links. That keeps the entire auth
- * and order flow testable before a domain is verified — the reset link is
+ * TWO PROVIDERS, AND THE REASON THERE ARE TWO
+ *
+ * Resend verifies a DOMAIN. Until one is verified its sandbox sender delivers
+ * only to the account holder, so on a store that has not bought its domain yet,
+ * every customer receipt silently goes nowhere.
+ *
+ * Brevo verifies a single SENDER ADDRESS. A Gmail address can be verified in
+ * minutes and reaches real customers immediately. That is the whole reason it
+ * is here: it unblocks order confirmations before the domain exists.
+ *
+ * Resend wins when both are set, because once a domain IS verified it is the
+ * better answer — mail signed by your own domain rather than sent on behalf of
+ * a gmail.com address that cannot DKIM-align.
+ *
+ * MOCK MODE (neither key set): every message is printed to the server console
+ * in full, including password-reset links. That keeps the entire auth and order
+ * flow testable before either provider exists — the reset link is
  * copy-pasteable straight out of the terminal.
  *
  * Sending never throws into the caller. A failed receipt must not roll back a
@@ -22,13 +36,78 @@ type SendArgs = {
   replyTo?: string;
 };
 
+/**
+ * Splits `Avenues <hi@example.com>` into the shape Brevo wants.
+ *
+ * Resend takes the RFC 5322 string as-is; Brevo insists on `{ name, email }`.
+ * One EMAIL_FROM serves both rather than making the operator keep two
+ * spellings of the same address in step.
+ */
+function parseFrom(value: string) {
+  const m = value.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (m) return { name: m[1] || undefined, email: m[2]! };
+  return { name: undefined, email: value.trim() };
+}
+
+/**
+ * Brevo's transactional endpoint, over plain fetch.
+ *
+ * Deliberately no SDK. The call is one POST with a JSON body, and @getbrevo/brevo
+ * pulls a large generated client to wrap it — a dependency to audit, update and
+ * ship for something `fetch` already does.
+ *
+ * Brevo is here because of one difference that decides everything before a
+ * domain is bought: it verifies a single SENDER ADDRESS, so a Gmail address can
+ * send to real customers today. Resend verifies DOMAINS, and until one is
+ * verified its sandbox sender delivers only to the account holder.
+ */
+async function sendViaBrevo({ to, subject, html, replyTo }: SendArgs) {
+  const from = parseFrom(env.EMAIL_FROM);
+  const recipients = (Array.isArray(to) ? to : [to]).map((email) => ({ email }));
+
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": env.BREVO_API_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: from,
+      to: recipients,
+      subject,
+      htmlContent: html,
+      ...(replyTo ? { replyTo: { email: replyTo } } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    // Brevo puts the actionable part in the body, not the status. The most
+    // common failure by far is an unverified sender, and the body says so.
+    const detail = await res.text().catch(() => "");
+    console.error(`[email] brevo rejected the send (${res.status}): ${detail}`);
+    return { ok: false as const, mocked: false as const };
+  }
+
+  return { ok: true as const, mocked: false as const };
+}
+
 export async function sendEmail({ to, subject, html, replyTo }: SendArgs) {
+  if (!resend && integrations.brevo) {
+    try {
+      return await sendViaBrevo({ to, subject, html, replyTo });
+    } catch (err) {
+      console.error("[email] brevo send threw:", err);
+      return { ok: false as const, mocked: false as const };
+    }
+  }
+
   if (!resend) {
     const recipients = Array.isArray(to) ? to.join(", ") : to;
     console.info(
       [
         "",
-        "──────────── EMAIL (mock mode — no RESEND_API_KEY) ────────────",
+        "───── EMAIL (mock mode — no RESEND_API_KEY or BREVO_API_KEY) ─────",
         `To:      ${recipients}`,
         `Subject: ${subject}`,
         replyTo ? `Reply-to: ${replyTo}` : null,

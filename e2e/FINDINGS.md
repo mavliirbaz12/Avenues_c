@@ -87,24 +87,32 @@ for the same underlying reason: each is a disagreement between what the database
 says and what the page shows, and a spec that asserts one of those never notices
 the other.
 
-### 1. Signing out fires an authenticated request at a dead session
+### 1. Auth transitions leave errors in the customer's console
 
-`signOut({ callbackUrl: "/" })` tears the session cookie down, but the router
-replays the signed-in tree for a frame on the way out. `SessionSync` mounts in
-that replay, believes `isAuthed`, and 120ms later posts the cart and wishlist to
-`/api/sync` — which by then answers **401**, and Chromium logs it in the
-customer's console. When the replay wins the race it also trips a hydration
-mismatch (React #418).
+Two symptoms, both on the sign-in / sign-out boundary, both on paths every
+customer takes. Nothing is lost in either case — the UI settles correctly — so
+this is noise rather than damage. It is still errors in a production console.
 
-Nothing is lost — the local stores stay authoritative and the UI settles on the
-signed-out header — so this is noise rather than damage. It is still a 401 and a
-hydration warning in a production console on a path every customer takes.
+**a. `POST /api/sync` → 401 on the way out.** `signOut({ callbackUrl: "/" })`
+tears the session cookie down, but the router replays the signed-in tree for a
+frame. `SessionSync` mounts inside that replay, believes `isAuthed`, and 120ms
+later posts the cart and wishlist to `/api/sync` — which by then answers **401**.
 
 Likely fix: have `SessionSync` re-check the session immediately before it posts,
-or key it on the session object rather than a boolean captured at mount.
+rather than trusting a boolean captured at mount.
 
-*Caught by:* journey step 03. Tolerated there by two named patterns on
-`allowedConsole`, so every **other** console error in that step still fails.
+**b. Intermittent hydration mismatch (React #418).** A full page load taken just
+after an auth transition sometimes hydrates against markup rendered under the
+previous session state. Seen in both directions — after signup (step 02) and
+after sign-out (step 03) — and it does not reproduce every run, which is why an
+isolated spec would be unlikely to pin it down.
+
+Root cause not yet isolated. The next step is a non-minified build: React only
+names the mismatching element outside production mode, and error #418 as
+minified carries no useful argument.
+
+*Caught by:* journey steps 02 and 03. Tolerated there by named patterns on
+`allowedConsole`, so every **other** console error in those steps still fails.
 
 ### 2. Renaming yourself does not change what the site calls you
 

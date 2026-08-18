@@ -38,6 +38,15 @@ const schema = z.object({
 
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().optional().default("Avenues <onboarding@resend.dev>"),
+  /**
+   * Brevo, as an alternative to Resend.
+   *
+   * The difference that matters before a domain exists: Brevo will send from a
+   * verified single ADDRESS, so support@…gmail.com works today. Resend verifies
+   * DOMAINS, and its sandbox sender only delivers to the account holder — real
+   * customers get nothing.
+   */
+  BREVO_API_KEY: z.string().optional().default(""),
   EMAIL_ADMIN: z.string().optional().default(""),
 
   NEXT_PUBLIC_GA4_ID: z.string().optional().default(""),
@@ -67,6 +76,9 @@ export const integrations = {
     env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET,
   ),
   resend: Boolean(env.RESEND_API_KEY),
+  brevo: Boolean(env.BREVO_API_KEY),
+  /** True when transactional email can actually leave the building. */
+  email: Boolean(env.RESEND_API_KEY || env.BREVO_API_KEY),
   sms: Boolean(env.MSG91_AUTH_KEY && env.MSG91_TEMPLATE_ID),
 } as const;
 
