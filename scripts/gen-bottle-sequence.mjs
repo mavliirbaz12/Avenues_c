@@ -119,8 +119,19 @@ async function main() {
       "-vf", `fps=${fps.toFixed(4)},${v.filter}`,
       "-frames:v", String(FRAMES),
       "-c:v", "libwebp",
-      "-quality", "78",
-      "-compression_level", "5",
+      // 88, not 78.
+      //
+      // The source is 1024x576 and cannot be improved, but that is only half of
+      // why the reveal looked soft on a phone. At quality 78 the mobile frames
+      // were 14 KB each — heavy enough that WebP was smearing the silk and the
+      // engraved monogram into blocks, and that mush is what reads as "blurry"
+      // before resolution ever enters into it.
+      //
+      // 88 costs about 50% more bytes and removes most of it. Affordable now
+      // that the sequence loads AFTER the page load event rather than competing
+      // with it. Past ~92 the file grows faster than the picture improves.
+      "-quality", "88",
+      "-compression_level", "6",
       "-an",
       join(OUT, `${v.name}-%04d.webp`),
       "-y",
