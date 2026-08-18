@@ -35,8 +35,13 @@ export function Hero({
    * Deliberately not a background: laid behind the type it competed with every
    * line, and no scrim strong enough to fix that left the photograph worth
    * showing. As its own column the picture is fully visible and the words sit
-   * on clean ink. Below `lg` it drops away entirely rather than stacking —
-   * a phone hero should be one idea, not two.
+   * on clean ink.
+   *
+   * On a phone it stacks BELOW the copy rather than disappearing. Most of this
+   * store's traffic is mobile, and a hero that shows the product only to
+   * desktop visitors gets the priority exactly backwards — the earlier
+   * "one idea per phone screen" instinct was wrong here, because the product
+   * IS the idea.
    */
   showcaseUrl?: string | null;
 }) {
@@ -51,9 +56,12 @@ export function Hero({
 
       <div
         className={cn(
-          "shell relative z-[2] min-h-[clamp(34rem,88dvh,54rem)] pb-20 pt-[calc(var(--header-h)+3rem)]",
+          "shell relative z-[2] pt-[calc(var(--header-h)+2rem)] lg:pt-[calc(var(--header-h)+3rem)]",
           showcaseUrl
-            ? "grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:gap-16"
+            ? "min-h-0 pb-16 lg:min-h-[clamp(34rem,88dvh,54rem)] lg:pb-20"
+            : "min-h-[clamp(34rem,88dvh,54rem)] pb-20",
+          showcaseUrl
+            ? "grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:gap-16"
             : "flex flex-col justify-center",
         )}
       >
@@ -111,7 +119,7 @@ export function Hero({
 
         {showcaseUrl && (
           <motion.div
-            className="relative hidden lg:block"
+            className="relative -mx-gutter lg:mx-0"
             initial={reduce ? undefined : { opacity: 0, y: 24 }}
             animate={reduce ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 1.2, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
