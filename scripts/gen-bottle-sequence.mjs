@@ -46,16 +46,30 @@ const INK = "0x0B0B0D";
  * The 4:5 crop is 461 wide centred at x=281 — checked frame by frame against
  * the clip so the bottle never leaves the crop.
  */
+/**
+ * NOTHING IS UPSCALED.
+ *
+ * The film is 1024x576. An earlier version of this script enlarged it to
+ * 1280x720 before padding, which cost about 40% more bytes and added exactly
+ * zero detail — interpolation cannot invent what the sensor did not record.
+ * The frames now stay at native width and only the ink padding is added.
+ *
+ * That makes the SOURCE the ceiling on sharpness, which is the honest position:
+ * on a 1440px stage at devicePixelRatio 2 the browser is asked for 2880 device
+ * pixels and has 1024 real ones. For a crisp full-screen reveal the film needs
+ * re-exporting at 1920x1080 or better; until then, upscaling here would only
+ * make the file bigger while looking identical.
+ */
 const VARIANTS = [
   {
     name: "lg",
-    // Whole frame, padded to the desktop stage ratio.
-    filter: `scale=1280:720,pad=1280:800:0:40:${INK}`,
+    // Native width, padded to the desktop stage ratio (1.6:1).
+    filter: `pad=1024:640:0:32:${INK}`,
   },
   {
     name: "sm",
-    // 4:5 centre crop, then padded tall for a phone.
-    filter: `crop=461:576:281:0,scale=640:800,pad=640:1300:0:250:${INK}`,
+    // 4:5 centre crop at native scale, padded tall for a phone.
+    filter: `crop=461:576:281:0,pad=461:936:0:180:${INK}`,
   },
 ];
 

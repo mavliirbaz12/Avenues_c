@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Monogram } from "./monogram";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,7 +42,24 @@ export function Logo({
         className,
       )}
     >
-      <Monogram className={cn(dims.mark, "shrink-0")} />
+      {/*
+        The real mark, keyed off its black backing so it sits on glass, ink or
+        the invoice's paper without a visible rectangle.
+
+        Largest use is 96px (xl); the asset is 420px, so it is oversampled
+        everywhere it appears, including at devicePixelRatio 3. The supplied
+        logo is a 788px JPEG, and that is the ceiling — a genuinely
+        resolution-independent mark needs the vector original, which is worth
+        asking the designer for.
+      */}
+      <Image
+        src="/logo-mark.png"
+        alt=""
+        width={420}
+        height={398}
+        priority
+        className={cn(dims.mark, "shrink-0 object-contain")}
+      />
       {showWordmark && (
         <span className={cn("flex flex-col", stacked ? "items-center gap-1.5" : "items-start gap-1")}>
           <span
