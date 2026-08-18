@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import logoMark from "@/assets/logo-mark.png";
+import logoWordmark from "@/assets/logo-wordmark.png";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,12 +51,23 @@ export function Logo({
    */
   const dims = {
     sm: { mark: "h-9 w-auto", wordImg: "h-[1.1rem] w-auto", sub: "text-[0.5rem] tracking-[0.34em]" },
-    // `md` is the nav, and the nav is the one place where the lockup competes
-    // for width. The phone step is smaller so the centred lockup cannot crowd
-    // the menu button and the cart on a 390px screen.
+    /*
+     * `md` is the nav, and the nav is the only place the lockup competes for
+     * width. These steps are set by measurement, not taste — at each one the
+     * lockup is centred between the menu button and the icon cluster, and it
+     * has to fit the gap that is actually left:
+     *
+     *   <360px   204px free (menu + cart)          lockup 191px
+     *   360px+   244px free (menu + cart)          lockup 226px
+     *   768px+   523px free (menu + four icons)    lockup 327px
+     *
+     * The full-size step is held to `md`, not `sm`. At 640 the icon cluster
+     * gains three more buttons while the bar is still narrow, so jumping to the
+     * large lockup there put the wordmark straight through the search icon.
+     */
     md: {
-      mark: "h-11 w-auto sm:h-14",
-      wordImg: "h-[1.3rem] w-auto sm:h-[1.65rem]",
+      mark: "h-9 w-auto min-[360px]:h-10 md:h-14",
+      wordImg: "h-[0.9rem] w-auto min-[360px]:h-[1.1rem] md:h-[1.65rem]",
       sub: "text-[0.6875rem] tracking-[0.36em]",
     },
     lg: { mark: "h-20 w-auto", wordImg: "h-[2.3rem] w-auto", sub: "text-[0.8125rem] tracking-[0.38em]" },
@@ -73,10 +86,11 @@ export function Logo({
         The real mark, keyed off its black backing so it sits on glass, ink or
         the invoice's paper without a visible rectangle.
 
-        These dimensions come from scripts/gen-logo.mjs and must track it. The
-        first cut declared 440x415 against artwork whose ring measures 479x382,
-        which stretched it 19% vertically and pushed the open ends of the arc
-        off the bottom edge — the logo rendered visibly broken.
+        Imported rather than referenced by URL, so next/image takes the
+        intrinsic size from the file. That is not a detail: the first cut
+        declared 440x415 by hand against artwork measuring 479x382, stretching
+        it 19% and pushing the open ends of the arc off the bottom edge. Numbers
+        that have to be kept in step with a file eventually are not.
 
         Largest use is 128px (xl) against a 503px asset, so it is oversampled
         everywhere it appears, including at devicePixelRatio 3. The supplied
@@ -84,10 +98,8 @@ export function Logo({
         resolution-independent mark needs the vector original.
       */}
       <Image
-        src="/logo-mark.png"
+        src={logoMark}
         alt=""
-        width={503}
-        height={406}
         priority
         className={cn(dims.mark, "shrink-0 object-contain")}
       />
@@ -101,10 +113,8 @@ export function Logo({
             its gold gradient, and next to the actual mark the difference showed.
           */}
           <Image
-            src="/logo-wordmark.png"
+            src={logoWordmark}
             alt="Avenues"
-            width={586}
-            height={63}
             priority
             className={cn(dims.wordImg, "object-contain")}
           />

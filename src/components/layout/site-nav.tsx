@@ -75,7 +75,18 @@ export function SiteNav({
           </IconButton>
         </div>
 
-        <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0">
+        {/*
+          `shrink-0` is load-bearing.
+
+          Without it the lockup is an ordinary flex item and gives up width
+          first whenever the bar is full — which it is at every desktop size.
+          The wordmark was being compressed to 205px against its natural 242,
+          and at 1400px and above, where the icon cluster gains text labels, to
+          66px: the brand name squeezed to a smudge, and worse the wider the
+          screen got. Nothing about it looked like a layout bug, only like a
+          logo that was too small.
+        */}
+        <div className="absolute left-1/2 w-max shrink-0 -translate-x-1/2 lg:static lg:translate-x-0">
           <Logo size="md" />
         </div>
 
@@ -265,7 +276,7 @@ function IconButton({
         )}
       </span>
       {text && (
-        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1400px]:inline">
+        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1650px]:inline">
           {text}
         </span>
       )}

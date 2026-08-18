@@ -28,7 +28,22 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "assets", "logo-source.jpg");
-const OUT = join(ROOT, "public");
+/**
+ * Not `public/`.
+ *
+ * Files in public/ are served at a fixed URL, so changing one leaves every
+ * browser that already fetched it holding the old bytes — and Next's image
+ * optimizer caches its resized variants under that same unchanging URL. Three
+ * separate times during this work a fix looked wrong purely because a stale
+ * copy was still being served.
+ *
+ * Imported from src/ instead, each file gets a content hash in its URL. New
+ * bytes mean a new URL, so a stale copy is not possible, and the assets can be
+ * served immutable forever. It also means `next/image` reads the intrinsic
+ * width and height from the file rather than from numbers hand-copied into two
+ * components, which is what went wrong the first two times.
+ */
+const OUT = join(ROOT, "src", "assets");
 
 /**
  * The source is one image holding three elements stacked vertically: the ring

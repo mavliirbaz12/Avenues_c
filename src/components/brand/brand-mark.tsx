@@ -1,4 +1,5 @@
 import Image from "next/image";
+import logoMark from "@/assets/logo-mark.png";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,12 +28,8 @@ export function BrandMark({
 }) {
   return (
     <Image
-      src="/logo-mark.png"
+      src={logoMark}
       alt={alt}
-      // Intrinsic size of the asset scripts/gen-logo.mjs produces. Keep in step
-      // with it and with logo.tsx; a wrong ratio here silently distorts the ring.
-      width={503}
-      height={406}
       priority={priority}
       aria-hidden={alt ? undefined : true}
       className={cn("object-contain", className)}
