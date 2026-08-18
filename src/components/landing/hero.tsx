@@ -26,6 +26,9 @@ export function Hero({
   videoUrl,
   posterUrl,
   showcaseUrl,
+  count,
+  countWord,
+  sizeLabel,
 }: {
   videoUrl: string | null;
   posterUrl: string | null;
@@ -44,6 +47,10 @@ export function Hero({
    * IS the idea.
    */
   showcaseUrl?: string | null;
+  /** Live catalogue figures — never stated as literals. See getCatalogueSummary. */
+  count: number;
+  countWord: string;
+  sizeLabel: string;
 }) {
   const reduce = useReducedMotion();
 
@@ -74,7 +81,7 @@ export function Hero({
         >
           <span>Eau de parfum</span>
           <span aria-hidden="true" className="text-gold/45">&middot;</span>
-          <span>50ml</span>
+          <span>{sizeLabel}</span>
           <span aria-hidden="true" className="text-gold/45">&middot;</span>
           <span>Made in India</span>
         </motion.p>
@@ -98,8 +105,9 @@ export function Hero({
           animate={reduce ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.62, ease: [0.22, 1, 0.36, 1] }}
         >
-          Five fragrances, made for Indian weather and long days. Eight to ten
-          hours of wear from two sprays. Nothing here fades by lunch.
+          {countWord} fragrance{count === 1 ? "" : "s"}, made for Indian weather and
+          long days. Eight to ten hours of wear from two sprays. Nothing here
+          fades by lunch.
         </motion.p>
 
         <motion.div

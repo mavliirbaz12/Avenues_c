@@ -10,7 +10,14 @@ import type { ProductCard as ProductCardData } from "@/lib/catalog";
  * rather than on all five cards. Repeating it per card is clutter, and the
  * meaning is identical.
  */
-export function CollectionGrid({ products }: { products: ProductCardData[] }) {
+export function CollectionGrid({
+  products,
+  countWord,
+}: {
+  products: ProductCardData[];
+  /** Spelled-out live count, so the heading cannot go stale. */
+  countWord: string;
+}) {
   if (products.length === 0) return null;
 
   return (
@@ -22,7 +29,7 @@ export function CollectionGrid({ products }: { products: ProductCardData[] }) {
             id="collection-heading"
             className="mx-auto mt-5 max-w-lg font-display text-d3 font-light text-bone"
           >
-            Five fragrances, and no filler
+            {countWord} fragrances, and no filler
           </h2>
           <p className="mx-auto mt-5 max-w-md font-sans text-body-lg leading-relaxed text-stone">
             Each one built around a single idea, and finished only when it

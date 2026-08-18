@@ -212,7 +212,7 @@ function FragrancesMenu({ fragrances }: { fragrances: NavFragrance[] }) {
                 href="/shop"
                 className="block px-5 py-2.5 font-sans text-micro uppercase text-stone transition-colors hover:text-gold-light"
               >
-                Shop all five
+                Shop the range
               </Link>
             </li>
           </ul>

@@ -116,7 +116,7 @@ export default function AboutPage() {
               rich — and the rest follows.
             </p>
             <Link href="/shop" className="btn btn-primary btn-lg mt-9">
-              Meet the five
+              Meet the range
             </Link>
           </Reveal>
         </div>

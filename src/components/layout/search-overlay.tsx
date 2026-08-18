@@ -202,7 +202,7 @@ export function SearchOverlay() {
                     oud, vanilla, bergamot — or browse the whole range.
                   </p>
                   <Link href="/shop" onClick={close} className="btn btn-outline btn-sm mt-6">
-                    Shop all five
+                    Shop the range
                   </Link>
                 </div>
               ) : (

@@ -406,3 +406,42 @@ export async function combosContaining(productId: string) {
   for (const r of rows) seen.set(r.combo.id, r.combo);
   return [...seen.values()];
 }
+
+/**
+ * How many fragrances there are, and in which sizes.
+ *
+ * The landing copy used to say "Five fragrances" and "50ml" as literals, in
+ * nine places. That is true today and becomes a lie the first time an admin
+ * adds a sixth scent or a 100ml bottle — and nothing would fail, the site
+ * would simply state something false. Everything user-facing now reads from
+ * here.
+ *
+ * Sets are excluded: a gift box is not a fragrance, and counting it would make
+ * "Five fragrances, and no filler" wrong in the other direction.
+ */
+export const getCatalogueSummary = cache(async () => {
+  const rows = await prisma.product
+    .findMany({
+      where: { isActive: true, type: "SINGLE" },
+      select: { variants: { where: { isActive: true }, select: { size: true } } },
+    })
+    .catch(() => []);
+
+  const sizes = [...new Set(rows.flatMap((r) => r.variants.map((v) => v.size)))].sort(
+    // "50ml" before "100ml": numeric where possible, alphabetic otherwise.
+    (a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || a.localeCompare(b),
+  );
+
+  return {
+    count: rows.length,
+    /** "50ml", or "50ml & 100ml", or "" when nothing is stocked. */
+    sizeLabel: sizes.length === 0 ? "" : sizes.length === 1 ? sizes[0]! : sizes.join(" & "),
+    sizes,
+  };
+});
+
+/** 5 -> "Five". Falls back to digits past ten, where words stop helping. */
+export function spellCount(n: number) {
+  const words = ["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten"];
+  return words[n] ?? String(n);
+}

@@ -172,10 +172,10 @@ function EmptyCart({ onClose }: { onClose: () => void }) {
         Your cart is waiting for its first obsession.
       </p>
       <p className="mt-3 max-w-xs font-sans text-sm leading-relaxed text-stone">
-        Five fragrances. One of them is going to be yours.
+        One of them is going to be yours.
       </p>
       <Link href="/shop" onClick={onClose} className="btn btn-outline btn-md mt-8">
-        Shop the five
+        Shop the range
       </Link>
     </div>
   );

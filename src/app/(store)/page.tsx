@@ -7,16 +7,37 @@ import { NotesStory } from "@/components/landing/notes-story";
 import { CollectionGrid } from "@/components/landing/collection-grid";
 import { ComboBand } from "@/components/landing/combo-band";
 import { BrandStory } from "@/components/landing/brand-story";
-import { getFeaturedProductCards, getFeaturedCombo } from "@/lib/catalog";
+import {
+  getFeaturedProductCards,
+  getFeaturedCombo,
+  getCatalogueSummary,
+  spellCount,
+} from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/env";
 
-export const metadata: Metadata = {
-  title: "Avenues — Eau de parfum, made in India",
-  description:
-    "Five eau de parfum fragrances built for Indian weather and long days. 50ml, eight to ten hours of wear, cash on delivery available.",
-  alternates: { canonical: siteUrl },
-};
+/**
+ * Built from the catalogue rather than asserted.
+ *
+ * A static description saying "Five fragrances" is the same bug as the on-page
+ * copy: it goes stale silently the day a sixth is added, and search engines
+ * keep repeating it.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const { count, sizeLabel } = await getCatalogueSummary().catch(() => ({
+    count: 0,
+    sizeLabel: "",
+  }));
+
+  const range = count > 0 ? `${spellCount(count)} eau de parfum fragrances` : "Eau de parfum";
+  const size = sizeLabel ? `${sizeLabel}, ` : "";
+
+  return {
+    title: "Avenues — Eau de parfum, made in India",
+    description: `${range} built for Indian weather and long days. ${size}eight to ten hours of wear, cash on delivery available.`,
+    alternates: { canonical: siteUrl },
+  };
+}
 
 // The catalogue changes only when an admin edits it, so serve this from cache
 // and revalidate hourly. Admin mutations call revalidatePath to push through.
@@ -35,7 +56,7 @@ export const revalidate = 3600;
  * newsletter form a screen above it would be the clearest template tell here.
  */
 export default async function HomePage() {
-  const [products, settings, featuredSet] = await Promise.all([
+  const [products, settings, featuredSet, summary] = await Promise.all([
     // Guarded like the layout and footer queries. This page is prerendered at
     // build time, so an unreachable database used to fail `next build`
     // outright — a transient blip during deploy should not take the whole
@@ -52,7 +73,14 @@ export default async function HomePage() {
       console.error("[home] featured combo unavailable:", err);
       return null;
     }),
+    // How many fragrances and in which sizes — read, never asserted.
+    getCatalogueSummary().catch((err) => {
+      console.error("[home] catalogue summary unavailable:", err);
+      return { count: 0, sizeLabel: "", sizes: [] as string[] };
+    }),
   ]);
+
+  const countWord = spellCount(summary.count);
 
   return (
     <>
@@ -63,6 +91,9 @@ export default async function HomePage() {
         // brand banner further down, which is deliberate: one hero image is
         // cheaper than two and the repeat reads as a motif, not a mistake.
         showcaseUrl={settings.brandBannerUrl}
+        count={summary.count}
+        countWord={countWord}
+        sizeLabel={summary.sizeLabel}
       />
       <BottleReveal />
       <FeaturedSlider products={products} />
@@ -78,10 +109,10 @@ export default async function HomePage() {
         radial — which is what the words want behind them. `brandBannerUrl`
         still drives the hero showcase above.
       */}
-      <BrandBanner imageUrl={null} />
+      <BrandBanner imageUrl={null} count={summary.count} sizeLabel={summary.sizeLabel} />
       <NotesStory products={products} />
       <ComboBand set={featuredSet} />
-      <CollectionGrid products={products} />
+      <CollectionGrid products={products} countWord={countWord} />
       <BrandStory />
     </>
   );

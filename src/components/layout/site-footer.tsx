@@ -57,7 +57,7 @@ export async function SiteFooter() {
         <div className="lg:col-span-4">
           <Logo size="md" showSubmark href={null} />
           <p className="mt-6 max-w-xs font-sans text-sm leading-relaxed text-stone">
-            Eau de parfum, made in India. Five fragrances, built to be remembered
+            Eau de parfum, made in India. Built to be remembered
             rather than noticed.
           </p>
 

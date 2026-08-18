@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     template: "%s · Avenues",
   },
   description:
-    "Five eau de parfum fragrances built to be remembered rather than noticed. 50ml, 8 to 10 hours of wear, delivered across India.",
+    "Eau de parfum built to be remembered rather than noticed. Eight to ten hours of wear, delivered across India.",
   applicationName: "Avenues",
   keywords: [
     "Avenues Perfumes",
@@ -65,13 +65,13 @@ export const metadata: Metadata = {
     url: siteUrl,
     title: "Avenues — Eau de parfum, made in India",
     description:
-      "Five fragrances built to be remembered rather than noticed. 50ml eau de parfum.",
+      "Eau de parfum, built to be remembered rather than noticed.",
   },
   twitter: {
     card: "summary_large_image",
     title: "Avenues — Eau de parfum, made in India",
     description:
-      "Five fragrances built to be remembered rather than noticed. 50ml eau de parfum.",
+      "Eau de parfum, built to be remembered rather than noticed.",
   },
   robots: { index: true, follow: true },
 };

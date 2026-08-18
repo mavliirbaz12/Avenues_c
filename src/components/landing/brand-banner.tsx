@@ -2,12 +2,19 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/motion/reveal";
 
-const FACTS = [
-  { value: "05", label: "Fragrances" },
-  { value: "50ml", label: "Eau de parfum" },
-  { value: "8–10h", label: "On skin" },
-  { value: "India", label: "Made and bottled" },
-];
+/**
+ * The two figures that move with the catalogue are passed in; the two that do
+ * not are literals. Previously all four were literals, so adding a sixth scent
+ * or a 100ml bottle would have left the band quietly stating something false.
+ */
+function facts(count: number, sizeLabel: string) {
+  return [
+    { value: String(count).padStart(2, "0"), label: "Fragrances" },
+    { value: sizeLabel, label: "Eau de parfum" },
+    { value: "8–10h", label: "On skin" },
+    { value: "India", label: "Made and bottled" },
+  ].filter((f) => f.value);
+}
 
 /**
  * The brand statement band.
@@ -22,7 +29,16 @@ const FACTS = [
  * The facts strip grounds the mood with something concrete; a mantra alone
  * over an image is the stock-photo move.
  */
-export function BrandBanner({ imageUrl }: { imageUrl: string | null }) {
+export function BrandBanner({
+  imageUrl,
+  count,
+  sizeLabel,
+}: {
+  imageUrl: string | null;
+  count: number;
+  sizeLabel: string;
+}) {
+  const FACTS = facts(count, sizeLabel);
   return (
     <section
       className={cn(

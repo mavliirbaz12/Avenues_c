@@ -199,7 +199,7 @@ export function CheckoutForm({
           Your cart is empty. The five are waiting.
         </p>
         <Link href="/shop" className="btn btn-outline btn-lg mt-8">
-          Shop the five
+          Shop the range
         </Link>
       </div>
     );
