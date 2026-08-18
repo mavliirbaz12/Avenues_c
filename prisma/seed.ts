@@ -225,7 +225,7 @@ const COLLECTIONS = [
 ];
 
 async function seedAdmin() {
-  const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@avenuesperfumes.com").toLowerCase();
+  const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@avenuesperfume.com").toLowerCase();
   const password = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe!2026";
   const name = process.env.SEED_ADMIN_NAME ?? "Avenues Admin";
 
@@ -382,8 +382,8 @@ async function seedSettings() {
       freeShippingThresholdPaise: 99900,
       codEnabled: true,
       codFeePaise: 4900,
-      supportEmail: "support@avenuesperfumes.com",
-      customerCareEmail: "care@avenuesperfumes.com",
+      supportEmail: "supportavenuesperfume@gmail.com",
+      customerCareEmail: "supportavenuesperfume@gmail.com",
       manufacturerName: "Avenues Perfumes",
       manufacturerAddress:
         "Marketed by Avenues Perfumes. Add your full registered address, city, state and PIN from Admin → Settings before going live.",

@@ -47,11 +47,18 @@ const DEFAULTS: StoreSettings = {
   codMaxOrderPaise: null,
   delhiveryPickupName: null,
   whatsappNumber: null,
-  supportEmail: "support@avenuesperfumes.com",
+  // The address a customer is told to write to, and the reply-to on every
+  // order email. It has to RECEIVE, which is a higher bar than looking right:
+  // the domain is registered but has no mailbox, so support@avenuesperfume.com would
+  // bounce silently and a customer chasing an order would hear nothing.
+  //
+  // The Gmail is monitored today. Change it in Admin -> Settings the moment a
+  // real mailbox exists; this is a default, not a decision.
+  supportEmail: "supportavenuesperfume@gmail.com",
   supportPhone: null,
   manufacturerName: "Avenues Perfumes",
   manufacturerAddress: "",
-  customerCareEmail: "care@avenuesperfumes.com",
+  customerCareEmail: "supportavenuesperfume@gmail.com",
   customerCarePhone: null,
   gstin: null,
   invoicePrefix: "AVN",

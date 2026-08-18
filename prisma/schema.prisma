@@ -862,13 +862,13 @@ model StoreSetting {
   // Support channels — rendered by the floating WhatsApp button, the footer,
   // and the per-product "Enquire on WhatsApp" link.
   whatsappNumber String? // E.164 without '+', e.g. 919876543210
-  supportEmail   String  @default("support@avenuesperfumes.com")
+  supportEmail   String  @default("supportavenuesperfume@gmail.com")
   supportPhone   String?
 
   // Legal Metrology / statutory
   manufacturerName    String  @default("Avenues Perfumes")
   manufacturerAddress String  @default("") @db.Text
-  customerCareEmail   String  @default("care@avenuesperfumes.com")
+  customerCareEmail   String  @default("supportavenuesperfume@gmail.com")
   customerCarePhone   String?
   gstin               String?
 
