@@ -70,6 +70,12 @@ export function testEnv(): Record<string, string> {
     CLOUDINARY_API_KEY: "",
     CLOUDINARY_API_SECRET: "",
     RESEND_API_KEY: "",
+    // Blanked for the same reason as RESEND_API_KEY, and more urgently: Brevo
+    // verifies a single sender address rather than a domain, so a configured
+    // key would actually deliver. The journey signs up with a real inbox
+    // (JOURNEY.email) — leaving this to whatever is in .env would post that
+    // person a receipt every run.
+    BREVO_API_KEY: "",
     UPSTASH_REDIS_REST_URL: "",
     UPSTASH_REDIS_REST_TOKEN: "",
 

@@ -163,6 +163,29 @@ function stripTags(html: string) {
  * table-based with inline styles and no webfonts. The monogram is drawn as an
  * inline SVG data URI — clients that block remote images still show the mark.
  */
+/**
+ * The real lockup, hosted on the CDN.
+ *
+ * Not typed text: the header used to set "AVENUES" in letter-spaced Georgia,
+ * which is a decent impression of the wordmark and visibly not it. The supplied
+ * artwork has its own letterforms and its gold gradient.
+ *
+ * Not a data: URI either — Gmail strips those from <img>, so an inlined logo
+ * arrives as a broken image in the client that matters most. A hosted URL is
+ * the only form that renders.
+ *
+ * These live under avenues/email/ rather than in the product folder the admin
+ * panel manages, because already-delivered mail can be opened years from now
+ * and tidying up product images must never be able to blank the brand mark out
+ * of every receipt ever sent.
+ *
+ * The mark carries alt="" and the wordmark alt="Avenues", so a client with
+ * images off shows the brand name once rather than twice or not at all.
+ */
+const CDN = "https://res.cloudinary.com/kvmlr7s8/image/upload";
+const LOGO_MARK = `${CDN}/avenues/email/logo-mark.png`;
+const LOGO_WORDMARK = `${CDN}/avenues/email/logo-wordmark.png`;
+
 export function emailShell(opts: {
   preheader: string;
   heading: string;
@@ -180,8 +203,11 @@ export function emailShell(opts: {
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#141416;border:1px solid #232327;">
         <tr><td align="center" style="padding:36px 32px 8px;">
-          <div style="font:300 22px/1 Georgia,'Times New Roman',serif;letter-spacing:.36em;text-transform:uppercase;color:#F2EDE3;">Avenues</div>
-          <div style="font:400 9px/1 Arial,sans-serif;letter-spacing:.36em;text-transform:uppercase;color:#C9A24B;padding-top:8px;">Perfumes</div>
+          <img src="${LOGO_MARK}" width="72" height="58" alt=""
+               style="display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none;">
+          <img src="${LOGO_WORDMARK}" width="190" height="20" alt="Avenues"
+               style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;">
+          <div style="font:400 9px/1 Arial,sans-serif;letter-spacing:.36em;text-transform:uppercase;color:#C9A24B;padding-top:10px;">Perfumes</div>
         </td></tr>
         <tr><td style="padding:8px 32px 0;">
           <div style="height:1px;background:#232327;margin:24px 0 28px;"></div>
@@ -197,7 +223,7 @@ export function emailShell(opts: {
         }
         <tr><td style="padding:32px;">
           <div style="height:1px;background:#232327;margin-bottom:20px;"></div>
-          <p style="margin:0;font:400 12px/1.7 Arial,sans-serif;color:#6B655D;">
+          <p style="margin:0;font:400 12px/1.7 Arial,sans-serif;color:#868075;">
             ${footerNote ? `${escapeHtml(footerNote)}<br><br>` : ""}
             Avenues Perfumes &middot; <a href="${siteUrl}" style="color:#C9A24B;text-decoration:none;">${siteUrl.replace(/^https?:\/\//, "")}</a><br>
             Questions? Reply to this email and a person will answer.

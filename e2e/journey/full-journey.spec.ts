@@ -384,6 +384,26 @@ test.describe("the full customer journey", () => {
     await shot(page, testInfo, "new address filled in", { fullPage: true });
     await main(page).getByRole("button", { name: /save address/i }).click();
 
+    // The write lands — assert that first, because it is what the customer
+    // actually asked for and it is the only part currently working.
+    await expect
+      .poll(
+        () =>
+          db.address.count({
+            where: { user: { email: JOURNEY.email }, line1: JOURNEY_ADDRESS.line1 },
+          }),
+        { timeout: 20_000, message: "the address should reach the database" },
+      )
+      .toBe(1);
+
+    // Reload rather than waiting for the editor to close. It does not close:
+    // the row is written and the action returns 200, but `useActionState`
+    // never sees `ok: true`, so the editor sits there with a freshly reset,
+    // blank form and no toast. See "known gaps" below and e2e/FINDINGS.md →
+    // "Open" #4 — the customer's natural response is to fill it in and save
+    // again, which is how duplicate addresses get made.
+    await page.reload();
+
     // The card comes back rendered from the database, not from the form.
     await expect(main(page).getByText(JOURNEY_ADDRESS.line1)).toBeVisible({ timeout: 20_000 });
     await expect(
@@ -731,6 +751,57 @@ test.describe("the full customer journey", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("known gaps", () => {
+  /**
+   * Saving an address writes the row but never tells the customer.
+   *
+   * `saveAddress` returns `{ ok: true }` and the POST answers 200, but the
+   * `AddressEditor`'s `useActionState` never observes it: the editor stays
+   * open, React resets the uncontrolled form, and no toast fires. What the
+   * customer sees is a blank "New address" form exactly where they left a
+   * filled one — so they fill it in and save again. Every extra attempt writes
+   * another row. Four consecutive attempts while diagnosing this left four
+   * identical addresses in the book.
+   *
+   * The write is fine; only the confirmation is lost. Suspected cause is the
+   * `revalidatePath` calls at the end of the action remounting the subtree
+   * through /account's loading boundary, which resets the action state before
+   * the effect that closes the editor can run.
+   */
+  test("saving the FIRST address closes the editor and confirms it", async ({ page }) => {
+    test.fail();
+
+    // The empty book is the whole point: saving a *second* address confirms
+    // and closes correctly. Only the first one — the one reached through the
+    // empty state, and the only one every new customer meets — does not.
+    await db.address.deleteMany({ where: { user: { email: JOURNEY.email } } });
+
+    await page.goto("/login");
+    const tab = page.getByRole("tab", { name: "Email" });
+    if (await tab.isVisible().catch(() => false)) await tab.click();
+    await main(page).getByLabel("Email", { exact: true }).fill(JOURNEY.email);
+    await main(page).getByLabel("Password", { exact: true }).fill(JOURNEY.password);
+    await main(page).getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+
+    await page.goto("/account/addresses");
+    await main(page).getByRole("button", { name: /add (an|another) address/i }).click();
+
+    const s = main(page);
+    await s.getByLabel("Full name", { exact: true }).fill("Gap Check");
+    await s.getByLabel("Phone", { exact: true }).fill("9820098202");
+    await s.getByLabel(/flat, house no/i).fill("7 Confirmation Road");
+    await s.getByLabel("Pincode", { exact: true }).fill("400051");
+    await s.getByLabel("City", { exact: true }).fill("Mumbai");
+    await s.getByLabel("State", { exact: true }).selectOption("Maharashtra");
+    await s.getByRole("button", { name: /save address/i }).click();
+
+    // The editor should give way to the address book, without a reload.
+    await expect(
+      main(page).getByRole("button", { name: /add another address/i }),
+      "a saved address should close the editor and show the book again",
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
   /**
    * Renaming yourself updates the database but not what the site calls you.
    *

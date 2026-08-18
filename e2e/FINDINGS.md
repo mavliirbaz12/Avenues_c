@@ -135,6 +135,33 @@ bug a single-session journey exists to catch.
 rename", marked `test.fail()` so it documents the defect while the suite stays
 green, and reports an unexpected pass the moment it is fixed.
 
+### 4. Saving an address writes the row but never says so — and duplicates
+
+The most damaging of the four. `saveAddress` creates the address and returns
+`{ ok: true }`; the POST answers **200** and the row is in the database. But the
+`AddressEditor`'s `useActionState` never observes that result, so its effect
+never runs: no toast, and `onDone()` never closes the editor. Meanwhile React
+resets the uncontrolled form, as it does after any completed action.
+
+What the customer is left looking at is a **blank "New address" form, exactly
+where they left a filled one, with no confirmation anywhere on the page.** The
+reasonable response is to type it all in again and press Save again — and every
+attempt writes another row. Four consecutive attempts while diagnosing this left
+four identical addresses in the book.
+
+Suspected cause: the two `revalidatePath` calls at the end of the action refresh
+the current tree through `/account`'s loading boundary, remounting
+`AddressEditor` with a fresh `useActionState` before the effect that reads
+`state.ok` can run. Worth confirming by removing one `revalidatePath` at a time.
+
+Reproducible on the current build, 4/4. An earlier build of the same spec passed
+this step, so it reads like a regression rather than a long-standing defect —
+worth a look at what changed in between before assuming otherwise.
+
+*Caught by:* journey step 08, which now asserts the database row and reloads to
+see the card; and journey → "known gaps" → "saving an address closes the editor
+and confirms it", marked `test.fail()`.
+
 ### 3. The City field is not filled in from the pincode
 
 `/api/pincode` returns the city for a serviceable pincode and the checkout badge
