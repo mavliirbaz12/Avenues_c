@@ -60,17 +60,21 @@ const INK = "0x0B0B0D";
  * re-exporting at 1920x1080 or better; until then, upscaling here would only
  * make the file bigger while looking identical.
  */
+/**
+ * NO PADDING EITHER, now that the canvas uses `contain`.
+ *
+ * The bars existed so `cover` had something safe to crop. With `contain` the
+ * frame is never cut, so every pixel spent on black was a pixel not spent on
+ * the bottle — and against an already-low-resolution source that mattered:
+ * the padded desktop frame was 1024x640 of which 64 rows were ink, and the
+ * padded phone frame was 461x936 of which 360 rows were.
+ *
+ * The letterbox is now drawn by the page itself, in exactly the same ink,
+ * which costs nothing and renders the subject larger.
+ */
 const VARIANTS = [
-  {
-    name: "lg",
-    // Native width, padded to the desktop stage ratio (1.6:1).
-    filter: `pad=1024:640:0:32:${INK}`,
-  },
-  {
-    name: "sm",
-    // 4:5 centre crop at native scale, padded tall for a phone.
-    filter: `crop=461:576:281:0,pad=461:936:0:180:${INK}`,
-  },
+  { name: "lg", filter: "null" },                        // the frame as shot
+  { name: "sm", filter: "crop=461:576:281:0" },          // 4:5 centre crop
 ];
 
 async function ffmpegAvailable() {

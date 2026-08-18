@@ -113,11 +113,15 @@ export function BottleReveal() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
 
-      // Cover, not contain. Frames are generated at the aspect of the device
-      // they play on, so the crop here is small — but the section has to read
-      // as full-bleed, and contain would letterbox it the moment a viewport
-      // was a little wider or taller than the generated ratio.
-      const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+      // CONTAIN, not cover.
+      //
+      // Cover crops whatever does not fit, and a window whose ratio differs
+      // from the generated frame — a short wide laptop, a split screen — had
+      // the bottle sliced off top and bottom. Contain can never cut the
+      // subject, and it costs nothing here because each frame already carries
+      // the page's own ink as padding: the "letterbox" is the same colour as
+      // the section behind it, so there is nothing to see.
+      const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
       const w = img.naturalWidth * scale;
       const h = img.naturalHeight * scale;
       ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);

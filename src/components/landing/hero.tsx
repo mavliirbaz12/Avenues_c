@@ -130,7 +130,11 @@ export function Hero({
                 alt="The Avenues range — five eau de parfums and the discovery set."
                 fill
                 priority
-                sizes="(max-width: 1024px) 0px, 45vw"
+                // WAS `(max-width: 1024px) 0px` — written when this image was
+                // desktop-only, and never updated when it started stacking on
+                // phones. Next took it at its word and served a near-zero-width
+                // file, which is why the banner looked blurred on mobile.
+                sizes="(max-width: 1024px) 100vw, 45vw"
                 className="object-contain object-center"
               />
             </div>
