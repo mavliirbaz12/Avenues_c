@@ -41,6 +41,14 @@ import { cn } from "@/lib/utils";
 const FRAME_COUNT = 120;
 /** Every Nth frame in the priority pass. */
 const COARSE_STRIDE = 8;
+/**
+ * How much of the frame's height may be cropped to reach full width.
+ *
+ * 15% is the most that can come off the top and bottom of these frames before
+ * it starts taking the cap of the bottle.
+ */
+const MAX_CROP = 0.15;
+
 /** Below this viewport width we load the 640px frames instead of 1200px. */
 const SMALL_BP = 768;
 
@@ -93,6 +101,29 @@ export function BottleReveal() {
    */
   const [afterLoad, setAfterLoad] = useState(false);
 
+  /**
+   * Which frame set to draw — and it has to be able to CHANGE.
+   *
+   * This was read once, from `window.innerWidth`, when the loader first ran.
+   * Any viewport change after that left the wrong set decoded: open devtools
+   * on a laptop, or rotate a tablet, and the phone frames (460x576, portrait)
+   * stayed on a wide canvas, where `contain` letterboxed them with black down
+   * both sides. It looked like the section had stopped filling the width, and
+   * no amount of scrolling fixed it because nothing was watching.
+   *
+   * `matchMedia` fires only when the breakpoint is actually crossed, so the
+   * reload it triggers is rare rather than per-resize-tick.
+   */
+  const [variant, setVariant] = useState<"lg" | "sm">("lg");
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${SMALL_BP - 1}px)`);
+    const sync = () => setVariant(mq.matches ? "sm" : "lg");
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   useEffect(() => {
     if (document.readyState === "complete") {
       setAfterLoad(true);
@@ -142,15 +173,25 @@ export function BottleReveal() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
 
-      // CONTAIN, not cover.
+      // FILL THE WIDTH, and allow a bounded crop of the height to do it.
       //
-      // Cover crops whatever does not fit, and a window whose ratio differs
-      // from the generated frame — a short wide laptop, a split screen — had
-      // the bottle sliced off top and bottom. Contain can never cut the
-      // subject, and it costs nothing here because each frame already carries
-      // the page's own ink as padding: the "letterbox" is the same colour as
-      // the section behind it, so there is nothing to see.
-      const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+      // Plain `contain` guarantees the subject is never cut, but on a phone
+      // that means the frame is fitted to whichever edge runs out first, and
+      // the section stops reaching the sides of the screen. A full-bleed image
+      // is most of the point of this section.
+      //
+      // Plain `cover` is the other extreme and was tried first: on a short
+      // wide window it sliced the top and bottom off the bottle.
+      //
+      // So: scale to the width, but never let the result overflow the height
+      // by more than MAX_CROP. On every phone and laptop ratio the width wins
+      // and the image is full-bleed; only a genuinely short, wide window falls
+      // back toward letterboxing, which is the case where cropping would eat
+      // the subject.
+      const scale = Math.min(
+        cw / img.naturalWidth,
+        ((ch / img.naturalHeight) * (1 + MAX_CROP)),
+      );
       const w = img.naturalWidth * scale;
       const h = img.naturalHeight * scale;
       ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
@@ -189,7 +230,6 @@ export function BottleReveal() {
     if (reduce || !near || !afterLoad) return;
 
     let cancelled = false;
-    const variant: "lg" | "sm" = window.innerWidth < SMALL_BP ? "sm" : "lg";
     framesRef.current = new Array(FRAME_COUNT).fill(null);
 
     const load = (i: number) =>
@@ -231,7 +271,7 @@ export function BottleReveal() {
     return () => {
       cancelled = true;
     };
-  }, [reduce, near, afterLoad, draw]);
+  }, [reduce, near, afterLoad, variant, draw]);
 
   // ---- Scrub -------------------------------------------------------------
   useEffect(() => {
