@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { cachedSettings } from "./cache";
 import { prisma } from "./prisma";
 
 /**
@@ -64,7 +65,15 @@ const DEFAULTS: StoreSettings = {
   brandBannerUrl: null,
 };
 
-export const getStoreSettings = cache(async (): Promise<StoreSettings> => {
+/**
+ * One immutable-ish row, read on every request of every page.
+ *
+ * It drives the announcement strip, the WhatsApp number, shipping thresholds
+ * and the hero media, so the layout needs it before it can render anything —
+ * which made it a per-navigation round trip on a row that changes when the
+ * founder edits Settings and at no other time.
+ */
+const storeSettingsUncached = async (): Promise<StoreSettings> => {
   try {
     const row = await prisma.storeSetting.findUnique({ where: { id: 1 } });
     if (!row) return DEFAULTS;
@@ -97,7 +106,11 @@ export const getStoreSettings = cache(async (): Promise<StoreSettings> => {
     // Database unreachable at render time — serve the shell rather than a 500.
     return DEFAULTS;
   }
-});
+};
+
+export const getStoreSettings = cache(
+  cachedSettings(storeSettingsUncached, ["store-settings"]),
+);
 
 /** Builds a wa.me deep link with a pre-filled message. */
 export function whatsappLink(number: string | null | undefined, message: string) {

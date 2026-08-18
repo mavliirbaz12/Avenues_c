@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { Gender, Prisma } from "@prisma/client";
@@ -152,6 +153,7 @@ export async function saveProduct(_prev: FormState, formData: FormData): Promise
 
 function revalidateProduct(oldSlug: string | undefined, newSlug: string) {
   revalidatePath("/");
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/shop");
   revalidatePath(`/fragrance/${newSlug}`);
   if (oldSlug && oldSlug !== newSlug) revalidatePath(`/fragrance/${oldSlug}`);
@@ -205,6 +207,7 @@ export async function toggleProductActive(
   revalidateProduct(product.slug, product.slug);
   revalidatePath("/admin/products");
   revalidatePath("/sets");
+  revalidateTag(CATALOG_TAG);
   return { ok: true, message: isActive ? "Back on the storefront." : "Retired." };
 }
 

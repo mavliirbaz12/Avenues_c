@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { cachedCatalog } from "./cache";
 import { Prisma, type Gender, type ProductType } from "@prisma/client";
 import { prisma } from "./prisma";
 
@@ -144,8 +145,8 @@ export function toProductCard(row: ProductCardRow): ProductCard {
  * Swallows errors like the callers did: a dead database should cost the site
  * its nav links, not the whole shell.
  */
-export const getNavFragrances = cache(async () => {
-  return prisma.product
+const navFragrancesUncached = async () =>
+  prisma.product
     .findMany({
       where: { isActive: true },
       select: { slug: true, name: true },
@@ -153,7 +154,22 @@ export const getNavFragrances = cache(async () => {
       take: 8,
     })
     .catch(() => []);
-});
+
+/**
+ * Two layers, and they do different jobs.
+ *
+ * `cachedCatalog` keeps the result between NAVIGATIONS, which is the one that
+ * matters here: this runs in the storefront layout, so before it was cached
+ * every page on the site paid for it — including pages with no data of their
+ * own.
+ *
+ * `cache()` still wraps it because the nav and the footer both call this inside
+ * a single render. Without it that would be two reads of the cache entry per
+ * page rather than one.
+ */
+export const getNavFragrances = cache(
+  cachedCatalog(navFragrancesUncached, ["nav-fragrances"]),
+);
 
 export async function getActiveProductCards(args?: {
   where?: Prisma.ProductWhereInput;

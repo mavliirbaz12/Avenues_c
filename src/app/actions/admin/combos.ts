@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "@/lib/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -175,6 +176,7 @@ export async function saveCombo(_prev: FormState, formData: FormData): Promise<F
         const before = await tx.product.findUnique({ where: { id }, select: { slug: true } });
         await tx.product.update({ where: { id }, data: productData });
         if (before && before.slug !== slug) revalidatePath(`/set/${before.slug}`);
+        revalidateTag(CATALOG_TAG);
       } else {
         const created = await tx.product.create({
           data: { ...productData, occasions: [], whyChoose: [] },
@@ -270,6 +272,7 @@ export async function setFeaturedCombo(comboId: string): Promise<SimpleActionSta
   ]);
 
   revalidatePath("/");
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/sets");
   revalidatePath("/admin/combos");
   return { ok: true, message: "Featured on the homepage." };
@@ -303,6 +306,7 @@ export async function deleteCombo(comboId: string): Promise<SimpleActionState> {
 
 function revalidateCombo(slug: string) {
   revalidatePath("/");
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/shop");
   revalidatePath("/sets");
   revalidatePath(`/set/${slug}`);

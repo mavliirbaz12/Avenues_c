@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "@/lib/cache";
 import { z } from "zod";
 import { CouponType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -193,6 +194,7 @@ export async function saveCollection(_prev: FormState, formData: FormData): Prom
 
   revalidatePath("/admin/collections");
   revalidatePath("/");
+  revalidateTag(CATALOG_TAG);
   return { ok: true, message: d.id ? "Collection saved." : "Collection created." };
 }
 
@@ -201,4 +203,5 @@ export async function deleteCollection(collectionId: string) {
   await prisma.collection.delete({ where: { id: collectionId } });
   revalidatePath("/admin/collections");
   revalidatePath("/");
+  revalidateTag(CATALOG_TAG);
 }

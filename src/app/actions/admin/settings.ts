@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { SETTINGS_TAG } from "@/lib/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
@@ -102,6 +103,7 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
   // Settings feed the storefront shell (footer, WhatsApp button, PDP legal
   // block), so flush broadly.
   revalidatePath("/", "layout");
+  revalidateTag(SETTINGS_TAG);
   revalidatePath("/admin/settings");
   return { ok: true, message: "Settings saved." };
 }
