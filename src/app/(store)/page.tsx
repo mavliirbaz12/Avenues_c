@@ -66,7 +66,19 @@ export default async function HomePage() {
       />
       <BottleReveal />
       <FeaturedSlider products={products} />
-      <BrandBanner imageUrl={settings.brandBannerUrl} />
+      {/*
+        No photograph behind the mantra.
+
+        The same shot is now the hero, and repeating it a screen later added
+        nothing — it also rendered badly here: contained inside a full-width
+        band it sat left with a void beside it, and the two lines of display
+        type landed on top of the bottles rather than on quiet ground.
+
+        The band falls back to its designed treatment — grain and a low gold
+        radial — which is what the words want behind them. `brandBannerUrl`
+        still drives the hero showcase above.
+      */}
+      <BrandBanner imageUrl={null} />
       <NotesStory products={products} />
       <ComboBand set={featuredSet} />
       <CollectionGrid products={products} />
