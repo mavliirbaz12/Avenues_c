@@ -74,6 +74,35 @@ export function BottleReveal() {
    */
   const [near, setNear] = useState(false);
 
+  /**
+   * The second gate: the page must have finished loading first.
+   *
+   * `near` alone is not enough, and the reason is specific to where this
+   * section sits. The hero is about 790px tall and a laptop viewport is about
+   * 800px, so the wrapper's top edge is ALREADY on screen at scroll zero —
+   * every rootMargin fires on mount, and the observer buys nothing.
+   *
+   * The result was 120 frame requests opening while the hero image, the fonts
+   * and the route JS were still in flight. They win bandwidth from the things
+   * the visitor can actually see, and because the browser counts them as part
+   * of the initial load, the tab kept its spinner running for as long as the
+   * sequence took to stream — which reads as a page that never finishes.
+   *
+   * Waiting for `load` fixes both. Subresources requested afterwards do not
+   * re-arm the spinner, and by then nothing above the fold is competing.
+   */
+  const [afterLoad, setAfterLoad] = useState(false);
+
+  useEffect(() => {
+    if (document.readyState === "complete") {
+      setAfterLoad(true);
+      return;
+    }
+    const on = () => setAfterLoad(true);
+    window.addEventListener("load", on, { once: true });
+    return () => window.removeEventListener("load", on);
+  }, []);
+
   const { scrollYProgress } = useScroll({
     target: wrapRef,
     // Start when the wrapper's top hits the viewport top, finish when its
@@ -157,7 +186,7 @@ export function BottleReveal() {
 
   // ---- Load the sequence -------------------------------------------------
   useEffect(() => {
-    if (reduce || !near) return;
+    if (reduce || !near || !afterLoad) return;
 
     let cancelled = false;
     const variant: "lg" | "sm" = window.innerWidth < SMALL_BP ? "sm" : "lg";
@@ -202,7 +231,7 @@ export function BottleReveal() {
     return () => {
       cancelled = true;
     };
-  }, [reduce, near, draw]);
+  }, [reduce, near, afterLoad, draw]);
 
   // ---- Scrub -------------------------------------------------------------
   useEffect(() => {
