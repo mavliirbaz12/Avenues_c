@@ -66,7 +66,15 @@ const FLOOR = 14;
 /** Breathing room taken from the source, as a fraction of the crop's long edge. */
 const PAD = 0.035;
 
-/** Final margin on every side, as a fraction of the ink's long edge. */
+/**
+ * Final margin on every side, as a fraction of the ink's SHORT edge.
+ *
+ * Short, not long, and the wordmark is why. AVENUES is 578x55 — measuring the
+ * margin against 578 gave it a 46px border, which left the letters occupying
+ * 37% of their own box. Sized by that box in the nav they rendered at about
+ * eight pixels tall: the brand name reduced to a caption beside its own mark.
+ * Against the short edge the two assets come out consistent, ~86% ink each.
+ */
 const PAD_EVEN = 0.08;
 
 async function bandBox(from, to) {
@@ -171,26 +179,31 @@ async function padEvenly(buf) {
     }
   }
 
-  const want = Math.round(Math.max(x1 - x0, y1 - y0) * PAD_EVEN);
-  const ext = {
-    left: Math.max(0, want - x0),
-    top: Math.max(0, want - y0),
-    right: Math.max(0, want - (W - 1 - x1)),
-    bottom: Math.max(0, want - (H - 1 - y1)),
-  };
+  const iw = x1 - x0 + 1;
+  const ih = y1 - y0 + 1;
+  const want = Math.round(Math.min(iw, ih) * PAD_EVEN);
 
-  if (!ext.left && !ext.top && !ext.right && !ext.bottom) {
-    return { buf, width: W, height: H };
-  }
-
-  console.log(
-    `      even margin ${want}px: +L${ext.left} +T${ext.top} +R${ext.right} +B${ext.bottom}`,
-  );
+  // Trim to the ink first, THEN extend. Adding margin without removing what is
+  // already there leaves whatever `bandBox` happened to include — which for the
+  // wordmark was 26 rows top and bottom, so the letters stayed at half their
+  // box height and the "even" margin added nothing. Cutting back to the ink
+  // makes this step the single authority on the final geometry.
   const out = await sharp(buf)
-    .extend({ ...ext, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .extract({ left: x0, top: y0, width: iw, height: ih })
+    .extend({
+      left: want,
+      right: want,
+      top: want,
+      bottom: want,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png({ compressionLevel: 9 })
     .toBuffer();
-  return { buf: out, width: W + ext.left + ext.right, height: H + ext.top + ext.bottom };
+
+  const w = iw + want * 2;
+  const h = ih + want * 2;
+  console.log(`      ink ${iw}x${ih} + ${want}px margin -> ${w}x${h} (${((ih / h) * 100).toFixed(0)}% ink)`);
+  return { buf: out, width: w, height: h };
 }
 
 async function cut(name, band) {
@@ -267,7 +280,7 @@ async function icon(file, size, inset, ground) {
 console.log(`Cutting marks from ${SOURCE}`);
 await cut("logo-mark", BANDS.mark);
 await cut("logo-wordmark", BANDS.wordmark);
-await icon("icon.png", 512, 0.86);
+await icon("icon.png", 512, 0.95);
 await icon("apple-icon.png", 180, 0.72, INK_BG);
 console.log(
   "\nThe width/height printed above are the intrinsic sizes. They must match " +
