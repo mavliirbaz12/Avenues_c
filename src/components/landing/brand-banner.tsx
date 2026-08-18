@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/motion/reveal";
 
 const FACTS = [
@@ -23,12 +24,37 @@ const FACTS = [
  */
 export function BrandBanner({ imageUrl }: { imageUrl: string | null }) {
   return (
-    <section className="relative overflow-hidden border-y border-line bg-ink-deep" aria-label="Our promise">
+    <section
+      className={cn(
+        "relative overflow-hidden border-y border-line bg-ink-deep",
+        // The band takes the photograph's own proportions (1600x1283) so
+        // `object-contain` has somewhere to be, capped so it never eats a
+        // whole tall screen. Without a ratio here the height came from the
+        // two lines of type and the image shrank to a strip.
+        imageUrl && "aspect-[1600/1283] max-h-[85vh] sm:aspect-[16/9] lg:aspect-[1600/1283]",
+      )}
+      aria-label="Our promise"
+    >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         {imageUrl ? (
           <>
-            <Image src={imageUrl} alt="" fill className="object-cover" />
-            <div className="absolute inset-0 bg-ink-deep/72" />
+            {/* `contain`, not `cover`: this is a composed product photograph
+                — the gift box, the five bottles, the wordmark — and cropping
+                it to fill a band cut the subject in half. The section takes
+                its height from the image instead, so the whole frame shows on
+                every viewport. */}
+            <Image
+              src={imageUrl}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-contain object-center"
+            />
+            {/* Lighter scrim than before: the type sits in the upper third
+                where the photograph is mostly marble, so it no longer needs to
+                be dimmed to near-black to stay readable. */}
+            <div className="absolute inset-0 bg-ink-deep/55" />
           </>
         ) : (
           <div className="absolute inset-0 grain">
@@ -44,7 +70,15 @@ export function BrandBanner({ imageUrl }: { imageUrl: string | null }) {
         <div className="absolute inset-0 vignette" />
       </div>
 
-      <div className="shell relative z-[2] py-section text-center">
+      {/* Centred over the photograph rather than pushing it taller. */}
+      <div
+        className={cn(
+          "shell relative z-[2] text-center",
+          imageUrl
+            ? "flex h-full flex-col items-center justify-center py-12"
+            : "py-section",
+        )}
+      >
         <Reveal>
           {/* max-w-5xl and the shorter second line together stop "room."
               orphaning onto a third line at the d2 clamp's upper end. */}

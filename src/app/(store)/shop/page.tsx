@@ -54,17 +54,17 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   // A search narrows the candidate set; otherwise start from the whole
   // catalogue. Facet counts below are always computed from the full set so
   // the numbers don't jump around as filters are applied.
-  const all = await getActiveProductCards();
+  // Fragrances only. Gift sets live at /sets and in the nav — listing them
+  // here too made the same product appear in two places with two different
+  // framings, and made "5 fragrances" wrong. A set added from admin now shows
+  // up on /sets and nowhere else.
+  const all = await getActiveProductCards({ where: { type: "SINGLE" } });
   const base: Card[] = q ? await searchProducts(q, 50) : all;
 
   const facets: FacetData = {
-    // Only offered once sets exist — a lone "Fragrances (5)" chip is noise.
-    kinds: [
-      { value: "SINGLE", label: "Fragrances" },
-      { value: "COMBO", label: "Gift sets" },
-    ]
-      .map((k) => ({ ...k, count: all.filter((p) => p.type === k.value).length }))
-      .filter((k) => k.count > 0),
+    // Empty: this page lists fragrances only, so the facet has one option and
+    // FilterBar hides it. Kept in the shape so the type stays honest.
+    kinds: [],
     genders: (Object.keys(GENDER_LABEL) as Gender[])
       .map((g) => ({
         value: g,
@@ -87,6 +87,8 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   };
 
   let products = base.filter((p) => {
+    // Defensive: a ?kind= in an old bookmark should not resurrect sets here.
+    if (p.type !== "SINGLE") return false;
     if (kindFilter.size && !kindFilter.has(p.type)) return false;
     if (genderFilter.size && !genderFilter.has(p.gender)) return false;
     if (sizeFilter.size && !(p.defaultVariant && sizeFilter.has(p.defaultVariant.size))) return false;
