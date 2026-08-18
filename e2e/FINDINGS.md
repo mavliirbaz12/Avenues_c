@@ -79,6 +79,70 @@ the `<li>`; separators are `<li aria-hidden>`.
 
 ---
 
+## Open — found by the end-to-end journey, not yet fixed
+
+Both were found by `e2e/journey/full-journey.spec.ts`, which walks one browser
+session from signup to a tracked order. Neither is visible to an isolated spec,
+for the same underlying reason: each is a disagreement between what the database
+says and what the page shows, and a spec that asserts one of those never notices
+the other.
+
+### 1. Signing out fires an authenticated request at a dead session
+
+`signOut({ callbackUrl: "/" })` tears the session cookie down, but the router
+replays the signed-in tree for a frame on the way out. `SessionSync` mounts in
+that replay, believes `isAuthed`, and 120ms later posts the cart and wishlist to
+`/api/sync` — which by then answers **401**, and Chromium logs it in the
+customer's console. When the replay wins the race it also trips a hydration
+mismatch (React #418).
+
+Nothing is lost — the local stores stay authoritative and the UI settles on the
+signed-out header — so this is noise rather than damage. It is still a 401 and a
+hydration warning in a production console on a path every customer takes.
+
+Likely fix: have `SessionSync` re-check the session immediately before it posts,
+or key it on the session object rather than a boolean captured at mount.
+
+*Caught by:* journey step 03. Tolerated there by two named patterns on
+`allowedConsole`, so every **other** console error in that step still fails.
+
+### 2. Renaming yourself does not change what the site calls you
+
+`updateProfile` writes the new name to the database and calls
+`revalidatePath("/account")`. But `account/layout.tsx` renders its `<h1>` from
+`getCurrentUser()` — the JWT — and the header's account label reads `firstName`
+off the same session. Revalidating re-renders the layout against the *same stale
+token*, so the customer changes their name, the form agrees with them, and the
+page keeps greeting them by the old one until the token happens to refresh.
+
+Likely fix: trigger a session update at the end of the action (next-auth's
+`update()`, or have the `jwt` callback re-read the user) so the token and the
+row move together.
+
+The existing `account/account.spec.ts` misses it because it polls the database
+after the edit and never looks at the page again — which is exactly the shape of
+bug a single-session journey exists to catch.
+
+*Caught by:* journey → "known gaps" → "the account greeting follows a profile
+rename", marked `test.fail()` so it documents the defect while the suite stays
+green, and reports an unexpected pass the moment it is fixed.
+
+### 3. The City field is not filled in from the pincode
+
+`/api/pincode` returns the city for a serviceable pincode and the checkout badge
+prints it ("Delivery available to 400050 (Mumbai)"), but nothing writes it into
+the City input — so the customer is asked to type something the app has just
+been told. Mock Delhivery returns `city: null`, which is why this went unnoticed:
+the offline heuristic never had a city to pass on.
+
+Likely fix: set the City (and State) fields from the `checkPin` response in
+`checkout-form.tsx`, leaving anything the customer has already typed alone.
+
+*Caught by:* journey → "known gaps" → "the City field autofills from the
+pincode", also `test.fail()`.
+
+---
+
 ## Not defects — recorded so they aren't "fixed" by mistake
 
 - **An order visited without its access token is not a 404.** It redirects to

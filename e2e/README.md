@@ -3,10 +3,11 @@
 Playwright suite for the Avenues storefront and admin panel.
 
 ```bash
-npm run test:e2e          # everything: fresh DB, seed, build, run
-npm run test:e2e:smoke    # @smoke only — the critical path, what CI runs per PR
-npm run test:e2e:fast     # skip the rebuild (use while iterating on specs)
-npm run test:e2e:ui       # Playwright's UI mode
+npm run test:e2e            # everything: fresh DB, seed, build, run
+npm run test:e2e:smoke      # @smoke only — the critical path, what CI runs per PR
+npm run test:e2e:journey    # the full customer journey, screenshotted at every step
+npm run test:e2e:fast       # skip the rebuild (use while iterating on specs)
+npm run test:e2e:ui         # Playwright's UI mode
 ```
 
 Prerequisite: Docker running, because the orchestrator creates the test
@@ -49,8 +50,9 @@ string.
 | Project | Viewport | Notes |
 |---|---|---|
 | `setup` | 1440×900 | Signs in once per role, writes `e2e/.auth/*.json` |
-| `chromium-desktop` | 1440×900 | Skips `@mobile` |
-| `mobile` | Pixel 7 (412px) | Skips `@desktop` and all of `e2e/admin/` |
+| `chromium-desktop` | 1440×900 | Skips `@mobile` and `e2e/journey/` |
+| `mobile` | Pixel 7 (412px) | Skips `@desktop`, `e2e/admin/` and `e2e/journey/` |
+| `journey` | 1440×900 | Only `e2e/journey/`. Serial, no `setup` dependency — it signs itself up |
 
 `@desktop` marks assertions about affordances that only exist on wide
 viewports — the nav's text labels (hidden below 1400px by design) and the
@@ -59,6 +61,56 @@ buy bar. Neither tag is a way to duck a failure: each has a real counterpart on
 the other viewport, and where one control simply moves (search, shop filters)
 the specs use the viewport-aware helpers in `utils/selectors.ts` instead of
 being duplicated.
+
+---
+
+## The end-to-end journey
+
+`e2e/journey/full-journey.spec.ts` is the one spec that does **not** arrange its
+own state. A single browser context walks the whole story in order — arrive,
+sign up, sign out, sign back in, browse, wishlist, cart, profile, address book,
+pincode check, place the order, read the receipt, track it as a guest, find it
+in history — and each step inherits whatever the last one actually left behind.
+
+```bash
+npm run test:e2e:journey          # fresh DB, seed, build, run
+npm run test:e2e:journey:fast     # skip the rebuild
+npx playwright show-report        # the filmstrip
+```
+
+**Why it exists alongside the isolated specs.** Those are right to arrange state
+directly — it gives a precise failure. But it also means nothing ever checks
+that a cart survives a login, that an address saved in the account book is
+offered at checkout, or that a page and the database still agree several steps
+later. Both open findings in `FINDINGS.md` are of exactly that shape, and both
+were invisible to specs that already covered the same screens.
+
+**Screenshots at every stage.** `utils/shots.ts` numbers a PNG per step into
+`e2e/.artifacts/screenshots/journey/` and attaches each to the HTML report, so a
+green run can be reviewed by eye rather than taken on trust. Animations are
+disabled in the capture, and a step that asserts something below the fold
+scrolls it into view first — a screenshot that documents the wrong part of the
+page is worse than none.
+
+**It signs itself up.** The account (`JOURNEY` in `utils/env.ts`) is deleted and
+re-created on every run, so signup is genuinely exercised each time instead of
+falling through to the duplicate-email branch. Nothing is ever delivered to that
+address — `RESEND_API_KEY` is blank, so mail stops at the server log.
+
+**Mail is asserted, not assumed.** `npm start` is wrapped by
+`scripts/start-logged.mjs`, which tees the server console to
+`e2e/.artifacts/server.log`. `utils/mailbox.ts` parses the mocked messages back
+out, so "a receipt is on its way to you" is checked against the address, subject
+and order number that actually left the server — not against the page's own
+claim that it sent one.
+
+**Console errors still fail it,** as everywhere else. One step (03) allows two
+named patterns, because they are a filed defect rather than noise; every other
+console error in that step still fails the run.
+
+**Known gaps are `test.fail()`,** not deletions. A documented defect keeps its
+assertion, the suite stays green, and Playwright reports an unexpected pass the
+moment somebody fixes it.
 
 ---
 
@@ -188,6 +240,7 @@ scan — are followed by an assertion that actually decides the test.
 | `/admin/*` | `admin/admin.spec.ts` | Dashboard low-stock, product CRUD → storefront, inactive → 404, price edit → PDP, coupons, orders list/detail/filter, review approve → published, enquiry inbox, customers, newsletter + CSV, settings → storefront |
 | Cross-cutting | `cross-cutting/a11y-seo.spec.ts` | axe on 9 public pages + admin, one `<h1>` and a skip link per page, titles/descriptions/OG, robots + sitemap vs DB, `noindex` on account, Product JSON-LD validated against the DB, `aggregateRating` omitted when there are no reviews |
 | Mobile | `storefront/mobile-nav.spec.ts` | Hamburger, menu contents, cart badge announces its count, sticky buy bar in the lower half of the screen |
+| **Whole journey** | `journey/full-journey.spec.ts` | Signup → signed in; sign out → sign back in; wishlist save/remove/re-save mirrored to the DB; cart add → adjust → remove → re-add → survives reload; profile edit persists; address book add with pincode; pincode serviceability names the city and refuses `999999`; COD order placed through the real form → confirmation, DB row, stock decremented; **confirmation email read back off the server log**; guest tracking refuses a wrong pair and opens on the right one; order history and its Track order button |
 
 ---
 

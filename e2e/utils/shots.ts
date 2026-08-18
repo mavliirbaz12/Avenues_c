@@ -10,12 +10,12 @@ import type { Page, TestInfo } from "@playwright/test";
  * customer see at every step of a run that passed" — which is what makes a
  * green journey reviewable by a human instead of merely reassuring.
  *
- * Files land in e2e/.artifacts/journey/<project>/NN-name.png in the order they
+ * Files land in e2e/.artifacts/screenshots/<project>/NN-name.png in the order they
  * were taken, and each is attached to the HTML report so `npx playwright
  * show-report` walks the whole purchase as a filmstrip.
  */
 
-const ROOT = path.join("e2e", ".artifacts", "journey");
+const ROOT = path.join("e2e", ".artifacts", "screenshots");
 
 /**
  * One counter per project. The journey runs serially in a single worker, so a

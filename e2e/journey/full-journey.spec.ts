@@ -61,6 +61,17 @@ test.describe("the full customer journey", () => {
   /** Filled in by the checkout step and read by everything after it. */
   let orderNumber = "";
 
+  /**
+   * Console errors one step is permitted to produce, reset after every step.
+   *
+   * The default remains that any console error fails the run. This exists so a
+   * known, filed bug can be tolerated *narrowly and visibly* — by a pattern
+   * written in the step that provokes it, next to a note saying why — instead
+   * of being buried in the suite-wide ignore list where it would also mask the
+   * next regression that happens to look like it.
+   */
+  let allowedConsole: RegExp[] = [];
+
   const QUANTITY = 2;
 
   test.beforeAll(async ({ browser }) => {
@@ -75,11 +86,15 @@ test.describe("the full customer journey", () => {
   // A page that throws in the console has a bug even when every assertion
   // passes, and knowing which step provoked it is most of the diagnosis.
   test.afterEach(() => {
+    const unexpected = watcher.errors.filter(
+      (e) => !allowedConsole.some((re) => re.test(e)),
+    );
     expect(
-      watcher.errors,
-      `Console errors during this step:\n${watcher.errors.join("\n")}`,
+      unexpected,
+      `Console errors during this step:\n${unexpected.join("\n")}`,
     ).toEqual([]);
     watcher.errors.length = 0;
+    allowedConsole = [];
   });
 
   test.afterAll(async () => {
@@ -146,6 +161,14 @@ test.describe("the full customer journey", () => {
   /* ------------------------------------------------------------------ */
 
   test("03 · signing out and back in with the same credentials", async ({}, testInfo) => {
+    // Filed, not ignored: signing out replays the signed-in tree from the
+    // router cache for a frame, so SessionSync fires POST /api/sync against a
+    // session that has already been torn down and Chromium logs the 401. When
+    // that replay wins the race it also trips a hydration mismatch (React
+    // #418). See e2e/FINDINGS.md → "Open" #1. Narrowed to these two patterns so
+    // any other console error in this step still fails the run.
+    allowedConsole = [/401 \(Unauthorized\)/, /Minified React error #418/];
+
     await page.goto("/account");
     await page.getByRole("button", { name: /sign out/i }).click();
 
@@ -203,19 +226,17 @@ test.describe("the full customer journey", () => {
   test("05 · wishlist: save it, see it, remove it, save it again", async ({}, testInfo) => {
     await page.goto(`/fragrance/${hero.slug}`);
 
-    const save = main(page).getByRole("button", { name: /save .* to wishlist/i }).first();
-    await save.click();
-    await expect(save).toHaveAttribute("aria-pressed", "true");
+    await setHeart(main(page), true);
     await shot(page, testInfo, "wishlist heart pressed on the product page");
 
     // Signed in, the heart mirrors to the database — that is what makes a
     // wishlist survive a new phone rather than only a new tab.
     await expect
-      .poll(() => db.wishlistItem.count({ where: { productId: hero.productId } }), {
+      .poll(() => journeyWishlistCount(), {
         timeout: 15_000,
         message: "the heart should have mirrored to the database",
       })
-      .toBeGreaterThan(0);
+      .toBe(1);
 
     await page.goto("/wishlist");
     const saved = main(page).getByRole("link", { name: new RegExp(shortName(hero.name), "i") });
@@ -225,11 +246,17 @@ test.describe("the full customer journey", () => {
     // Remove from the wishlist page itself, where the heart is already pressed.
     await main(page).getByRole("button", { name: /remove .* from wishlist/i }).first().click();
     await expect(main(page).getByRole("heading", { name: /nothing saved yet/i })).toBeVisible();
+    await expect
+      .poll(() => journeyWishlistCount(), {
+        timeout: 15_000,
+        message: "un-hearting should reach the database too",
+      })
+      .toBe(0);
     await shot(page, testInfo, "wishlist emptied");
 
     // And back again, to prove removal did not break the store.
     await page.goto(`/fragrance/${hero.slug}`);
-    await main(page).getByRole("button", { name: /save .* to wishlist/i }).first().click();
+    await setHeart(main(page), true);
     await page.goto("/wishlist");
     await expect(saved.first()).toBeVisible();
     await shot(page, testInfo, "wishlist re-saved");
@@ -241,10 +268,8 @@ test.describe("the full customer journey", () => {
 
   test("06 · cart: add, adjust, remove, then add it back", async ({}, testInfo) => {
     await page.goto(`/fragrance/${hero.slug}`);
-    await main(page).getByRole("button", { name: "Add to cart" }).first().click();
+    const drawer = await addHeroToCart();
 
-    const drawer = cartDrawer(page);
-    await expect(drawer).toBeVisible();
     await expect(drawer.getByText(shortName(hero.name)).first()).toBeVisible();
     await expect(nav(page).getByRole("button", { name: /cart, 1 item\b/i })).toBeVisible();
     await shot(page, testInfo, "cart drawer after the first add");
@@ -258,13 +283,19 @@ test.describe("the full customer journey", () => {
     await drawer.getByRole("button", { name: /remove .* from cart/i }).first().click();
     await expect(drawer.getByText(/waiting for its first obsession/i)).toBeVisible();
     await expect(nav(page).getByRole("button", { name: /cart, empty/i })).toBeVisible();
+
+    // The drawer's heading carries the count from the server-priced view, which
+    // is debounced by 180ms — so for a moment it reads "Your cart (2)" above an
+    // empty panel. Waiting for the bare heading asserts the two halves agree
+    // once it settles, and keeps the screenshot from documenting the in-between
+    // frame as if it were the resting state.
+    await expect(drawer.getByRole("heading", { name: "Your cart", exact: true })).toBeVisible();
     await shot(page, testInfo, "cart emptied by removing the line");
 
     // Re-add, and take it to the quantity we are going to buy.
     await page.keyboard.press("Escape");
     await page.goto(`/fragrance/${hero.slug}`);
-    await main(page).getByRole("button", { name: "Add to cart" }).first().click();
-    await expect(drawer).toBeVisible();
+    await addHeroToCart();
     for (let i = 1; i < QUANTITY; i++) {
       await drawer.getByRole("button", { name: "Increase quantity" }).first().click();
     }
@@ -313,8 +344,16 @@ test.describe("the full customer journey", () => {
     // The email is the sign-in and must not be editable from here.
     await expect(form.getByLabel("Email", { exact: true })).toBeDisabled();
 
+    // Survives a reload, because the form is rendered from the database.
+    //
+    // Note what is NOT asserted here: the <h1> above this form. It is rendered
+    // from the session, not the database, so it still says the old name — see
+    // "known gaps" below and e2e/FINDINGS.md → "Open" #2.
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(JOURNEY.renamedTo);
+    await expect(
+      main(page).getByLabel("Name", { exact: true }).first(),
+      "the saved name should come back on a fresh render",
+    ).toHaveValue(JOURNEY.renamedTo);
     await shot(page, testInfo, "account profile after the edit", { fullPage: true });
   });
 
@@ -397,15 +436,20 @@ test.describe("the full customer journey", () => {
     await pin.fill(JOURNEY_ADDRESS.pincode);
     await pin.blur();
 
-    await expect(
-      page.getByText(
-        new RegExp(
-          `delivery available to ${JOURNEY_ADDRESS.pincode}\\s*\\(${JOURNEY_ADDRESS.city}\\)`,
-          "i",
-        ),
+    const serviceable = page.getByText(
+      new RegExp(
+        `delivery available to ${JOURNEY_ADDRESS.pincode}\\s*\\(${JOURNEY_ADDRESS.city}\\)`,
+        "i",
       ),
+    );
+    await expect(
+      serviceable,
       "the city the lookup returned should be shown back to the customer",
     ).toBeVisible({ timeout: 15_000 });
+
+    // The badge sits well below the fold on a 900px viewport; without this the
+    // screenshot documents the top of the form instead of the thing asserted.
+    await serviceable.scrollIntoViewIfNeeded();
     await shot(page, testInfo, "pincode serviceable, city surfaced");
 
     // Now the refusal path, against the real endpoint: mock Delhivery treats
@@ -414,10 +458,12 @@ test.describe("the full customer journey", () => {
     await pin.fill("999999");
     await pin.blur();
 
+    const blocked = page.getByText(/can.t deliver to 999999/i);
     await expect(
-      page.getByText(/can.t deliver to 999999/i),
+      blocked,
       "an unserviceable pincode must say so before payment, not after",
     ).toBeVisible({ timeout: 15_000 });
+    await blocked.scrollIntoViewIfNeeded();
     await shot(page, testInfo, "pincode unserviceable, refused");
 
     // Put the saved address back for the actual purchase.
@@ -544,7 +590,7 @@ test.describe("the full customer journey", () => {
       // A wrong pair must not confirm the order number exists.
       await main(guest).getByLabel(/order number/i).fill(orderNumber);
       await main(guest).getByLabel(/email or phone/i).fill("someone-else@example.com");
-      await main(guest).getByRole("button", { name: /track/i }).click();
+      await main(guest).getByRole("button", { name: /find my order/i }).click();
       await expect(main(guest).getByRole("alert")).toBeVisible({ timeout: 20_000 });
       await expect(
         main(guest).getByText(JOURNEY_ADDRESS.line1),
@@ -555,7 +601,7 @@ test.describe("the full customer journey", () => {
       // The right pair opens the order.
       await main(guest).getByLabel(/order number/i).fill(orderNumber);
       await main(guest).getByLabel(/email or phone/i).fill(JOURNEY.email);
-      await main(guest).getByRole("button", { name: /track/i }).click();
+      await main(guest).getByRole("button", { name: /find my order/i }).click();
 
       await guest.waitForURL(new RegExp(`/order/${escapeRe(orderNumber)}`, "i"), {
         timeout: 30_000,
@@ -608,6 +654,57 @@ test.describe("the full customer journey", () => {
   /* Helpers                                                             */
   /* ------------------------------------------------------------------ */
 
+  /**
+   * Drives the wishlist heart to a known state.
+   *
+   * Two things make a plain `.click()` wrong here. The heart is a client
+   * component, so a click that lands before React attaches its handler is
+   * simply lost — and Playwright's actionability check cannot tell the
+   * difference, because the button is present and enabled either way. And the
+   * accessible name carries the state ("Save X to wishlist" / "Remove X from
+   * wishlist"), so a name-based locator stops matching the moment the toggle
+   * works and silently re-resolves to a different, unsaved heart elsewhere on
+   * the page. Hence one locator that matches both states, and a retry — the
+   * same shape `openFilters` uses in utils/selectors.ts for the same reason.
+   */
+  async function setHeart(scope: Locator, saved: boolean) {
+    const name = escapeRe(shortName(hero.name));
+    const heart = scope
+      .getByRole("button", { name: new RegExp(`(save|remove) ${name} (to|from) wishlist`, "i") })
+      .first();
+    const want = String(saved);
+
+    await expect(async () => {
+      if ((await heart.getAttribute("aria-pressed")) !== want) {
+        await heart.click({ timeout: 5_000 });
+      }
+      await expect(heart).toHaveAttribute("aria-pressed", want, { timeout: 2_000 });
+    }).toPass({ timeout: 25_000 });
+
+    return heart;
+  }
+
+  /**
+   * Adds the hero product from its PDP and waits for the drawer.
+   *
+   * Same hydration race as the heart: the add button renders server-side and
+   * only starts working once React has claimed it, so the click is retried
+   * until the drawer it is supposed to open actually opens.
+   */
+  async function addHeroToCart() {
+    const add = main(page).getByRole("button", { name: "Add to cart" }).first();
+    const drawer = cartDrawer(page);
+
+    await expect(async () => {
+      if (!(await drawer.isVisible().catch(() => false))) {
+        await add.click({ timeout: 5_000 });
+      }
+      await expect(drawer).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 25_000 });
+
+    return drawer;
+  }
+
   async function fillAddress(scope: Locator) {
     await scope.getByRole("radio", { name: "Home" }).check({ force: true });
     await scope.getByLabel("Full name", { exact: true }).fill(JOURNEY_ADDRESS.fullName);
@@ -627,6 +724,51 @@ test.describe("the full customer journey", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("known gaps", () => {
+  /**
+   * Renaming yourself updates the database but not what the site calls you.
+   *
+   * `account/layout.tsx` renders the <h1> from `getCurrentUser()` — the JWT —
+   * and the header's account label reads `firstName` off the same session.
+   * `updateProfile` writes to the database and calls `revalidatePath`, which
+   * re-renders the layout against the *same stale token*. So the customer
+   * changes their name, the form agrees, and the page still greets them by the
+   * old one until the token happens to refresh. The fix is a session update
+   * (next-auth's `update()` / the `jwt` callback re-reading the user) at the
+   * end of the action.
+   *
+   * The existing account spec misses this because it polls the database and
+   * never looks at the page again.
+   */
+  test("the account greeting follows a profile rename", async ({ page }) => {
+    test.fail();
+
+    const renamed = `Renamed ${Date.now()}`;
+
+    await page.goto("/login");
+    const tab = page.getByRole("tab", { name: "Email" });
+    if (await tab.isVisible().catch(() => false)) await tab.click();
+    await main(page).getByLabel("Email", { exact: true }).fill(JOURNEY.email);
+    await main(page).getByLabel("Password", { exact: true }).fill(JOURNEY.password);
+    await main(page).getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+
+    await page.goto("/account");
+    await main(page).getByLabel("Name", { exact: true }).first().fill(renamed);
+    await main(page).getByRole("button", { name: /save changes/i }).click();
+
+    await expect
+      .poll(
+        async () =>
+          (await db.user.findUnique({ where: { email: JOURNEY.email }, select: { name: true } }))
+            ?.name,
+        { timeout: 15_000 },
+      )
+      .toBe(renamed);
+
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(renamed);
+  });
+
   /**
    * The pincode lookup already knows the city — /api/pincode returns it and the
    * badge prints it — but nothing writes it into the City field, so the
@@ -716,6 +858,20 @@ async function pickHeroProduct() {
     variantId: variant.id,
     stockBefore,
   };
+}
+
+/**
+ * Wishlist rows this account owns.
+ *
+ * Scoped to the journey user on purpose: the seeded `customer@test.dev` has
+ * saved products too, and counting by productId alone quietly asserts against
+ * somebody else's wishlist — which is how a passing test turns red the first
+ * time the seed changes.
+ */
+async function journeyWishlistCount() {
+  return db.wishlistItem.count({
+    where: { user: { email: JOURNEY.email } },
+  });
 }
 
 /** The storefront drops the "Avenues " prefix everywhere it renders a name. */
