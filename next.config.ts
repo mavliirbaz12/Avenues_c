@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The dev server also listens on the LAN address, which is how you preview
+  // on a phone. Without this Next warns on every asset request, and a future
+  // major will refuse them outright.
+  allowedDevOrigins: ["172.28.80.1", "192.168.56.1", "localhost"],
   poweredByHeader: false,
   experimental: {
     // Next 15 defaults the client Router Cache to 0s for dynamic routes, and
