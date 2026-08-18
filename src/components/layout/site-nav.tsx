@@ -61,7 +61,10 @@ export function SiteNav({
     <header
       className={cn(
         "fixed inset-x-0 z-50 transition-[background-color,backdrop-filter,border-color] duration-600 ease-smoke",
-        solid ? "glass glass-hairline border-x-0 border-t-0" : "border-transparent bg-transparent",
+        // `glass-nav`, not `glass` — see the note on it in globals.css. The
+        // short version: the page's body copy stayed legible straight through
+        // the bar as it scrolled underneath, which read as a rendering fault.
+        solid ? "glass-nav glass-hairline border-x-0 border-t-0" : "border-transparent bg-transparent",
       )}
       style={{ top: "var(--announce-h)", height: "var(--nav-h)" }}
     >

@@ -257,6 +257,34 @@
       0 24px 60px -28px rgba(0, 0, 0, 0.95);
   }
 
+  /* The fixed header, and only the header.
+
+     Glass works for panels because what sits behind them is quiet ink. The
+     header is different: the whole page runs underneath it, body copy
+     included, and at 0.72 alpha (`glass`) or even 0.90 (`glass-strong`) that
+     text stayed legible straight through the bar. Bone on ink is a ~230-level
+     contrast, so 10% of it leaking through is still ~23 levels — plainly
+     visible, and it reads as two layers of text overlapping rather than as a
+     header.
+
+     The blur was supposed to cover this, but `backdrop-filter` is exactly the
+     thing that quietly drops out — GPU-blocklisted machines, some Android
+     browsers, headless rendering. Leaning on it for legibility means the
+     failure mode is "the header looks broken" on the devices least able to
+     tell you about it.
+
+     So the header is opaque. Even 0.985 left a readable ghost of the headline
+     drifting across the bar, and a header is the one surface on the page that
+     has to be beyond question — it is on screen the entire session. The
+     vertical gradient keeps it from reading as a flat slab, which is what the
+     glass was buying in the first place.
+
+     No `backdrop-filter` here: at full opacity it blurs nothing, and dropping
+     it also drops the compositing layer it forces on every scroll frame. */
+  .glass-nav {
+    background: linear-gradient(180deg, #16161a 0%, #0b0b0d 100%);
+  }
+
   /* Heavier, for panels that must stay legible over busy imagery. */
   .glass-strong {
     background: linear-gradient(
