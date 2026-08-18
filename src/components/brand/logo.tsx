@@ -28,10 +28,12 @@ export function Logo({
   stacked?: boolean;
 }) {
   const dims = {
-    sm: { mark: "h-7 w-7", word: "text-sm tracking-[0.34em]", sub: "text-[0.5rem] tracking-[0.34em]" },
-    md: { mark: "h-9 w-9", word: "text-lg tracking-[0.36em]", sub: "text-[0.5625rem] tracking-[0.36em]" },
-    lg: { mark: "h-14 w-14", word: "text-2xl tracking-[0.38em]", sub: "text-[0.6875rem] tracking-[0.38em]" },
-    xl: { mark: "h-24 w-24", word: "text-4xl tracking-[0.4em]", sub: "text-xs tracking-[0.4em]" },
+    // `wordImg` is a height; the width follows from the asset's own ratio, so
+    // the lockup keeps the proportions it was drawn with.
+    sm: { mark: "h-7 w-7", wordImg: "h-[0.7rem] w-auto", sub: "text-[0.5rem] tracking-[0.34em]" },
+    md: { mark: "h-9 w-9", wordImg: "h-[0.95rem] w-auto", sub: "text-[0.5625rem] tracking-[0.36em]" },
+    lg: { mark: "h-14 w-14", wordImg: "h-[1.4rem] w-auto", sub: "text-[0.6875rem] tracking-[0.38em]" },
+    xl: { mark: "h-24 w-24", wordImg: "h-[2.4rem] w-auto", sub: "text-xs tracking-[0.4em]" },
   }[size];
 
   const inner = (
@@ -46,33 +48,36 @@ export function Logo({
         The real mark, keyed off its black backing so it sits on glass, ink or
         the invoice's paper without a visible rectangle.
 
-        Largest use is 96px (xl); the asset is 420px, so it is oversampled
+        Largest use is 96px (xl) against a 440px asset, so it is oversampled
         everywhere it appears, including at devicePixelRatio 3. The supplied
         logo is a 788px JPEG, and that is the ceiling — a genuinely
-        resolution-independent mark needs the vector original, which is worth
-        asking the designer for.
+        resolution-independent mark needs the vector original.
       */}
       <Image
         src="/logo-mark.png"
         alt=""
-        width={420}
-        height={398}
+        width={440}
+        height={415}
         priority
         className={cn(dims.mark, "shrink-0 object-contain")}
       />
       {showWordmark && (
         <span className={cn("flex flex-col", stacked ? "items-center gap-1.5" : "items-start gap-1")}>
-          <span
-            className={cn(
-              // The trailing letter-space adds a phantom gap after the final
-              // "S"; the negative margin pulls the optical centre back.
-              "font-display font-light uppercase leading-none text-bone -mr-[0.36em]",
-              "transition-colors duration-600 ease-smoke group-hover:text-gold-light",
-              dims.word,
-            )}
-          >
-            Avenues
-          </span>
+          {/*
+            The real wordmark, not type set to look like it.
+
+            It was previously Cormorant in bone with hand-tuned tracking — a
+            close imitation, but the supplied lockup has its own letterforms and
+            its gold gradient, and next to the actual mark the difference showed.
+          */}
+          <Image
+            src="/logo-wordmark.png"
+            alt="Avenues"
+            width={680}
+            height={92}
+            priority
+            className={cn(dims.wordImg, "object-contain")}
+          />
           {showSubmark && (
             <span className={cn("font-sans uppercase leading-none text-gold/70 -mr-[0.38em]", dims.sub)}>
               Perfumes
