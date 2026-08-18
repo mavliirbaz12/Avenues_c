@@ -56,7 +56,14 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero videoUrl={settings.heroVideoUrl} posterUrl={settings.heroPosterUrl} />
+      <Hero
+        videoUrl={settings.heroVideoUrl}
+        posterUrl={settings.heroPosterUrl}
+        // The range photograph sits beside the headline. It doubles as the
+        // brand banner further down, which is deliberate: one hero image is
+        // cheaper than two and the repeat reads as a motif, not a mistake.
+        showcaseUrl={settings.brandBannerUrl}
+      />
       <BottleReveal />
       <FeaturedSlider products={products} />
       <BrandBanner imageUrl={settings.brandBannerUrl} />

@@ -62,6 +62,17 @@ export function BottleReveal() {
   const framesRef = useRef<Array<HTMLImageElement | null>>([]);
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState(0);
+  /**
+   * Whether the section is close enough to be worth downloading.
+   *
+   * The sequence is ~6MB. Fetching it the moment the page mounts made every
+   * arrival at the homepage — including someone who only wanted the nav —
+   * pull six megabytes it might never look at, and it competed with the
+   * requests for whatever page they clicked next. It now starts a full
+   * viewport before the section reaches the screen, which on any real scroll
+   * is still far earlier than it is needed.
+   */
+  const [near, setNear] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: wrapRef,
@@ -114,9 +125,35 @@ export function BottleReveal() {
     [nearestLoaded],
   );
 
-  // ---- Load the sequence -------------------------------------------------
+  // ---- Arm the loader when the section approaches -------------------------
   useEffect(() => {
     if (reduce) return;
+    const el = wrapRef.current;
+    if (!el) return;
+
+    // No IntersectionObserver (very old browsers): load immediately rather
+    // than never.
+    if (typeof IntersectionObserver === "undefined") {
+      setNear(true);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setNear(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "100% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [reduce]);
+
+  // ---- Load the sequence -------------------------------------------------
+  useEffect(() => {
+    if (reduce || !near) return;
 
     let cancelled = false;
     const variant: "lg" | "sm" = window.innerWidth < SMALL_BP ? "sm" : "lg";
@@ -161,7 +198,7 @@ export function BottleReveal() {
     return () => {
       cancelled = true;
     };
-  }, [reduce, draw]);
+  }, [reduce, near, draw]);
 
   // ---- Scrub -------------------------------------------------------------
   useEffect(() => {

@@ -1,5 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { HeroMedia } from "./hero-media";
@@ -22,9 +25,20 @@ import { RevealLines } from "@/components/motion/reveal";
 export function Hero({
   videoUrl,
   posterUrl,
+  showcaseUrl,
 }: {
   videoUrl: string | null;
   posterUrl: string | null;
+  /**
+   * The product photograph shown BESIDE the headline on wide screens.
+   *
+   * Deliberately not a background: laid behind the type it competed with every
+   * line, and no scrim strong enough to fix that left the photograph worth
+   * showing. As its own column the picture is fully visible and the words sit
+   * on clean ink. Below `lg` it drops away entirely rather than stacking —
+   * a phone hero should be one idea, not two.
+   */
+  showcaseUrl?: string | null;
 }) {
   const reduce = useReducedMotion();
 
@@ -35,7 +49,15 @@ export function Hero({
     >
       <HeroMedia videoUrl={videoUrl} posterUrl={posterUrl} />
 
-      <div className="shell relative z-[2] flex min-h-[clamp(34rem,88dvh,54rem)] flex-col justify-center pb-20 pt-[calc(var(--header-h)+3rem)]">
+      <div
+        className={cn(
+          "shell relative z-[2] min-h-[clamp(34rem,88dvh,54rem)] pb-20 pt-[calc(var(--header-h)+3rem)]",
+          showcaseUrl
+            ? "grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:gap-16"
+            : "flex flex-col justify-center",
+        )}
+      >
+        <div className="flex flex-col justify-center">
         <motion.p
           className="micro-label-gold flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.625rem] tracking-[0.24em] sm:text-micro sm:tracking-micro"
           initial={reduce ? undefined : { opacity: 0 }}
@@ -85,6 +107,37 @@ export function Hero({
             Discover
           </Link>
         </motion.div>
+        </div>
+
+        {showcaseUrl && (
+          <motion.div
+            className="relative hidden lg:block"
+            initial={reduce ? undefined : { opacity: 0, y: 24 }}
+            animate={reduce ? undefined : { opacity: 1, y: 0 }}
+            transition={{ duration: 1.2, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="relative aspect-[1600/1283] w-full overflow-hidden">
+              <Image
+                src={showcaseUrl}
+                alt="The Avenues range — five eau de parfums and the discovery set."
+                fill
+                priority
+                sizes="(max-width: 1024px) 0px, 45vw"
+                className="object-contain object-center"
+              />
+            </div>
+            {/* Feathers the photograph's edges into the page so it reads as
+                part of the hero rather than a pasted rectangle. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(70% 70% at 50% 50%, transparent 55%, rgba(11,11,13,0.85) 100%)",
+              }}
+            />
+          </motion.div>
+        )}
       </div>
 
       {/* Static hairline scroll cue — never a bouncing chevron. */}
