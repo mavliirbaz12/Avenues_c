@@ -89,7 +89,22 @@ export function HeroMedia({
                 "radial-gradient(60rem 46rem at 72% 38%, rgba(201,162,75,0.12), transparent 62%)",
             }}
           />
-          <div className="absolute inset-0 flex items-center justify-end pr-[8vw]">
+          {/*
+            Desktop only, deliberately.
+
+            This is a composition for a hero with the type held left and the
+            mark ghosted into the space on the right. On a phone that space
+            does not exist: the hero stacks into copy, CTA, then the product
+            photograph, so `items-center` drops the mark into the gap between
+            the button and the picture, and `justify-end` pushes it past the
+            right edge where `overflow-hidden` cuts it in half. What is left is
+            a faint arc floating in dead space above the photograph — read as a
+            rendering artefact, which is fair, because it is one.
+
+            At 46vh it is also ~390px tall on a phone, so it is not subtle
+            enough to ignore either.
+          */}
+          <div className="absolute inset-0 hidden items-center justify-end pr-[8vw] lg:flex">
             <BrandMark className="h-[46vh] w-auto opacity-[0.11]" />
           </div>
         </div>
@@ -98,8 +113,25 @@ export function HeroMedia({
       {/* Always: vignette + a bottom-weighted scrim, so headline contrast
           survives whatever frame the video happens to be on. */}
       <div className="absolute inset-0 vignette" />
+      {/*
+        The scrim runs whichever way the type does.
+
+        Horizontally (90deg) it protects a left-held headline against media on
+        the right — the desktop arrangement. On a phone the copy is full width
+        and the photograph is BELOW it, so a left-to-right ramp darkens the
+        wrong edge and does nothing for the text it is supposed to be backing.
+        Vertical is the mobile equivalent: heaviest at the top, under the
+        headline, easing off toward the photograph.
+      */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 lg:hidden"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(11,11,13,0.92) 0%, rgba(11,11,13,0.7) 42%, rgba(11,11,13,0.4) 72%, rgba(11,11,13,0.6) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0 hidden lg:block"
         style={{
           background:
             "linear-gradient(90deg, rgba(11,11,13,0.92) 0%, rgba(11,11,13,0.72) 38%, rgba(11,11,13,0.35) 70%, rgba(11,11,13,0.55) 100%)",
