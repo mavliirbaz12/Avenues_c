@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShieldAlert, Check, X, Loader2 } from "lucide-react";
-import { Monogram } from "@/components/brand/monogram";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { useCart } from "@/store/cart";
 import { formatPaise } from "@/lib/format";
 // From mock-constants, not razorpay.ts — importing the latter would pull
@@ -91,7 +91,7 @@ function MockPayInner() {
         </div>
 
         <div className="card p-8 text-center">
-          <Monogram className="mx-auto h-10 w-10" />
+          <BrandMark className="mx-auto h-10 w-10" />
           <p className="micro-label mt-6">Order {orderNumber}</p>
           <p className="mt-3 font-display text-5xl font-light text-bone">
             {formatPaise(amountPaise)}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Monogram } from "@/components/brand/monogram";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { GoldArc } from "@/components/brand/gold-arc";
 
 /**
@@ -20,7 +20,7 @@ export default function NotFound() {
 
       <div className="relative z-[2]">
         <Link href="/" aria-label="Avenues — home" className="inline-flex">
-          <Monogram className="h-14 w-14" />
+          <BrandMark className="h-14 w-14" />
         </Link>
 
         <p className="micro-label-gold mt-10">Four-oh-four</p>

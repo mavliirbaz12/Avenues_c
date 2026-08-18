@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/motion/reveal";
-import { Monogram } from "@/components/brand/monogram";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 /**
  * "Know Avenues" — the story teaser.
@@ -23,7 +23,7 @@ export function BrandStory() {
       <div className="shell grid items-center gap-14 lg:grid-cols-12 lg:gap-10">
         <Reveal className="lg:col-span-5">
           <div className="relative flex h-full min-h-[16rem] items-center justify-center">
-            <Monogram className="h-40 w-40 opacity-90 sm:h-52 sm:w-52" />
+            <BrandMark className="h-40 w-40 opacity-90 sm:h-52 sm:w-52" />
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0"

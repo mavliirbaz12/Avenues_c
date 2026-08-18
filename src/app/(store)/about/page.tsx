@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Monogram } from "@/components/brand/monogram";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
 import { BottleFigure } from "@/components/brand/bottle-figure";
@@ -47,7 +47,7 @@ export default function AboutPage() {
         />
         <div className="shell relative z-[2] mx-auto max-w-3xl text-center">
           <Reveal>
-            <Monogram className="mx-auto h-16 w-16" />
+            <BrandMark className="mx-auto h-16 w-16" />
             <p className="micro-label-gold mt-8">Our story</p>
             <h1 className="mt-5 font-display text-d2 font-light text-bone">
               Perfume in India deserved better than the in-between

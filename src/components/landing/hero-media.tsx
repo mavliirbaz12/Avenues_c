@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useReducedMotion } from "motion/react";
-import { Monogram } from "@/components/brand/monogram";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 /**
  * The hero backdrop, and its fallback chain.
@@ -90,7 +90,7 @@ export function HeroMedia({
             }}
           />
           <div className="absolute inset-0 flex items-center justify-end pr-[8vw]">
-            <Monogram className="h-[46vh] w-[46vh] text-gold opacity-[0.11]" gradient={false} />
+            <BrandMark className="h-[46vh] w-[46vh] opacity-[0.11]" />
           </div>
         </div>
       )}
