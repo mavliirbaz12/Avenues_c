@@ -91,7 +91,7 @@ function MockPayInner() {
         </div>
 
         <div className="card p-8 text-center">
-          <BrandMark className="mx-auto h-10 w-10" />
+          <BrandMark className="mx-auto h-10 w-auto" />
           <p className="micro-label mt-6">Order {orderNumber}</p>
           <p className="mt-3 font-display text-5xl font-light text-bone">
             {formatPaise(amountPaise)}

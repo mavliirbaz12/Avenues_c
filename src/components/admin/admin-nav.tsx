@@ -47,7 +47,7 @@ export function AdminNav({ pendingBadges }: { pendingBadges: Record<string, numb
                  lg:inset-y-0 lg:left-0 lg:w-52 lg:border-r lg:border-t-0"
     >
       <div className="hidden items-center gap-2.5 px-5 pb-2 pt-6 lg:flex">
-        <BrandMark className="h-7 w-7" />
+        <BrandMark className="h-7 w-auto" />
         <span className="font-sans text-[0.6875rem] uppercase tracking-label text-stone">
           Back of house
         </span>

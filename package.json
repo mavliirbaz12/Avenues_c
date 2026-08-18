@@ -18,6 +18,7 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
+    "gen:logo": "node scripts/gen-logo.mjs",
     "gen:sequence": "node scripts/gen-bottle-sequence.mjs",
     "test:e2e": "node scripts/e2e.mjs",
     "test:e2e:smoke": "node scripts/e2e.mjs --grep @smoke",

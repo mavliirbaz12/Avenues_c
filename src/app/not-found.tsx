@@ -20,7 +20,7 @@ export default function NotFound() {
 
       <div className="relative z-[2]">
         <Link href="/" aria-label="Avenues — home" className="inline-flex">
-          <BrandMark className="h-14 w-14" />
+          <BrandMark className="h-14 w-auto" />
         </Link>
 
         <p className="micro-label-gold mt-10">Four-oh-four</p>

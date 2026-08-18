@@ -90,7 +90,7 @@ export function HeroMedia({
             }}
           />
           <div className="absolute inset-0 flex items-center justify-end pr-[8vw]">
-            <BrandMark className="h-[46vh] w-[46vh] opacity-[0.11]" />
+            <BrandMark className="h-[46vh] w-auto opacity-[0.11]" />
           </div>
         </div>
       )}

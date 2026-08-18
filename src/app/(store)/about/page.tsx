@@ -47,7 +47,7 @@ export default function AboutPage() {
         />
         <div className="shell relative z-[2] mx-auto max-w-3xl text-center">
           <Reveal>
-            <BrandMark className="mx-auto h-16 w-16" />
+            <BrandMark className="mx-auto h-16 w-auto" />
             <p className="micro-label-gold mt-8">Our story</p>
             <h1 className="mt-5 font-display text-d2 font-light text-bone">
               Perfume in India deserved better than the in-between

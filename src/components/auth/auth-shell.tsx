@@ -34,7 +34,7 @@ export function AuthShell({
       <div className="shell relative z-[2] mx-auto w-full max-w-md">
         <div className="text-center">
           <Link href="/" aria-label="Avenues — home" className="inline-flex">
-            <BrandMark className="h-12 w-12" />
+            <BrandMark className="h-12 w-auto" />
           </Link>
           <p className="micro-label-gold mt-7">{eyebrow}</p>
           <h1 className="mt-4 font-display text-d3 font-light text-bone">{title}</h1>
