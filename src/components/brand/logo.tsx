@@ -32,16 +32,22 @@ export function Logo({
    * each asset's own ratio, so the lockup keeps the proportions it was drawn
    * with and neither piece can be squashed by a box that disagrees with it.
    *
-   * The mark used to be given a square box (`h-9 w-9`). The ring is 1.25:1, so
+   * The mark used to be given a square box (`h-9 w-9`). The ring is 1.23:1, so
    * `object-contain` fitted it to the box's WIDTH and it drew at 36x29 inside a
    * 36x36 slot — a fifth of the height thrown away, which is most of why it
    * looked small and timid in the nav.
+   *
+   * The numbers then went up again, twice. Once because the mark still read as
+   * a token rather than a masthead against a 72px nav bar, and once because the
+   * assets now carry an 8% transparent margin of their own — so a 44px box only
+   * ever draws about 37px of actual ink, and the box has to be bigger than the
+   * mark you want to see.
    */
   const dims = {
-    sm: { mark: "h-8 w-auto", wordImg: "h-[0.8rem] w-auto", sub: "text-[0.5rem] tracking-[0.34em]" },
-    md: { mark: "h-11 w-auto", wordImg: "h-[1.1rem] w-auto", sub: "text-[0.625rem] tracking-[0.36em]" },
-    lg: { mark: "h-16 w-auto", wordImg: "h-[1.6rem] w-auto", sub: "text-[0.75rem] tracking-[0.38em]" },
-    xl: { mark: "h-28 w-auto", wordImg: "h-[2.8rem] w-auto", sub: "text-[0.8125rem] tracking-[0.4em]" },
+    sm: { mark: "h-10 w-auto", wordImg: "h-[1.05rem] w-auto", sub: "text-[0.5rem] tracking-[0.34em]" },
+    md: { mark: "h-14 w-auto", wordImg: "h-[1.45rem] w-auto", sub: "text-[0.6875rem] tracking-[0.36em]" },
+    lg: { mark: "h-20 w-auto", wordImg: "h-[2.1rem] w-auto", sub: "text-[0.8125rem] tracking-[0.38em]" },
+    xl: { mark: "h-32 w-auto", wordImg: "h-[3.4rem] w-auto", sub: "text-[0.875rem] tracking-[0.4em]" },
   }[size];
 
   const inner = (
@@ -61,7 +67,7 @@ export function Logo({
         which stretched it 19% vertically and pushed the open ends of the arc
         off the bottom edge — the logo rendered visibly broken.
 
-        Largest use is 112px (xl) against a 479px asset, so it is oversampled
+        Largest use is 128px (xl) against a 519px asset, so it is oversampled
         everywhere it appears, including at devicePixelRatio 3. The supplied
         logo is a 788px JPEG, and that is the ceiling — a genuinely
         resolution-independent mark needs the vector original.
@@ -69,8 +75,8 @@ export function Logo({
       <Image
         src="/logo-mark.png"
         alt=""
-        width={479}
-        height={382}
+        width={519}
+        height={422}
         priority
         className={cn(dims.mark, "shrink-0 object-contain")}
       />
@@ -86,8 +92,8 @@ export function Logo({
           <Image
             src="/logo-wordmark.png"
             alt="Avenues"
-            width={616}
-            height={95}
+            width={670}
+            height={147}
             priority
             className={cn(dims.wordImg, "object-contain")}
           />

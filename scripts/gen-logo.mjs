@@ -48,8 +48,12 @@ const BANDS = {
  * the luminance of the *dim* lower arc of the ring — so the measured bounding
  * box stopped short and the crop lopped the bottom off. 24 sits comfortably
  * above sensor noise and below every part of the artwork.
+ *
+ * Lowered again from 24 to 8: the two tips of the crescent taper to a point and
+ * fade as they go, so 24 clipped the last few pixels of each and the padding
+ * that followed was measured from the wrong place.
  */
-const INK = 24;
+const INK = 8;
 
 /**
  * Anything at or below this luminance is treated as pure background.
@@ -59,8 +63,11 @@ const INK = 24;
  */
 const FLOOR = 14;
 
-/** Breathing room, as a fraction of the crop's long edge. */
+/** Breathing room taken from the source, as a fraction of the crop's long edge. */
 const PAD = 0.035;
+
+/** Final margin on every side, as a fraction of the ink's long edge. */
+const PAD_EVEN = 0.08;
 
 async function bandBox(from, to) {
   const { data, info } = await sharp(SOURCE)
@@ -135,10 +142,65 @@ async function keyBlack(buf) {
     .toBuffer();
 }
 
+/**
+ * Gives the artwork the same margin on all four sides.
+ *
+ * `bandBox` already pads, but only with black it can actually reach. Below the
+ * mark it cannot reach far: the crescent's tips end at y=527 and the AVENUES
+ * wordmark starts at y=561, so there are 34 pixels of clear source and no more.
+ * The tips came out roughly ten pixels from the edge — which at nav size is a
+ * single pixel, and reads as a circle with its bottom sliced off.
+ *
+ * So the shortfall is added as transparency. Even margins also mean the ink
+ * stays optically centred in its own box, which is what lets the mark line up
+ * with the wordmark beside it without hand-tuned offsets at every size.
+ */
+async function padEvenly(buf) {
+  const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+  const { width: W, height: H } = info;
+
+  let x0 = W, x1 = -1, y0 = H, y1 = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (data[(y * W + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+
+  const want = Math.round(Math.max(x1 - x0, y1 - y0) * PAD_EVEN);
+  const ext = {
+    left: Math.max(0, want - x0),
+    top: Math.max(0, want - y0),
+    right: Math.max(0, want - (W - 1 - x1)),
+    bottom: Math.max(0, want - (H - 1 - y1)),
+  };
+
+  if (!ext.left && !ext.top && !ext.right && !ext.bottom) {
+    return { buf, width: W, height: H };
+  }
+
+  console.log(
+    `      even margin ${want}px: +L${ext.left} +T${ext.top} +R${ext.right} +B${ext.bottom}`,
+  );
+  const out = await sharp(buf)
+    .extend({ ...ext, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+  return { buf: out, width: W + ext.left + ext.right, height: H + ext.top + ext.bottom };
+}
+
 async function cut(name, band) {
   const box = await bandBox(band.from, band.to);
   const cropped = await sharp(SOURCE).extract(box).png().toBuffer();
-  const keyed = await keyBlack(cropped);
+  const keyedRaw = await keyBlack(cropped);
+  const padded = await padEvenly(keyedRaw);
+  const keyed = padded.buf;
+  box.width = padded.width;
+  box.height = padded.height;
   const file = join(OUT, `${name}.png`);
   await sharp(keyed).toFile(file);
   console.log(
@@ -154,18 +216,22 @@ async function cut(name, band) {
  * Cut from the same corrected mark, so a bad crop can never again live on in
  * the favicon after the on-page logo is fixed.
  *
- * Deliberately NOT transparent: a browser tab strip, an iOS home screen and a
- * bookmark bar each pick their own background, and thin gold on an unknown one
- * disappears. Painting the brand's own ink behind it means the mark reads the
- * same everywhere. Apple in particular composites onto white, and refuses to
- * round the corners of an image with alpha.
+ * The tab icon is TRANSPARENT. Painting the brand's ink behind it looked right
+ * on a dark tab strip and wrong everywhere else — a black tile against a light
+ * strip, a bookmark bar, or a browser using the system accent. Transparency
+ * lets the mark sit on whatever the browser is already using.
  *
- * The ring is inset rather than bled to the edges — at 16px a mark that touches
- * the border merges with whatever is next to it in the tab strip.
+ * The Apple icon keeps its ground, and that is not an inconsistency. iOS does
+ * not honour alpha in a home-screen icon: it composites onto white and then
+ * rounds the corners itself. A thin gold ring on white is close to invisible at
+ * 60pt, so this one is painted on ink deliberately.
+ *
+ * The ring is inset rather than bled to the edges — at 16px a mark touching the
+ * border merges with whatever sits next to it in the tab strip.
  */
 const INK_BG = "#0B0B0D";
 
-async function icon(file, size, inset) {
+async function icon(file, size, inset, ground) {
   const box = Math.round(size * inset);
   const mark = await sharp(join(OUT, "logo-mark.png"))
     .resize({ width: box, height: box, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -173,7 +239,12 @@ async function icon(file, size, inset) {
 
   const out = join(ROOT, "src", "app", file);
   await sharp({
-    create: { width: size, height: size, channels: 4, background: INK_BG },
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: ground ?? { r: 0, g: 0, b: 0, alpha: 0 },
+    },
   })
     .composite([{ input: mark, gravity: "center" }])
     // Palette, not truecolour.
@@ -196,8 +267,8 @@ async function icon(file, size, inset) {
 console.log(`Cutting marks from ${SOURCE}`);
 await cut("logo-mark", BANDS.mark);
 await cut("logo-wordmark", BANDS.wordmark);
-await icon("icon.png", 512, 0.78);
-await icon("apple-icon.png", 180, 0.72);
+await icon("icon.png", 512, 0.86);
+await icon("apple-icon.png", 180, 0.72, INK_BG);
 console.log(
   "\nThe width/height printed above are the intrinsic sizes. They must match " +
     "the `width` and `height` props on the <Image> in src/components/brand/logo.tsx " +

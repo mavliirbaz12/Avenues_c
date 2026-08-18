@@ -31,8 +31,8 @@ export function BrandMark({
       alt={alt}
       // Intrinsic size of the asset scripts/gen-logo.mjs produces. Keep in step
       // with it and with logo.tsx; a wrong ratio here silently distorts the ring.
-      width={479}
-      height={382}
+      width={519}
+      height={422}
       priority={priority}
       aria-hidden={alt ? undefined : true}
       className={cn("object-contain", className)}
