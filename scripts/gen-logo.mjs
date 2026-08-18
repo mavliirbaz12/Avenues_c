@@ -22,6 +22,7 @@
  * around it goes fully transparent.
  */
 import sharp from "sharp";
+import { stat } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -170,14 +171,26 @@ async function icon(file, size, inset) {
     .resize({ width: box, height: box, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .toBuffer();
 
+  const out = join(ROOT, "src", "app", file);
   await sharp({
     create: { width: size, height: size, channels: 4, background: INK_BG },
   })
     .composite([{ input: mark, gravity: "center" }])
-    .png({ compressionLevel: 9 })
-    .toFile(join(ROOT, "src", "app", file));
+    // Palette, not truecolour.
+    //
+    // Full-colour, the 512px icon came out at 60 KB — for something that
+    // renders at 16 to 32 pixels in a tab strip. Every first-time visitor
+    // downloads it before anything is painted, and unlike the page images it
+    // does NOT go through /_next/image, so the raw file is what ships.
+    //
+    // The artwork is one gold gradient on one flat ink, which is close to the
+    // best case for quantisation: 256 entries cover it with no banding worth
+    // seeing at any size a favicon is ever drawn.
+    .png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 })
+    .toFile(out);
 
-  console.log(`  ${file}: ${size}x${size}`);
+  const { size: bytes } = await stat(out);
+  console.log(`  ${file}: ${size}x${size}  ${(bytes / 1024).toFixed(1)} KB`);
 }
 
 console.log(`Cutting marks from ${SOURCE}`);
