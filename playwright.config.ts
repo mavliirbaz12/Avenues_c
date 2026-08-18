@@ -62,24 +62,42 @@ export default defineConfig({
       // @mobile marks specs about the small-viewport layout — the hamburger
       // menu, the sticky buy bar — which do not exist at 1440px.
       grepInvert: /@mobile/,
+      // The journey has its own project: it is one serial session and would be
+      // a different, slower test if it ran twice alongside everything else.
+      testIgnore: /journey\//,
     },
     {
       name: "mobile",
       dependencies: ["setup"],
       use: { ...devices["Pixel 7"] },
       // The admin panel is a desktop tool; running its specs at 412px tests a
-      // layout nobody uses. Storefront and checkout run on both.
-      testIgnore: /admin\//,
+      // layout nobody uses. Storefront and checkout run on both. The journey
+      // has its own project.
+      testIgnore: [/admin\//, /journey\//],
       // @desktop marks assertions about affordances that only exist on wide
       // viewports — the nav's text labels (hidden below 1400px by design) and
       // the hover-opened Fragrances menu. Mobile has its own equivalents in
       // storefront/mobile-nav.spec.ts rather than these being skipped blind.
       grepInvert: /@desktop/,
     },
+    {
+      // The end-to-end customer journey: signup through to a tracked order, in
+      // one session, screenshotted at every stage. Deliberately standalone —
+      // it signs itself up rather than reusing the `setup` project's storage
+      // state, because "does signing up work" is the second thing it asserts.
+      // Run it alone with `npm run test:e2e:journey`.
+      name: "journey",
+      testMatch: /journey\/.*\.spec\.ts/,
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
   ],
 
   webServer: {
-    command: "npm run start",
+    // Not a bare `next start`: the wrapper tees the server console to
+    // E2E_SERVER_LOG so specs can read the transactional mail the app printed
+    // in mock mode. Nothing else about the server changes.
+    command: "npm run start:e2e",
     url: TEST_BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

@@ -51,7 +51,14 @@ export function allowConsoleErrors(page: Page) {
   watchers.get(page)?.ignore();
 }
 
-function watchConsole(page: Page): ConsoleWatcher {
+/**
+ * Attaches the console-error net to a page the fixtures did not create.
+ *
+ * The journey spec builds its own context so one session can carry state
+ * across steps; without this it would be the only spec in the suite where a
+ * page throwing in the console goes unnoticed.
+ */
+export function watchConsole(page: Page): ConsoleWatcher {
   const errors: string[] = [];
   let active = true;
 

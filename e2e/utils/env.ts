@@ -88,3 +88,38 @@ export const STORAGE = {
   admin: "e2e/.auth/admin.json",
   customer: "e2e/.auth/customer.json",
 } as const;
+
+/**
+ * The account the end-to-end journey signs itself up with.
+ *
+ * Deliberately a real, human address rather than another `@test.dev` fixture:
+ * the journey is the run a person watches, and seeing their own inbox address
+ * on the confirmation screen is what makes the screenshots worth reviewing.
+ * Nothing is actually delivered — the suite runs with RESEND_API_KEY blank, so
+ * every message stops at the server log (see e2e/utils/mailbox.ts).
+ *
+ * The journey deletes and re-creates this user on every run, so signup is
+ * genuinely exercised each time instead of falling through to a duplicate.
+ */
+export const JOURNEY = {
+  email: "mavliirbaz12@gmail.com",
+  password: "i_m_irbaz123",
+  name: "Irbaz Mavli",
+  phone: "9820098200",
+  /** What the profile step renames them to, to prove the edit persisted. */
+  renamedTo: "Irbaz S Mavli",
+} as const;
+
+/** The address the journey files in the address book and delivers to. */
+export const JOURNEY_ADDRESS = {
+  type: "HOME",
+  fullName: "Irbaz Mavli",
+  phone: "9820098200",
+  altPhone: "9820098201",
+  line1: "402 Sea Breeze Apartments",
+  line2: "Carter Road",
+  landmark: "Opposite Otters Club",
+  pincode: "400050",
+  city: "Mumbai",
+  state: "Maharashtra",
+} as const;

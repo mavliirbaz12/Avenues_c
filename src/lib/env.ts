@@ -70,6 +70,42 @@ export const integrations = {
   sms: Boolean(env.MSG91_AUTH_KEY && env.MSG91_TEMPLATE_ID),
 } as const;
 
-export const siteUrl = env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+/**
+ * The site's own public origin.
+ *
+ * `NEXT_PUBLIC_SITE_URL` wins when it is set, because a real domain is the only
+ * thing that should appear in a canonical tag or a customer's email.
+ *
+ * Failing that, Vercel is asked. Its default was `http://localhost:3000`, which
+ * is a sensible answer on a laptop and a silent disaster on a deployment: the
+ * first deploy would publish canonical tags, an OG image URL, a sitemap and
+ * order emails all pointing at the visitor's own machine. Nothing errors, and
+ * search engines index it that way.
+ *
+ * The two Vercel variables are not interchangeable:
+ *
+ *   VERCEL_PROJECT_PRODUCTION_URL  the project's stable production hostname —
+ *                                  the same on every deploy
+ *   VERCEL_URL                     THIS deployment's unique hostname, which
+ *                                  changes with every push
+ *
+ * Production is preferred, so a preview build cannot bake its own throwaway
+ * hostname into a canonical. `VERCEL_URL` is the fallback so preview
+ * deployments still link to themselves rather than to localhost.
+ *
+ * Both come without a protocol, hence the prefix.
+ */
+function resolveSiteUrl() {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return explicit;
+
+  const vercel =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  if (vercel) return `https://${vercel}`;
+
+  return env.NEXT_PUBLIC_SITE_URL;
+}
+
+export const siteUrl = resolveSiteUrl().replace(/\/$/, "");
 
 export const isProd = process.env.NODE_ENV === "production";

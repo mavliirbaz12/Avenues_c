@@ -9,6 +9,7 @@
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
     "start": "next start",
+    "start:e2e": "node scripts/start-logged.mjs",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
@@ -24,7 +25,9 @@
     "test:e2e": "node scripts/e2e.mjs",
     "test:e2e:smoke": "node scripts/e2e.mjs --grep @smoke",
     "test:e2e:ui": "node scripts/e2e.mjs --no-build --ui",
-    "test:e2e:fast": "node scripts/e2e.mjs --no-build"
+    "test:e2e:fast": "node scripts/e2e.mjs --no-build",
+    "test:e2e:journey": "node scripts/e2e.mjs --project=journey",
+    "test:e2e:journey:fast": "node scripts/e2e.mjs --no-build --project=journey"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
