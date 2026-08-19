@@ -2,7 +2,7 @@
 
 import { createHash, randomInt } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { limitByIp, rateLimit } from "@/lib/rate-limit";
+import { limitByIp, rateLimitShared } from "@/lib/rate-limit";
 import { sendOtpSms, normalisePhone } from "@/lib/sms";
 import type { SimpleActionState } from "@/lib/form-state";
 
@@ -45,7 +45,9 @@ export async function requestLoginOtp(
     };
   }
 
-  const byPhone = rateLimit(`otp-phone:${phone}`, 3, 15 * 60_000);
+  // Shared, not per-instance: three codes per number means three in total,
+  // not three per function instance that happens to serve the request.
+  const byPhone = await rateLimitShared(`otp-phone:${phone}`, 3, 15 * 60_000);
   if (!byPhone.ok) {
     return {
       ok: false,

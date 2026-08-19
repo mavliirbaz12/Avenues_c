@@ -62,8 +62,20 @@ const schema = z.object({
   NEXT_PUBLIC_GA4_ID: z.string().optional().default(""),
   NEXT_PUBLIC_META_PIXEL_ID: z.string().optional().default(""),
 
+  /*
+    Two spellings for one thing, because the provisioning route decides.
+
+    Vercel's Upstash Marketplace integration writes KV_REST_API_URL /
+    KV_REST_API_TOKEN (its @vercel/kv heritage). Upstash's own dashboard hands
+    you UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN. Both point at the
+    same REST endpoint, and which pair you get depends only on where you
+    clicked — so accept either rather than making the reader rename variables
+    the platform generated.
+  */
   UPSTASH_REDIS_REST_URL: z.string().optional().default(""),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().default(""),
+  KV_REST_API_URL: z.string().optional().default(""),
+  KV_REST_API_TOKEN: z.string().optional().default(""),
 });
 
 function read() {

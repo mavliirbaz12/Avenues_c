@@ -16,8 +16,10 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 30, static: 180 },
     // `motion` is not in Next's built-in optimizePackageImports list (unlike
     // lucide-react), and the Toaster in the root layout pulls it into every
-    // route's bundle — admin included.
-    optimizePackageImports: ["motion"],
+    // route's bundle — admin included. `date-fns` and the dnd-kit packages are
+    // barrel exports too: admin imports a handful of helpers from each and was
+    // pulling the whole surface into the shared chunk.
+    optimizePackageImports: ["motion", "date-fns", "@dnd-kit/core", "@dnd-kit/sortable"],
   },
   images: {
     remotePatterns: [
