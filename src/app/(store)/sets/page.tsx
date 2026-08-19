@@ -18,6 +18,22 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteUrl}/sets` },
 };
 
+/**
+ * Per-request, for the same reason as the product pages.
+ *
+ * This renders ProductCards, and a ProductCard carries a real buy control
+ * whose shape depends on stock. Cached, a sold-out set keeps offering "Add to
+ * cart" and an restocked one keeps refusing — the page does not just show a
+ * stale number, it shows the wrong button. The fragrance page note has the
+ * evidence; this is the same failure with a different template.
+ *
+ * It was force-dynamic before, and briefly ISR here on the theory that a set
+ * changes only when an admin edits it. That is true of its CONTENTS and false
+ * of its stock.
+ *
+ * The cost is one page. The storefront layout no longer reads the session, so
+ * the landing page and the static content pages are prerendered regardless.
+ */
 export const dynamic = "force-dynamic";
 
 /**

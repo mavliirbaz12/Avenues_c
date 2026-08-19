@@ -3,7 +3,6 @@ import { SiteNav } from "@/components/layout/site-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { SessionSync } from "@/components/providers/session-sync";
-import { getCurrentUser } from "@/lib/auth-guards";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
 import { getNavFragrances } from "@/lib/catalog";
 
@@ -20,17 +19,32 @@ const WhatsAppFab = dynamic(
   () => import("@/components/layout/whatsapp-fab").then((m) => m.WhatsAppFab),
 );
 
-/** The storefront shell: announcement strip, nav, overlays, footer, channels. */
+/**
+ * The storefront shell: announcement strip, nav, overlays, footer, channels.
+ *
+ * NOTHING HERE MAY READ THE REQUEST. Not cookies, not headers, not the session.
+ *
+ * This layout wraps every storefront route, so one dynamic API call in it opts
+ * the whole group out of static generation — which is precisely what happened:
+ * it awaited `getCurrentUser()` to hand `isAuthed` to the nav, and in exchange
+ * every visit to /, /shop, /sets and every product page cost a fresh server
+ * render plus database round-trips. Production answered `X-Vercel-Cache: MISS`
+ * to literally every request at 1.3-3.1s a page, and the homepage's own
+ * `revalidate = 3600` was dead code the entire time.
+ *
+ * Auth is now resolved on the client (src/store/session.ts), which is what
+ * lets these pages be built once and served from the edge. The two reads that
+ * remain are `unstable_cache`-wrapped catalogue queries — safe, because they
+ * depend on the data, not on who is asking.
+ */
 export default async function StoreLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [settings, fragrances, user] = await Promise.all([
+  const [settings, fragrances] = await Promise.all([
     getStoreSettings(),
     getNavFragrances(),
-    getCurrentUser().catch(() => null),
   ]);
 
-  const isAuthed = Boolean(user);
   const wa = whatsappLink(settings.whatsappNumber, "Hi Avenues, I have a question.");
   const showAnnouncement = Boolean(settings.announcementEnabled && settings.announcementText);
 
@@ -45,7 +59,7 @@ export default async function StoreLayout({
         Skip to content
       </a>
 
-      <SessionSync isAuthed={isAuthed} />
+      <SessionSync />
 
       {showAnnouncement && (
         <AnnouncementBar
@@ -54,13 +68,8 @@ export default async function StoreLayout({
         />
       )}
 
-      <SiteNav
-        isAuthed={isAuthed}
-        firstName={user?.name?.split(" ")[0] ?? null}
-        fragrances={fragrances}
-      />
+      <SiteNav fragrances={fragrances} />
       <MobileMenu
-        isAuthed={isAuthed}
         supportEmail={settings.supportEmail}
         whatsappHref={wa}
         fragrances={fragrances}

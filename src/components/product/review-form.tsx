@@ -7,25 +7,41 @@ import { submitReview } from "@/app/actions/reviews";
 import { Sparkle } from "@/components/brand/sparkle";
 import { cn } from "@/lib/utils";
 import { FORM_IDLE } from "@/lib/form-state";
+import { useSession } from "@/store/session";
 
+/**
+ * Sign-in state comes from the client session store, not from a server prop.
+ *
+ * The parent used to resolve it with getCurrentUser(), which made the whole
+ * product page dynamic — a per-request render of everything so this one panel
+ * could be right on first paint. See src/store/session.ts.
+ *
+ * `alreadyReviewed` went the same way: pre-checking it needed a per-user query
+ * on a page that is now prerendered. The server action catches the duplicate on
+ * the unique constraint and returns "You've already reviewed this fragrance",
+ * so the only difference is that the message arrives on submit rather than
+ * instead of the form.
+ */
 export function ReviewForm({
   productId,
   productName,
-  isAuthed,
-  alreadyReviewed,
   slug,
 }: {
   productId: string;
   productName: string;
-  isAuthed: boolean;
-  alreadyReviewed: boolean;
   slug: string;
 }) {
   const [state, action] = useActionState(submitReview, FORM_IDLE);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
+  const status = useSession((s) => s.status);
 
-  if (!isAuthed) {
+  // Render nothing rather than flashing "Sign in to leave a review" at someone
+  // who is signed in — this panel is below the fold, so there is no layout
+  // cost to waiting a beat.
+  if (status === "loading") return null;
+
+  if (status !== "authenticated") {
     return (
       <div className="border border-line p-6 text-center">
         <p className="font-sans text-sm leading-relaxed text-stone">
@@ -37,17 +53,6 @@ export function ReviewForm({
             Sign in
           </Link>{" "}
           to leave a review — accounts keep the ratings honest.
-        </p>
-      </div>
-    );
-  }
-
-  if (alreadyReviewed) {
-    return (
-      <div className="border border-line p-6 text-center">
-        <p className="font-sans text-sm leading-relaxed text-stone">
-          You&rsquo;ve reviewed this fragrance — thank you. One review per
-          customer keeps the numbers honest.
         </p>
       </div>
     );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useSession } from "@/store/session";
 import { AuthField } from "./auth-shell";
 import { PasswordField } from "./password-field";
 
@@ -39,6 +40,11 @@ export function LoginForm({
 
     // Full navigation so the server layout re-reads the session and the
     // guest cart merge in SessionSync fires.
+    // The nav reads auth from the client store, and router.push is a CLIENT
+    // navigation — nothing reloads the JS context, so without this the store
+    // keeps the "anonymous" it resolved when this page mounted and the bar
+    // still says Login. Awaited so the nav is correct on arrival.
+    await useSession.getState().refresh();
     router.push(next);
     router.refresh();
   }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useSession } from "@/store/session";
 import { requestLoginOtp, type OtpRequestState } from "@/app/actions/otp";
 import { AuthField } from "./auth-shell";
 import { integrationsNote } from "./phone-otp-note";
@@ -67,6 +68,9 @@ export function PhoneOtpForm({ next, smsLive }: { next: string; smsLive: boolean
       return;
     }
 
+    // See login-form: the nav's auth state lives in a client store and this is
+    // a client navigation, so it must be told the session changed.
+    await useSession.getState().refresh();
     router.push(next);
     router.refresh();
   }

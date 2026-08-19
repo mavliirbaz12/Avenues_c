@@ -1,7 +1,6 @@
 import { ReviewStatus } from "@prisma/client";
 import { BadgeCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth-guards";
 import { formatDate } from "@/lib/format";
 import { Stars } from "./stars";
 import { ReviewForm } from "./review-form";
@@ -11,6 +10,15 @@ import { Reveal } from "@/components/motion/reveal";
  * The reviews band on a product page: aggregate, distribution, the approved
  * reviews, and the submission form. Server component — moderation state and
  * verified-buyer flags never reach the client unvetted.
+ *
+ * Reads NOTHING about the current visitor, deliberately. It used to call
+ * getCurrentUser() to pre-resolve "are you signed in" and "have you already
+ * reviewed this", and because this renders inside the product page, that one
+ * call made every PDP dynamic — no CDN caching for anybody, to personalise a
+ * single panel. The form now resolves sign-in from the client session store,
+ * and the duplicate case is caught by the server action, which already returns
+ * "You've already reviewed this fragrance" off the unique constraint. Same
+ * outcome for the visitor; the page ships from the edge.
  */
 export async function ProductReviews({
   productId,
@@ -25,10 +33,7 @@ export async function ProductReviews({
   avgRating: number;
   reviewCount: number;
 }) {
-  const user = await getCurrentUser();
-
-  const [reviews, own] = await Promise.all([
-    prisma.review.findMany({
+  const reviews = await prisma.review.findMany({
       where: { productId, status: ReviewStatus.APPROVED },
       orderBy: [{ isVerifiedBuyer: "desc" }, { createdAt: "desc" }],
       take: 20,
@@ -41,14 +46,7 @@ export async function ProductReviews({
         createdAt: true,
         user: { select: { name: true } },
       },
-    }),
-    user
-      ? prisma.review.findUnique({
-          where: { productId_userId: { productId, userId: user.id } },
-          select: { id: true },
-        })
-      : null,
-  ]);
+  });
 
   // Star distribution for the histogram.
   const dist = [5, 4, 3, 2, 1].map((star) => ({
@@ -114,13 +112,7 @@ export async function ProductReviews({
             )}
 
             <div className="mt-6">
-              <ReviewForm
-                productId={productId}
-                productName={productName}
-                isAuthed={Boolean(user)}
-                alreadyReviewed={Boolean(own)}
-                slug={slug}
-              />
+              <ReviewForm productId={productId} productName={productName} slug={slug} />
             </div>
           </div>
 

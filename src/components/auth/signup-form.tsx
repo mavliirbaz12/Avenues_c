@@ -6,6 +6,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useSession } from "@/store/session";
 import { signUp } from "@/app/actions/auth";
 import { AuthField } from "./auth-shell";
 import { PasswordField } from "./password-field";
@@ -47,11 +48,15 @@ export function SignupForm({
       router.push("/login");
       return;
     }
-    void signIn("credentials", { email, password, redirect: false }).then(() => {
-      creds.current = null;
-      router.push(next);
-      router.refresh();
-    });
+    void signIn("credentials", { email, password, redirect: false })
+      // See login-form: client navigation, so the client session store has to
+      // be told the visitor is now signed in.
+      .then(() => useSession.getState().refresh())
+      .then(() => {
+        creds.current = null;
+        router.push(next);
+        router.refresh();
+      });
   }, [state.ok, router, next]);
 
   return (

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useSession } from "@/store/session";
 import { User, MapPin, Package, Heart, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +51,16 @@ export function AccountNav() {
         <li className="shrink-0 lg:mt-6 lg:shrink lg:border-t lg:border-line lg:pt-4">
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={() => {
+              // Re-probe AFTER the cookie is cleared, not before — probing
+              // first would just re-confirm the session that is about to end.
+              // signOut usually does a document navigation (which resets the
+              // store anyway); this covers the case where it does not. See
+              // src/store/session.ts.
+              void signOut({ callbackUrl: "/" }).then(() =>
+                useSession.getState().refresh(),
+              );
+            }}
             className="flex w-full items-center gap-3 whitespace-nowrap border-b-2 border-transparent px-4 py-3
                        font-sans text-micro uppercase text-stone transition-colors duration-400 ease-smoke
                        hover:text-danger lg:border-b-0 lg:border-l-2 lg:py-3.5"

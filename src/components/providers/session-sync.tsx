@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useCart } from "@/store/cart";
 import { useWishlist } from "@/store/wishlist";
+import { useSession } from "@/store/session";
 
 /**
  * Merges the guest cart and wishlist into the signed-in account, once.
@@ -11,9 +12,23 @@ import { useWishlist } from "@/store/wishlist";
  * guest accumulated, and adopts the server's canonical answer. Guarded by a
  * ref so it fires once per mount rather than on every navigation — the merge
  * is idempotent, but re-running it on each page load is wasted work.
+ *
+ * ALSO the one place that kicks off the session probe. `isAuthed` used to
+ * arrive as a prop from the store layout, which is exactly what forced every
+ * storefront route to be dynamic; it now comes from the client session store
+ * (see src/store/session.ts). The merge waits for the probe to land rather
+ * than firing against an unknown state — running it while `status` is still
+ * "loading" would upload a guest cart on behalf of nobody.
  */
-export function SessionSync({ isAuthed }: { isAuthed: boolean }) {
+export function SessionSync() {
   const done = useRef(false);
+  const status = useSession((s) => s.status);
+  const load = useSession((s) => s.load);
+  const isAuthed = status === "authenticated";
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   useEffect(() => {
     if (!isAuthed || done.current) return;

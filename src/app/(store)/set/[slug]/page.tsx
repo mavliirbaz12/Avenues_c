@@ -15,8 +15,8 @@ import { ProductCard } from "@/components/product/product-card";
 import { Reveal } from "@/components/motion/reveal";
 import { jsonLdHtml } from "@/lib/seo";
 
-// Same reasoning as the fragrance page: the reviews band reads the session and
-// the buy box shows live stock.
+// Same reasoning as the fragrance page — see the note there on why a cached
+// buy box is not just a stale number but the wrong control.
 export const dynamic = "force-dynamic";
 
 /**
