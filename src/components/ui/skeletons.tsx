@@ -36,6 +36,20 @@ import { cn } from "@/lib/utils";
  *   (store)/            ✗ would shadow /fragrance/[slug] and /order/[n]
  *   fragrance/[slug]/   ✗ 404s on an unknown slug
  *   order/[orderNumber] ✗ 404s on an unknown order
+ *
+ * `(store)/loading.tsx` HAS NOW BEEN ADDED AND REMOVED TWICE. It went in with
+ * 9804d0c, came out in acb47cf ("fix 404s returning HTTP 200"), went back in
+ * with 4d7149d, and by the time that reached production every notFound() under
+ * the group was serving 200: /fragrance/<unknown>, /set/<unknown> and
+ * /order/<unknown> all returned 200 to a crawler, and the Discovery Set — then
+ * mislinked to /fragrance/… from the nav — rendered as a blank page rather
+ * than a 404.
+ *
+ * It is a tempting file to add, because the store group is exactly where a
+ * skeleton feels most useful. Add it to /shop and /sets instead. The e2e suite
+ * asserts the 404 status (admin.spec.ts) and there is now a route-status spec
+ * covering the unknown-slug cases directly, so a third attempt fails CI rather
+ * than production.
  * ---------------------------------------------------------------------------
  */
 
