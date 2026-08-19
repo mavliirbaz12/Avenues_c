@@ -1,11 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["bom1"],
-  "crons": [
-    {
-      "path": "/api/cron/release-stock",
-      "schedule": "*/15 * * * *"
-    }
-  ]
+  "regions": ["bom1"]
 }
