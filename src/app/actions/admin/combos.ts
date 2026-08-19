@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { redirect } from "next/navigation";
 import { CATALOG_TAG } from "@/lib/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -168,6 +169,8 @@ export async function saveCombo(_prev: FormState, formData: FormData): Promise<F
     metaDescription: d.metaDescription || null,
   };
 
+  let newComboId: string | null = null;
+
   try {
     const comboId = await prisma.$transaction(async (tx) => {
       let id = d.id || "";
@@ -218,13 +221,26 @@ export async function saveCombo(_prev: FormState, formData: FormData): Promise<F
     });
 
     revalidateCombo(slug);
-    return d.id
-      ? { ok: true, message: `Saved — ${items.length} in the box.` }
-      : {
-          ok: true,
-          message: "Set created.",
-          redirectTo: `/admin/combos/${comboId}`,
-        };
+
+    if (d.id) return { ok: true, message: `Saved — ${items.length} in the box.` };
+
+    /*
+      Redirect from the SERVER, not by handing the client a `redirectTo`.
+
+      The form used to return the new id and let a useEffect call router.push.
+      It never arrived: this action calls revalidatePath("/admin/combos") a few
+      lines up, and the refresh that triggers remounts the form — which resets
+      useActionState to its idle value before the effect ever observes
+      `state.ok`. The set was created and the admin was left looking at a blank
+      "new set" form, with no indication anything had saved. Clicking Create
+      again then failed on the duplicate slug.
+
+      Thrown outside the try below on purpose: redirect() signals by throwing a
+      NEXT_REDIRECT error, and the catch here maps unknown errors to "something
+      went wrong" — it would swallow the navigation and report a failure for a
+      save that succeeded.
+    */
+    newComboId = comboId;
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       const target = String(err.meta?.target ?? "");
@@ -239,6 +255,10 @@ export async function saveCombo(_prev: FormState, formData: FormData): Promise<F
     console.error("[admin:combos] save failed:", err);
     return { ok: false, message: "Something went wrong saving the set." };
   }
+
+  // Outside the catch: redirect() throws NEXT_REDIRECT to signal, and catching
+  // it would turn a successful save into "something went wrong".
+  redirect(`/admin/combos/${newComboId}`);
 }
 
 export async function toggleComboActive(

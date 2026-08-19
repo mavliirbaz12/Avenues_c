@@ -80,7 +80,49 @@ export default async function AdminCustomersPage({
           {q ? "No customers match that search." : "No registered customers yet."}
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto border border-line">
+        <>
+        {/* Cards below `sm` — see the note on the orders table for why a
+            44rem-wide grid is not a mobile layout. */}
+        <ul className="mt-6 space-y-3 sm:hidden">
+          {customers.map((c) => {
+            const orderCount = c.orders.length;
+            const lifetime = c.orders.reduce((n, o) => n + o.totalPaise, 0);
+            return (
+              <li key={c.id} className="relative border border-line px-4 py-3.5">
+                <Link
+                  href={`/admin/customers/${c.id}`}
+                  className="font-sans text-sm text-bone after:absolute after:inset-0"
+                >
+                  {c.name ?? "—"}
+                </Link>
+                <p className="mt-1 font-sans text-[0.6875rem] text-stone-dark">
+                  {c.email ?? "phone-only"}
+                  {c.phone && ` · ${c.phone}`}
+                </p>
+                <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-sans text-[0.6875rem]">
+                  <div className="flex gap-1.5">
+                    <dt className="text-stone-dark">Orders</dt>
+                    <dd className="tabular-nums text-stone">{orderCount}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="text-stone-dark">Lifetime</dt>
+                    <dd className="tabular-nums text-bone">{formatPaise(lifetime)}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="text-stone-dark">Reviews</dt>
+                    <dd className="tabular-nums text-stone">{c._count.reviews}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="text-stone-dark">Joined</dt>
+                    <dd className="text-stone">{formatDate(c.createdAt)}</dd>
+                  </div>
+                </dl>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-6 hidden overflow-x-auto border border-line sm:block">
           <table className="w-full min-w-[44rem] border-collapse font-sans text-xs">
             <thead>
               <tr className="border-b border-line text-left">
@@ -116,6 +158,7 @@ export default async function AdminCustomersPage({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

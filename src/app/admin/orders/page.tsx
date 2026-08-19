@@ -129,7 +129,57 @@ export default async function AdminOrdersPage({
           Nothing here under this filter.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto border border-line">
+        <>
+        {/*
+          Phones get cards, not a sideways scroller.
+
+          The table below is 56rem wide — on a 390px screen that is a viewport
+          and a half of horizontal dragging to reach the total, with the header
+          row scrolled off so you cannot tell which column you are looking at.
+          It technically worked, which is why it survived; it was not usable
+          while standing at a packing table holding a phone.
+
+          Same data, same order, stacked per record. The table is kept intact
+          for `sm` and up, where columns genuinely are the better scan.
+        */}
+        <ul className="mt-6 space-y-3 sm:hidden">
+          {orders.map((o) => (
+            <li key={o.id} className="relative border border-line px-4 py-3.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <Link
+                  href={`/admin/orders/${o.id}`}
+                  className="font-sans text-sm font-medium text-bone after:absolute after:inset-0"
+                >
+                  {o.orderNumber}
+                </Link>
+                <span className="font-sans text-sm tabular-nums text-bone">
+                  {formatPaise(o.totalPaise)}
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <AdminStatusChip status={o.status} />
+                <span className="font-sans text-[0.6875rem] text-stone">
+                  {o.paymentMethod === "COD"
+                    ? o.paymentStatus === PaymentStatus.PAID ? "COD · collected" : "COD"
+                    : o.paymentStatus === PaymentStatus.PAID ? "Paid"
+                    : o.paymentStatus === PaymentStatus.REFUNDED ? "Refunded"
+                    : "Unpaid"}
+                </span>
+              </div>
+
+              <p className="mt-2 font-sans text-xs text-stone">
+                {o.shipName} · {o.shipCity}
+              </p>
+              <p className="mt-1 font-sans text-[0.6875rem] text-stone-dark">
+                {formatDateTime(o.createdAt)}
+                {o.shipment?.waybill ? ` · AWB ${o.shipment.waybill}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-6 hidden overflow-x-auto border border-line sm:block">
           <table className="w-full min-w-[56rem] border-collapse font-sans text-xs">
             <thead>
               <tr className="border-b border-line text-left">
@@ -170,6 +220,7 @@ export default async function AdminOrdersPage({
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Pagination */}

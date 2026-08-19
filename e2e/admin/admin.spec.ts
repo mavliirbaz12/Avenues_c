@@ -147,7 +147,14 @@ test.describe("orders", () => {
     const { body } = await placeOrder(request, { variantId: variant.id });
 
     await adminPage.goto("/admin/orders");
-    await expect(adminPage.getByText(body.orderNumber)).toBeVisible();
+    // filter({ visible: true }): the list renders twice — stacked cards below
+    // `sm`, a table above it — so the order number is in the DOM twice and only
+    // one copy is displayed at any width. Asserting on the visible one is also
+    // the more honest test: it checks what the admin can actually see at this
+    // viewport, rather than that the string exists somewhere in the markup.
+    await expect(
+      adminPage.getByText(body.orderNumber).filter({ visible: true }),
+    ).toBeVisible();
   });
 
   test("order detail shows the customer and items", async ({ adminPage, request }) => {
@@ -255,7 +262,10 @@ test.describe("enquiries inbox", () => {
 test.describe("customers", () => {
   test("@smoke lists the seeded customer", async ({ adminPage }) => {
     await adminPage.goto("/admin/customers");
-    await expect(adminPage.getByText("customer@test.dev")).toBeVisible();
+    // See the orders spec above: cards below `sm`, table above, both in the DOM.
+    await expect(
+      adminPage.getByText("customer@test.dev").filter({ visible: true }),
+    ).toBeVisible();
   });
 });
 
@@ -306,47 +316,92 @@ test.describe("settings", () => {
     });
   });
 
+  /**
+   * Toggled through the FORM, and restored in a finally.
+   *
+   * Two separate lessons are baked in here.
+   *
+   * The form, because store settings are read through `unstable_cache` with a
+   * 300s TTL and a `settings` tag. Writing the row directly with Prisma changes
+   * the database and nothing else — the app keeps serving the cached copy, so
+   * the assertion below could never pass. Saving through the admin action is
+   * what calls revalidateTag(SETTINGS_TAG), and it is also the path a real
+   * admin takes. (The announcement spec above already did it this way; these
+   * two had drifted to direct writes.)
+   *
+   * The finally, because the restore used to sit after the assertion. When the
+   * assertion failed, COD stayed disabled for the whole run and every later
+   * checkout died with COD_UNAVAILABLE — one broken spec became twelve, in
+   * files that had nothing to do with settings. A cleanup that only runs on
+   * success is not a cleanup.
+   */
   test("turning COD off removes it from checkout pricing", async ({ adminPage, request }) => {
-    await db.storeSetting.update({ where: { id: 1 }, data: { codEnabled: false } });
-
     const variant = await ensureStock("intense");
-    const res = await request.post("/api/cart/price", {
-      data: {
-        items: [{ variantId: variant.id, quantity: 1 }],
-        paymentMethod: "COD",
-      },
-    });
-    const body = await res.json();
-    expect(body.codAllowed ?? body.codEnabled ?? false, "COD should be off").toBeFalsy();
 
-    await db.storeSetting.update({ where: { id: 1 }, data: { codEnabled: true } });
+    try {
+      await adminPage.goto("/admin/settings");
+      await adminPage.getByRole("checkbox", { name: /cash on delivery/i }).uncheck();
+      await adminPage.getByRole("button", { name: /save settings/i }).click();
+
+      await expect
+        .poll(async () => {
+          const res = await request.post("/api/cart/price", {
+            data: { items: [{ variantId: variant.id, quantity: 1 }], paymentMethod: "COD" },
+          });
+          const body = await res.json();
+          return body.codAllowed ?? body.codEnabled ?? false;
+        }, { message: "COD should be off in checkout pricing" })
+        .toBeFalsy();
+    } finally {
+      await adminPage.goto("/admin/settings");
+      await adminPage.getByRole("checkbox", { name: /cash on delivery/i }).check();
+      await adminPage.getByRole("button", { name: /save settings/i }).click();
+      await expect
+        .poll(async () => {
+          const res = await request.post("/api/cart/price", {
+            data: { items: [{ variantId: variant.id, quantity: 1 }], paymentMethod: "COD" },
+          });
+          const body = await res.json();
+          return body.codAllowed ?? body.codEnabled ?? true;
+        }, { message: "COD must be restored before other specs run" })
+        .toBeTruthy();
+    }
   });
 
+  /** Same two lessons as the COD spec above: save through the form, restore in
+      a finally. A direct Prisma write leaves the cached settings untouched, and
+      a threshold left at 10,000,000 paise silently breaks every shipping
+      assertion that runs afterwards. */
   test("the free-shipping threshold drives the shipping line", async ({ adminPage, request }) => {
     const original = await db.storeSetting.findUnique({ where: { id: 1 } });
-
-    // Threshold far above a single bottle: shipping must be charged.
-    await db.storeSetting.update({
-      where: { id: 1 },
-      data: { freeShippingThresholdPaise: 10_000_000 },
-    });
-
     const variant = await ensureStock("intense");
-    const paid = await request.post("/api/cart/price", {
-      data: { items: [{ variantId: variant.id, quantity: 1 }] },
-    });
-    expect((await paid.json()).shippingPaise, "under the threshold, shipping is charged").toBeGreaterThan(0);
 
-    // Threshold at zero: everything ships free.
-    await db.storeSetting.update({ where: { id: 1 }, data: { freeShippingThresholdPaise: 0 } });
-    const free = await request.post("/api/cart/price", {
-      data: { items: [{ variantId: variant.id, quantity: 1 }] },
-    });
-    expect((await free.json()).shippingPaise, "over the threshold, shipping is free").toBe(0);
+    const setThreshold = async (rupees: string) => {
+      await adminPage.goto("/admin/settings");
+      await adminPage.getByRole("textbox", { name: /free delivery above/i }).fill(rupees);
+      await adminPage.getByRole("button", { name: /save settings/i }).click();
+    };
+    const shippingPaise = async () => {
+      const res = await request.post("/api/cart/price", {
+        data: { items: [{ variantId: variant.id, quantity: 1 }] },
+      });
+      return (await res.json()).shippingPaise as number;
+    };
 
-    await db.storeSetting.update({
-      where: { id: 1 },
-      data: { freeShippingThresholdPaise: original!.freeShippingThresholdPaise },
-    });
+    try {
+      // Threshold far above a single bottle: shipping must be charged.
+      await setThreshold("100000");
+      await expect
+        .poll(shippingPaise, { message: "under the threshold, shipping is charged" })
+        .toBeGreaterThan(0);
+
+      // Threshold at zero: everything ships free.
+      await setThreshold("0");
+      await expect
+        .poll(shippingPaise, { message: "over the threshold, shipping is free" })
+        .toBe(0);
+    } finally {
+      await setThreshold(String(Math.round(original!.freeShippingThresholdPaise / 100)));
+    }
   });
 });
