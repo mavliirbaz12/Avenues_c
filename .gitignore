@@ -48,3 +48,6 @@ coverage/
 /playwright/.cache/
 e2e/.auth/
 e2e/.artifacts/
+
+# Local e2e run output
+e2e-run.log
