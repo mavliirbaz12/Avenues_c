@@ -1,9 +1,20 @@
 import { test, expect, allowConsoleErrors } from "../fixtures";
 import { main, nav } from "../utils/selectors";
 import { db } from "../utils/db";
-import { ensureStock } from "../utils/orders";
+import { customerRequest, ensureStock } from "../utils/orders";
 
-test.afterAll(() => db.$disconnect());
+/**
+ * Leave the catalogue as we found it: exactly one set, the seeded one.
+ *
+ * The builder spec creates sets and deletes them at the end of its body, which
+ * is fine right up until it fails. Doing it here as well means a failure costs
+ * one red test instead of leaking a second set into every /sets assertion that
+ * runs afterwards, in this file and in the other project.
+ */
+test.afterAll(async () => {
+  await db.product.deleteMany({ where: { type: "COMBO", slug: { not: SET_SLUG } } });
+  await db.$disconnect();
+});
 
 const SET_SLUG = "discovery-set";
 
@@ -16,8 +27,36 @@ const SET_SLUG = "discovery-set";
  * its cleanup would quietly change both, and the failure would point at the
  * wrong thing.
  */
+/**
+ * Between EVERY test, not just at the end of the file.
+ *
+ * The builder spec creates a set, and the specs after it in this same file
+ * assume the seeded set is the only one — "retiring a fragrance inside an
+ * active set is blocked" reports how many sets contain the fragrance, so a
+ * leftover turns "inside 1 active gift set" into "inside 2". afterAll runs far
+ * too late to help those, and relying on the builder's own last statement
+ * fails exactly when the builder does.
+ */
+test.afterEach(async () => {
+  await db.product.deleteMany({ where: { type: "COMBO", slug: { not: SET_SLUG } } });
+});
+
 test.beforeAll(async () => {
-  await db.product.deleteMany({ where: { slug: { startsWith: "e2e-set-" } } });
+  /*
+    Delete every set that is not the seeded one — not just `e2e-set-*`.
+
+    Several assertions here depend on the seeded set being the ONLY one: /sets
+    renders a full-width feature at one set and a grid at two or more, and the
+    "N fragrances" line only exists in the feature layout. The admin builder
+    spec creates sets with generated slugs, and when it failed its cleanup —
+    the last statement in the test — never ran. The leftover flipped /sets to a
+    grid, and the contents-count spec in the OTHER project failed on a page
+    that was entirely correct for the data it had.
+
+    Matching on "anything that is not the seed" rather than on a prefix means a
+    future spec that names its fixtures differently cannot reintroduce this.
+  */
+  await db.product.deleteMany({ where: { type: "COMBO", slug: { not: SET_SLUG } } });
 });
 
 async function seededSet() {
@@ -126,23 +165,51 @@ test.describe("gift sets — storefront", () => {
     );
   });
 
-  test("the homepage band disappears when no set is active", async ({ page }) => {
-    await db.product.updateMany({ where: { type: "COMBO" }, data: { isActive: false } });
-    try {
-      const live = await db.product.count({ where: { type: "COMBO", isActive: true } });
-      expect(live, "no set should be active for this test").toBe(0);
+  /**
+   * Toggled through the ADMIN FORM, not with a Prisma write.
+   *
+   * The landing page and /sets are prerendered (ISR) rather than rendered per
+   * request. A direct `db.product.updateMany` changes the row and nothing
+   * else, so the cached HTML keeps showing the band and this spec fails on
+   * output that is stale rather than wrong — and, worse, the stale /sets entry
+   * then outlived the test and broke the contents-count spec in the other
+   * project.
+   *
+   * Saving through the admin form is what calls revalidatePath, which is also
+   * exactly how a real admin retires a set. Restored in a finally, through the
+   * same path, so the cache is warm and correct for whatever runs next.
+   */
+  test("the homepage band disappears when no set is active", async ({ page, adminPage }) => {
+    const set = await seededSet();
+    const setActive = async (active: boolean) => {
+      await adminPage.goto(`/admin/combos/${set!.id}`);
+      const live = adminPage.getByRole("checkbox", { name: /live on the storefront/i });
+      if (active) await live.check();
+      else await live.uncheck();
+      await adminPage.getByRole("button", { name: /save|update/i }).first().click();
+      await expect
+        .poll(
+          async () =>
+            (await db.product.findUnique({
+              where: { id: set!.id },
+              select: { isActive: true },
+            }))!.isActive,
+          { message: `the set should be ${active ? "live" : "retired"}` },
+        )
+        .toBe(active);
+    };
 
-      // Unique query string: a plain "/" can be served from Next's client
-      // router cache within staleTimes, and this assertion is about the
-      // server's output.
-      await page.goto(`/?nocache=${Date.now()}`);
+    try {
+      await setActive(false);
+
+      await page.goto("/");
       await expect(page.getByTestId("combo-band")).toHaveCount(0);
 
       // And the sets page says so rather than rendering an empty grid.
-      await page.goto(`/sets?nocache=${Date.now()}`);
+      await page.goto("/sets");
       await expect(main(page).getByText(/no sets are boxed/i)).toBeVisible();
     } finally {
-      await db.product.update({ where: { slug: SET_SLUG }, data: { isActive: true } });
+      await setActive(true);
     }
   });
 
@@ -154,23 +221,40 @@ test.describe("gift sets — storefront", () => {
     );
   });
 
-  test("sets appear in shop, search and the kind filter", async ({ page }) => {
+  /**
+   * Sets are on /shop, but in their own band beneath the fragrance grid — not
+   * mixed into it and not behind a `?kind=` filter.
+   *
+   * This spec used to assert the filter behaviour. That was written against an
+   * earlier /shop that listed both kinds in one grid; the page was later
+   * narrowed to fragrances only and this was left behind asserting a feature
+   * that no longer existed. It now describes what the page actually does: the
+   * fragrances answer "which one", the set band answers "or all of them", and
+   * the filters belong to the first question only.
+   */
+  test("sets appear on /shop in their own band, after the fragrances", async ({ page }) => {
     await page.goto("/shop");
-    await expect(
-      main(page).locator(`a[href="/set/${SET_SLUG}"]`).first(),
-      "a set should be listed in Shop All",
-    ).toBeVisible();
 
-    // Filtered to sets only: no fragrance links survive.
-    await page.goto("/shop?kind=COMBO");
-    const hrefs = await main(page)
-      .locator('a[href^="/fragrance/"], a[href^="/set/"]')
-      .evaluateAll((els) => els.map((e) => (e as HTMLAnchorElement).getAttribute("href")!));
-    expect(hrefs.length).toBeGreaterThan(0);
-    expect(
-      hrefs.every((h) => h.startsWith("/set/")),
-      "the Gift sets filter should exclude single fragrances",
-    ).toBe(true);
+    const setLink = main(page).locator(`a[href="/set/${SET_SLUG}"]`).first();
+    await expect(setLink, "a set should be listed on /shop").toBeVisible();
+
+    // Order matters: the set band is a footnote to the range, not the lead.
+    const firstFragranceY = await main(page)
+      .locator('a[href^="/fragrance/"]')
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    const setY = await setLink.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    expect(setY, "sets should sit below the fragrance grid").toBeGreaterThan(firstFragranceY);
+
+    // And the two are not interleaved: the set has its own headed section.
+    await expect(main(page).getByRole("heading", { name: /or take the house/i })).toBeVisible();
+  });
+
+  test("the fragrance filters do not apply to the set band", async ({ page }) => {
+    // A filtered view is answering "which fragrance", so an unfiltered set
+    // band underneath would read as the filter having failed.
+    await page.goto("/shop?gender=MEN");
+    await expect(main(page).locator(`a[href="/set/${SET_SLUG}"]`)).toHaveCount(0);
   });
 
   test("a set that is sold out cannot be bought", async ({ page }) => {
@@ -209,10 +293,22 @@ test.describe("gift sets — storefront", () => {
     expect(xml).toContain("/sets");
   });
 
-  test("a combo slug does not resolve under /fragrance", async ({ page }) => {
-    allowConsoleErrors(page);
-    const res = await page.goto(`/fragrance/${SET_SLUG}`);
-    expect(res?.status(), "one canonical URL per product").toBe(404);
+  /**
+   * Still one canonical URL per product — but reached by redirect, not by a
+   * dead end.
+   *
+   * This asserted a 404. That defended the canonical-URL rule and nothing
+   * else: the nav linked sets to /fragrance/<slug> for months, so the URL was
+   * genuinely reachable, and what visitors actually got was a blank page (a
+   * loading boundary was swallowing the 404 status too). A 308 to /set/<slug>
+   * keeps exactly one canonical URL, tells crawlers to collapse the other, and
+   * lands the visitor on the product instead of an error.
+   */
+  test("a combo slug redirects to its canonical /set/ URL", async ({ page }) => {
+    await page.goto(`/fragrance/${SET_SLUG}`);
+    await expect(page, "one canonical URL per product").toHaveURL(
+      new RegExp(`/set/${SET_SLUG}$`),
+    );
   });
 });
 
@@ -222,13 +318,36 @@ test.describe("gift sets — checkout", () => {
     const v = set!.variants[0]!;
     await db.variant.update({ where: { id: v.id }, data: { stock: 20 } });
 
+    /*
+      Settle expired reservations BEFORE the snapshot.
+
+      createOrder() runs releaseExpiredReservations() as housekeeping, so the
+      checkout below does not only decrement — it also hands back stock that an
+      earlier abandoned checkout was holding. When one of those held a member
+      bottle, the bottle's stock went UP across this test and "selling a box
+      must not consume the bottles" failed on an increase, which is the
+      opposite of what it guards against.
+
+      Marking them released here leaves the housekeeping pass nothing to give
+      back, so the snapshot means what the assertion assumes. The app's
+      behaviour is untouched — the same reasoning as the journey's stock check.
+    */
+    await db.order.updateMany({
+      where: { status: "PENDING", stockReleasedAt: null },
+      data: { stockReleasedAt: new Date() },
+    });
+
     // Snapshot the member bottles: selling a box must not touch them.
     const before = await db.variant.findMany({
       where: { product: { inCombos: { some: { comboId: set!.id } } } },
       select: { id: true, stock: true },
     });
 
-    const res = await request.post("/api/checkout", {
+    // customerRequest(), not the bare guest fixture: checkout has required an
+    // account since 49a9b14 and this spec was never updated, so it had been
+    // asserting against a 401 body.
+    const api = await customerRequest();
+    const res = await api.post("/api/checkout", {
       headers: { "x-forwarded-for": "198.51.100.55" },
       data: {
         items: [{ variantId: v.id, quantity: 2 }],
@@ -247,6 +366,7 @@ test.describe("gift sets — checkout", () => {
       },
     });
     const body = await res.json();
+    await api.dispose();
     expect(res.status(), JSON.stringify(body)).toBeLessThan(400);
 
     const after = await db.variant.findUnique({ where: { id: v.id }, select: { stock: true } });
@@ -390,7 +510,22 @@ test.describe("gift sets — admin", () => {
     await expect(adminPage.getByTestId("combo-item-count")).toHaveText(/contains 2 fragrances/i);
 
     await adminPage.getByRole("button", { name: /create set/i }).click();
-    await adminPage.waitForURL(/\/admin\/combos\/[a-z0-9]+/, { timeout: 20_000 });
+    /*
+      Wait for the EDIT url — and "new" is not one.
+
+      This matched /\/admin\/combos\/[a-z0-9]+/, which the page was ALREADY
+      on: `new` is [a-z0-9]+. So the wait returned instantly, before the save
+      had redirected anywhere, and every following step ran against the create
+      form. The redirect then landed mid-edit and tore the row list out from
+      under Playwright — the "element was detached from the DOM" this test kept
+      dying on, in a place that had nothing to do with the real problem.
+
+      Excluding `new` makes it wait for the thing it always meant to wait for.
+    */
+    await adminPage.waitForURL(
+      (u) => /\/admin\/combos\/[a-z0-9]+$/.test(u.pathname) && !u.pathname.endsWith("/new"),
+      { timeout: 20_000 },
+    );
 
     await expect
       .poll(async () => db.comboItem.count({ where: { combo: { slug } } }), { timeout: 15_000 })
@@ -404,13 +539,41 @@ test.describe("gift sets — admin", () => {
     // --- grow it to six ---------------------------------------------------
     const target = Math.min(6, fragrances.length);
     const editRows = adminPage.getByTestId("combo-item-row");
+
+    /*
+      Reload before editing, rather than racing the soft navigation.
+
+      Saving a new set redirects with router.push, so the create form is
+      replaced in place when the edit route's payload arrives. Waiting for the
+      URL is not enough — that fires first — and waiting for "two rows" is not
+      enough either, because the outgoing form also shows two by then. The spec
+      was adding rows to a form React then swapped out, which surfaced as
+      "element was detached from the DOM" and read like a flake.
+
+      A hard reload removes the race instead of timing it: one document, fully
+      hydrated, with the saved state. Asserting two rows afterwards is then a
+      real check that the set persisted.
+    */
+    await adminPage.reload();
+    await expect(editRows).toHaveCount(2);
+
     while ((await editRows.count()) < target) {
+      const before = await editRows.count();
       await adminPage.getByTestId("combo-add-item").click();
+      await expect(editRows).toHaveCount(before + 1);
     }
     for (let i = 0; i < target; i++) {
-      await editRows.nth(i).getByRole("combobox").selectOption(fragrances[i % fragrances.length]!.id);
-      // Distinct sizes so repeats of the same fragrance stay unique rows.
-      await editRows.nth(i).getByRole("textbox").fill(`${(i + 1) * 5}ml`);
+      // Re-resolve the row on every attempt. Both controls are controlled
+      // inputs, so each edit re-renders the whole list; a locator captured
+      // before the edit can be pointing at a detached node by the time the
+      // next action runs.
+      await expect(async () => {
+        const row = adminPage.getByTestId("combo-item-row").nth(i);
+        await row.getByRole("combobox").selectOption(fragrances[i % fragrances.length]!.id);
+        // Distinct sizes so repeats of the same fragrance stay unique rows.
+        await row.getByRole("textbox").fill(`${(i + 1) * 5}ml`);
+        await expect(row.getByRole("textbox")).toHaveValue(`${(i + 1) * 5}ml`);
+      }).toPass({ timeout: 20_000 });
     }
     await expect(adminPage.getByTestId("combo-item-count")).toHaveText(
       new RegExp(`contains ${target} fragrances`, "i"),
@@ -428,7 +591,6 @@ test.describe("gift sets — admin", () => {
     ).toHaveCount(target);
 
     await shop.close();
-    await db.product.deleteMany({ where: { slug } });
   });
 
   test("a set with no items is refused", async ({ adminPage }) => {

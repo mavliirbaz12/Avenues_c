@@ -5,7 +5,7 @@
  * drifted — desktop said "Shop", mobile said "Shop all". One source now.
  */
 export const NAV_LINKS = [
-  { href: "/shop", label: "Shop all" },
+  { href: "/shop", label: "Shop" },
   { href: "/sets", label: "Gift sets" },
   { href: "/about", label: "Know Avenues" },
   { href: "/track-order", label: "Track order" },

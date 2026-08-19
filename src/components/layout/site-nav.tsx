@@ -9,9 +9,12 @@ import { NAV_LINKS } from "./nav-links";
 import { useCart, cartCount } from "@/store/cart";
 import { useWishlist } from "@/store/wishlist";
 import { useUI } from "@/store/ui";
+import { useSession } from "@/store/session";
 import { cn } from "@/lib/utils";
 
-export type NavFragrance = { slug: string; name: string };
+import type { NavProduct } from "@/lib/catalog";
+
+export type NavFragrance = NavProduct;
 
 /**
  * Primary navigation.
@@ -25,17 +28,19 @@ export type NavFragrance = { slug: string; name: string };
  * that the cluster falls back to icons carrying the same `aria-label`s rather
  * than wrapping to two rows.
  */
-export function SiteNav({
-  isAuthed,
-  firstName,
-  fragrances,
-}: {
-  isAuthed: boolean;
-  /** Shown in place of "Login" once signed in. */
-  firstName?: string | null;
-  fragrances: NavFragrance[];
-}) {
+export function SiteNav({ fragrances }: { fragrances: NavFragrance[] }) {
   const pathname = usePathname();
+  /*
+    Auth comes from the client store, not from props.
+
+    It used to be passed down from the store layout, which had to read the
+    session cookie to produce it — and that single read made every storefront
+    route dynamic, so nothing was ever served from the CDN. See
+    src/store/session.ts for the trade this buys.
+  */
+  const isAuthed = useSession((s) => s.isAuthed);
+  const firstName = useSession((s) => s.firstName);
+  const sessionStatus = useSession((s) => s.status);
   const [scrolled, setScrolled] = useState(false);
 
   const lines = useCart((s) => s.lines);
@@ -55,7 +60,10 @@ export function SiteNav({
   }, []);
 
   const count = cartCount(lines);
-  const accountLabel = isAuthed ? (firstName?.trim() || "Account") : "Login";
+  // Neutral while the probe is in flight: "Login" flashed at someone who is
+  // already signed in is worse than a word that is true either way.
+  const accountLabel =
+    sessionStatus === "loading" ? "Account" : isAuthed ? firstName?.trim() || "Account" : "Login";
 
   return (
     <header
@@ -121,12 +129,25 @@ export function SiteNav({
             <Search className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.4} />
           </IconButton>
 
+          {/*
+            Wishlist and account are on the bar at every width.
+
+            They were `hidden sm:inline-flex`, which on a phone left them
+            reachable only by opening the drawer and scrolling to its footer —
+            two deliberate actions to reach a saved list, on the viewport where
+            most of this store's traffic actually is. The badge count was
+            invisible there too, so a saved item gave no signal it had been
+            saved.
+
+            This costs the centred lockup ~76px of clearance below 768px, which
+            is why the `md` steps in components/brand/logo.tsx were re-measured
+            against the new cluster rather than left alone.
+          */}
           <IconButton
             label={`Wishlist${wishIds.length ? `, ${wishIds.length} saved` : ""}`}
             text="Wishlist"
             href="/wishlist"
             badge={wishIds.length}
-            className="hidden sm:inline-flex"
           >
             <Heart className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.4} />
           </IconButton>
@@ -134,8 +155,9 @@ export function SiteNav({
           <IconButton
             label={isAuthed ? "Your account" : "Sign in"}
             text={accountLabel}
+            // Signed out, /account redirects to /login with a next param, so
+            // this is correct even if the probe has not landed yet.
             href={isAuthed ? "/account" : "/login"}
-            className="hidden sm:inline-flex"
           >
             <User className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.4} />
           </IconButton>
@@ -158,13 +180,43 @@ export function SiteNav({
  * The Fragrances dropdown. Opens on hover AND on focus/click — a hover-only
  * menu is unusable by keyboard and on touch. Closes on Escape, on outside
  * click, and on navigation.
+ *
+ * Only SINGLE products appear. Gift sets used to be listed here — the query
+ * behind this never filtered by type — which put "Discovery Set" under a
+ * heading that is not what it is, and pointed it at a fragrance URL that
+ * refuses to render a combo. Sets have their own top-level nav entry.
  */
 function FragrancesMenu({ fragrances }: { fragrances: NavFragrance[] }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
 
+  const singles = fragrances.filter((f) => f.type === "SINGLE");
+
   useEffect(() => setOpen(false), [pathname]);
+
+  /**
+   * Closing is deferred; opening is not.
+   *
+   * The panel sits a few pixels below the trigger, and that gap is real screen
+   * the pointer has to cross. Closing synchronously on mouseleave meant the
+   * menu shut the instant you moved toward it — the trigger's box ends, the
+   * pointer is briefly over bare header, and the handler fires before the
+   * panel is ever entered. The grace period covers the crossing; entering
+   * either element cancels it.
+   */
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), 140);
+  };
+  useEffect(() => cancelClose, []);
 
   useEffect(() => {
     if (!open) return;
@@ -180,14 +232,19 @@ function FragrancesMenu({ fragrances }: { fragrances: NavFragrance[] }) {
     };
   }, [open]);
 
-  if (fragrances.length === 0) return null;
+  // Guards on what the menu actually lists: a catalogue holding only gift sets
+  // would otherwise render a "Fragrances" trigger opening an empty panel.
+  if (singles.length === 0) return null;
 
   return (
     <div
       ref={wrapRef}
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => {
+        cancelClose();
+        setOpen(true);
+      }}
+      onMouseLeave={scheduleClose}
     >
       <button
         type="button"
@@ -204,17 +261,25 @@ function FragrancesMenu({ fragrances }: { fragrances: NavFragrance[] }) {
       </button>
 
       {open && (
+        /*
+          The gap between trigger and panel is PADDING, not margin.
+
+          It was `marginTop: 0.5rem`, which puts 8px of bare header between the
+          wrapper's box and the panel's. The pointer crossing that strip is
+          over neither element, so mouseleave fired and the menu closed before
+          it could be reached — the menu was effectively unusable with a mouse.
+          As top padding the same 8px belongs to the panel, so the hover region
+          is continuous from trigger to first link.
+        */
         <div
-          className="glass-strong absolute left-1/2 top-full z-10 w-60 -translate-x-1/2 pt-2"
-          // Bridges the gap between trigger and panel so the pointer can
-          // travel without the menu closing under it.
-          style={{ marginTop: "0.5rem" }}
+          className="glass-strong absolute left-1/2 top-full z-10 w-60 -translate-x-1/2 pt-4"
+          onMouseEnter={cancelClose}
         >
           <ul className="py-2">
-            {fragrances.map((f) => (
+            {singles.map((f) => (
               <li key={f.slug}>
                 <Link
-                  href={`/fragrance/${f.slug}`}
+                  href={f.href}
                   className="block px-5 py-2.5 font-display text-lg font-light text-bone transition-colors duration-300 hover:bg-gold/[0.06] hover:text-gold-light"
                 >
                   {f.name.replace(/^Avenues\s+/i, "")}
@@ -256,7 +321,11 @@ function IconButton({
   className?: string;
 }) {
   const classes = cn(
-    "relative inline-flex h-11 items-center justify-center gap-2 px-2.5 text-bone/85",
+    // Tighter horizontal padding below `sm`: the phone bar now carries four
+    // controls (menu, wishlist, account, cart) where it used to carry two, and
+    // the padding is the only place to find the room. The 44px tap target is
+    // preserved by `h-11` plus the gap, not by the padding.
+    "relative inline-flex h-11 items-center justify-center gap-2 px-1.5 sm:px-2.5 text-bone/85",
     "transition-colors duration-300 ease-smoke hover:text-gold-light",
     className,
   );
@@ -275,8 +344,14 @@ function IconButton({
           </span>
         )}
       </span>
+      {/*
+        1400px, matching this file's own note above and the spec in
+        e2e/storefront/home.spec.ts. It had drifted to 1650, so at the 1440px
+        the desktop suite runs at — and on most laptops — every utility control
+        was an unlabelled icon, which is the exact thing the brief rules out.
+      */}
       {text && (
-        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1650px]:inline">
+        <span className="hidden max-w-[7rem] truncate font-sans text-micro uppercase min-[1400px]:inline">
           {text}
         </span>
       )}

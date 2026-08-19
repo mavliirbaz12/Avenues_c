@@ -6,7 +6,14 @@ import { FilterBar, type FacetData } from "@/components/shop/filter-bar";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { Sparkle } from "@/components/brand/sparkle";
-import { getActiveProductCards, searchProducts, type ProductCard as Card } from "@/lib/catalog";
+import {
+  getActiveProductCards,
+  getCatalogueSummary,
+  getComboCards,
+  searchProducts,
+  spellCount,
+  type ProductCard as Card,
+} from "@/lib/catalog";
 import { siteUrl } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -58,7 +65,17 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   // here too made the same product appear in two places with two different
   // framings, and made "5 fragrances" wrong. A set added from admin now shows
   // up on /sets and nowhere else.
-  const all = await getActiveProductCards({ where: { type: "SINGLE" } });
+  const [all, sets, summary] = await Promise.all([
+    getActiveProductCards({ where: { type: "SINGLE" } }),
+    // Gift sets, for the band BELOW the fragrance grid. They are fetched
+    // separately and rendered separately on purpose: mixed into the grid a set
+    // competes with the fragrances on price and reads as a sixth variant of
+    // the same thing, and it made the filters lie (a set has no single gender
+    // or size to facet on). Kept apart, the page answers "which fragrance"
+    // first and "or give the whole house" second.
+    getComboCards(),
+    getCatalogueSummary().catch(() => ({ count: 0, sizeLabel: "", sizes: [] as string[] })),
+  ]);
   const base: Card[] = q ? await searchProducts(q, 50) : all;
 
   const facets: FacetData = {
@@ -122,9 +139,13 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
           <h1 className="mt-5 font-display text-d2 font-light text-bone">
             {q ? <>Results for &ldquo;{q}&rdquo;</> : "Every fragrance we make"}
           </h1>
+          {/* Counted, never asserted — this page now also lists gift sets, and
+              a hardcoded "Five of them" was already one launch away from being
+              wrong. See getCatalogueSummary. */}
           <p className="mx-auto mt-5 max-w-lg font-sans text-body-lg leading-relaxed text-stone">
-            Five of them. All eau de parfum, all 50ml, all built to last a full
-            day rather than a meeting.
+            {summary.count > 0 ? `${spellCount(summary.count)} of them. ` : ""}All eau de
+            parfum{summary.sizeLabel ? `, all ${summary.sizeLabel}` : ""}, all built to last
+            a full day rather than a meeting.
           </p>
         </Reveal>
         <GoldArc className="mt-10" />
@@ -143,6 +164,44 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
           ))}
         </RevealGroup>
       )}
+
+      {/*
+        Gift sets — a separate band, below the fragrances and clearly its own
+        thing.
+
+        Hidden while a search or a filter is active: those controls describe
+        fragrances (gender, size, price bucket), so leaving an unfiltered set
+        band under "no results for X" would look like the filter had failed.
+      */}
+      {sets.length > 0 && !filtered && (
+        <section className="border-t border-line pt-14 pb-section" aria-labelledby="sets-heading">
+          <div className="shell text-center">
+            <Reveal>
+              <p className="micro-label-gold">Boxed</p>
+              <h2 id="sets-heading" className="mt-5 font-display text-d3 font-light text-bone">
+                Or take the house
+              </h2>
+              <p className="mx-auto mt-5 max-w-lg font-sans text-body-lg leading-relaxed text-stone">
+                Several fragrances in one box, priced below the sum of their
+                parts — the honest way in, and the easiest thing to give.
+              </p>
+            </Reveal>
+          </div>
+
+          <RevealGroup className="shell mt-12 grid grid-cols-1 gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 lg:gap-y-16">
+            {sets.map((s, i) => (
+              <RevealItem key={s.id}>
+                <ProductCard product={s} index={i + 1} />
+              </RevealItem>
+            ))}
+          </RevealGroup>
+
+          <p className="shell mt-12 text-center font-sans text-xs text-stone-dark">
+            Sets are already priced below the sum of their parts, so discount
+            codes do not apply to them.
+          </p>
+        </section>
+      )}
     </>
   );
 }
@@ -156,12 +215,12 @@ function EmptyShelf({ filtered }: { filtered: boolean }) {
       </h2>
       <p className="mx-auto mt-4 max-w-md font-sans text-body-lg leading-relaxed text-stone">
         {filtered
-          ? "We only make five, so the filters run out of room quickly. Clear them and start again."
+          ? "The catalogue is deliberately small, so the filters run out of room quickly. Clear them and start again."
           : "Every fragrance is between batches right now. Leave your email in the footer and we will tell you the moment they are back."}
       </p>
       {filtered && (
         <Link href="/shop" className="btn btn-outline btn-md mt-9">
-          Show all five
+          Show all fragrances
         </Link>
       )}
     </div>

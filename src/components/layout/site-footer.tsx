@@ -7,7 +7,9 @@ import { EnquiryForm } from "@/components/forms/enquiry-form";
 import { whatsappLink } from "@/lib/settings";
 import type { StoreSettings } from "@/lib/settings";
 
-type NavFragrance = { slug: string; name: string };
+import type { NavProduct } from "@/lib/catalog";
+
+type NavFragrance = NavProduct;
 
 const COMPANY = [
   { href: "/about", label: "Our story" },
@@ -117,12 +119,18 @@ export function SiteFooter({
         </div>
 
         <FooterColumn title="Fragrances" className="lg:col-span-2">
-          {products.map((p) => (
-            <FooterLink key={p.slug} href={`/fragrance/${p.slug}`}>
-              {p.name.replace(/^Avenues\s+/, "")}
-            </FooterLink>
-          ))}
-          <FooterLink href="/shop">Shop all</FooterLink>
+          {/* Singles only — this column is titled "Fragrances", and gift sets
+              get their own link below it. Uses p.href regardless, so a set can
+              never be served a /fragrance/ URL from here. */}
+          {products
+            .filter((p) => p.type === "SINGLE")
+            .map((p) => (
+              <FooterLink key={p.slug} href={p.href}>
+                {p.name.replace(/^Avenues\s+/, "")}
+              </FooterLink>
+            ))}
+          <FooterLink href="/shop">Shop</FooterLink>
+          <FooterLink href="/sets">Gift sets</FooterLink>
         </FooterColumn>
 
         <FooterColumn title="Company" className="lg:col-span-2">

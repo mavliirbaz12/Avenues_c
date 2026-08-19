@@ -137,10 +137,24 @@ export function toProductCard(row: ProductCardRow): ProductCard {
 }
 
 /**
- * Slug + name for every active fragrance, for the nav dropdown and the footer
- * column. Both render on every storefront page and both used to issue this
- * query independently — identical text, twice per navigation. `cache()` makes
- * the second one free.
+ * Every active product for the nav dropdown, the mobile drawer and the footer
+ * column. All three render on every storefront page and each used to issue this
+ * query independently — identical text, three times per navigation. `cache()`
+ * makes the extra reads free.
+ *
+ * `type` and `href` are part of the row, and that is the whole point.
+ *
+ * This used to return `{ slug, name }` only, and all three consumers built
+ * `/fragrance/${slug}` by hand. But the query has never filtered by type, so a
+ * gift set came back in the list and got a fragrance URL — and Product.slug is
+ * shared across both kinds, so nothing downstream could tell. The Discovery Set
+ * sat in the Fragrances menu pointing at /fragrance/discovery-set, which the
+ * fragrance page refuses to serve (it filters `type: "SINGLE"`). Visitors got a
+ * dead link out of the primary nav.
+ *
+ * Returning the canonical href from `productHref` — the helper that already
+ * exists for exactly this — makes the bug unrepresentable rather than merely
+ * fixed: a caller cannot construct the wrong path from this data any more.
  *
  * Swallows errors like the callers did: a dead database should cost the site
  * its nav links, not the whole shell.
@@ -149,10 +163,11 @@ const navFragrancesUncached = async () =>
   prisma.product
     .findMany({
       where: { isActive: true },
-      select: { slug: true, name: true },
+      select: { slug: true, name: true, type: true },
       orderBy: { sortOrder: "asc" },
       take: 8,
     })
+    .then((rows) => rows.map((row) => ({ ...row, href: productHref(row) })))
     .catch(() => []);
 
 /**
@@ -170,6 +185,20 @@ const navFragrancesUncached = async () =>
 export const getNavFragrances = cache(
   cachedCatalog(navFragrancesUncached, ["nav-fragrances"]),
 );
+
+/**
+ * One row of the nav/footer product list.
+ *
+ * Declared here rather than re-typed in each consumer, which is how the three
+ * of them drifted into building their own URLs in the first place.
+ */
+export type NavProduct = {
+  slug: string;
+  name: string;
+  type: ProductType;
+  /** Canonical route — /fragrance/… or /set/…. Never rebuild this by hand. */
+  href: string;
+};
 
 export async function getActiveProductCards(args?: {
   where?: Prisma.ProductWhereInput;

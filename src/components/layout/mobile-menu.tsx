@@ -10,22 +10,25 @@ import { Sparkle } from "@/components/brand/sparkle";
 import { NAV_LINKS } from "./nav-links";
 import { useUI } from "@/store/ui";
 import { useWishlist } from "@/store/wishlist";
+import { useSession } from "@/store/session";
+import type { NavProduct } from "@/lib/catalog";
 
 export function MobileMenu({
-  isAuthed,
   supportEmail,
   whatsappHref,
   fragrances,
 }: {
-  isAuthed: boolean;
   supportEmail: string;
   whatsappHref: string | null;
-  fragrances: { slug: string; name: string }[];
+  fragrances: NavProduct[];
 }) {
   const open = useUI((s) => s.menuOpen);
   const closeMenu = useUI((s) => s.closeMenu);
   const openSearch = useUI((s) => s.openSearch);
   const wishCount = useWishlist((s) => s.ids.length);
+  // See src/store/session.ts — auth is resolved client-side so the shell can
+  // be statically cached.
+  const isAuthed = useSession((s) => s.isAuthed);
   const pathname = usePathname();
   const reduce = useReducedMotion();
 
@@ -122,12 +125,16 @@ export function MobileMenu({
                     <Sparkle className="h-2 w-2 text-gold" />
                     <span className="h-px flex-1 bg-line" />
                   </div>
-                  <p className="micro-label mb-4">The five</p>
+                  {/* "The range", not "The five" — the count is not ours to
+                      assert here, and the list below already shows it. */}
+                  <p className="micro-label mb-4">The range</p>
                   <ul className="space-y-2.5">
                     {fragrances.map((f) => (
                       <li key={f.slug}>
+                        {/* f.href, never `/fragrance/${slug}` — this list holds
+                            gift sets too, and they live at /set/…. */}
                         <Link
-                          href={`/fragrance/${f.slug}`}
+                          href={f.href}
                           className="font-sans text-sm text-stone transition-colors hover:text-gold-light"
                         >
                           {f.name.replace(/^Avenues\s+/, "")}

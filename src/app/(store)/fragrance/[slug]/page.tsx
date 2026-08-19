@@ -1,7 +1,7 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -20,8 +20,29 @@ import { Reveal } from "@/components/motion/reveal";
 import { Sparkle } from "@/components/brand/sparkle";
 import { jsonLdHtml } from "@/lib/seo";
 
-// Dynamic, not ISR: the reviews band reads the session (to offer the right
-// form state) and the buy box shows live stock — both want fresh renders.
+/**
+ * Per-request. The buy box shows live stock, and that turns out to be load
+ * bearing in a way a cache cannot serve.
+ *
+ * This was briefly ISR at 300s, on the reasoning that stock is re-checked at
+ * add-to-cart and again at checkout, so the number on the page is only a
+ * display. That reasoning is wrong about what the page DOES with the number:
+ * when stock is zero the buy box renders "Notify me" instead of "Add to cart",
+ * so a stale page does not merely show an old figure, it shows a different
+ * control.
+ *
+ * The e2e journey caught it. A stock test drained this product to zero, the
+ * page cached in its sold-out form, and minutes later — with stock restored in
+ * the database — the cached page still had no add-to-cart button. The suite's
+ * "first Add to cart in main" then matched one in the RELATED PRODUCTS strip,
+ * and the journey quietly bought a different fragrance than the one it was
+ * testing. A real customer would have hit the same wall from the other side:
+ * an in-stock bottle they cannot add, or a sold-out one they can.
+ *
+ * The layout no longer reads the session (see (store)/layout.tsx), so this
+ * costs one page rather than the whole storefront — the landing page, /sets
+ * and the policy pages are all static now regardless of this.
+ */
 export const dynamic = "force-dynamic";
 
 const detailSelect = {
@@ -77,19 +98,52 @@ const getProduct = cache(async (slug: string) => {
   });
 });
 
+/**
+ * The product, or the right place to send someone who asked for it here.
+ *
+ * Three outcomes, and the difference between them matters:
+ *
+ *   active SINGLE  → render
+ *   active COMBO   → 308 to /set/<slug>, its canonical home
+ *   anything else  → 404
+ *
+ * The middle case is the one this exists for. Product.slug is shared across
+ * both kinds, so /fragrance/<combo-slug> is a URL that looks entirely valid and
+ * resolves to nothing. It was reachable straight from the primary nav for as
+ * long as the nav built its own hrefs, and every link to it that is already out
+ * in the world — bookmarks, anything indexed — still is. A redirect turns those
+ * into working links instead of dead ends, and a permanent one tells crawlers
+ * to collapse the two URLs into the one that is real.
+ *
+ * The narrow `isActive: true, type: "COMBO"` guard is deliberate: a deactivated
+ * or unknown product must still 404, not redirect. e2e/admin/admin.spec.ts
+ * asserts exactly that for a deactivated fragrance.
+ */
+const resolveOrRedirect = cache(async (slug: string) => {
+  const product = await getProduct(slug);
+  if (product) return product;
+
+  const combo = await prisma.product.findFirst({
+    where: { slug, isActive: true, type: "COMBO" },
+    select: { slug: true },
+  });
+  if (combo) redirect(`/set/${combo.slug}`);
+
+  notFound();
+});
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProduct(slug);
-  // notFound(), not a "Fragrance not found" title. Returning metadata here
-  // let Next commit a 200 head and start streaming before the page body's own
-  // notFound() ran, so an unknown slug served the 404 UI with a 200 status —
-  // which Google would happily index as a real page. Bailing during metadata
-  // generation is what actually sets the status.
-  if (!product) notFound();
+  // Resolving here, not in the body, is what actually sets the status.
+  // Returning metadata first lets Next commit a 200 head and start streaming
+  // before the body can call notFound(), so an unknown slug served the 404 UI
+  // with a 200 — which Google would happily index as a real page. The same
+  // applies to the combo redirect: it has to happen before the head is sent.
+  const product = await resolveOrRedirect(slug);
 
   const url = `${siteUrl}/fragrance/${product.slug}`;
   const title = product.metaTitle ?? `${product.name} — ${product.tagline}`;
@@ -113,9 +167,10 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [product, settings] = await Promise.all([getProduct(slug), getStoreSettings()]);
-
-  if (!product) notFound();
+  const [product, settings] = await Promise.all([
+    resolveOrRedirect(slug),
+    getStoreSettings(),
+  ]);
 
   const related = await getRelatedProductCards(
     { id: product.id, gender: product.gender },

@@ -32,17 +32,29 @@ test.describe("landing page", () => {
       await expect(bar.getByText(label, { exact: true })).toBeVisible();
     }
 
-    for (const link of ["Shop all", "Know Avenues", "Track order", "Contact"]) {
+    for (const link of ["Shop", "Know Avenues", "Track order", "Contact"]) {
       await expect(bar.getByRole("link", { name: new RegExp(link, "i") })).toBeVisible();
     }
   });
 
-  test("@desktop fragrances dropdown lists every active product by name", async ({ page }) => {
-    const products = await db.product.findMany({
-      where: { isActive: true },
-      select: { name: true, slug: true },
-      orderBy: { sortOrder: "asc" },
-    });
+  /**
+   * SINGLE products only. The query behind this menu never filtered by type,
+   * so a gift set was listed under "Fragrances" — mislabelled, and pointing at
+   * /fragrance/<slug>, which the fragrance page refuses to serve. Sets have
+   * their own top-level nav item.
+   */
+  test("@desktop fragrances dropdown lists every active fragrance by name", async ({ page }) => {
+    const [fragrances, sets] = await Promise.all([
+      db.product.findMany({
+        where: { isActive: true, type: "SINGLE" },
+        select: { name: true, slug: true },
+        orderBy: { sortOrder: "asc" },
+      }),
+      db.product.findMany({
+        where: { isActive: true, type: "COMBO" },
+        select: { name: true, slug: true },
+      }),
+    ]);
 
     await page.goto("/");
     // Hover, not click. The menu opens on mouseenter, so a programmatic click
@@ -50,12 +62,49 @@ test.describe("landing page", () => {
     // exactly what a mouse user experiences if they click the trigger.
     await nav(page).getByRole("button", { name: "Fragrances", exact: true }).hover();
 
-    for (const p of products) {
+    for (const p of fragrances) {
       const short = p.name.replace(/^Avenues\s+/i, "");
       const item = nav(page).getByRole("link", { name: new RegExp(`^\s*${short}\s*$`, "i") });
       await expect(item).toBeVisible();
       await expect(item).toHaveAttribute("href", `/fragrance/${p.slug}`);
     }
+
+    for (const s of sets) {
+      await expect(
+        nav(page).locator(`a[href="/fragrance/${s.slug}"]`),
+        `"${s.name}" is a gift set and must not appear under Fragrances`,
+      ).toHaveCount(0);
+    }
+  });
+
+  /**
+   * The pointer must be able to reach the panel.
+   *
+   * The panel sat `marginTop: 0.5rem` below the trigger, and that 8px belonged
+   * to neither element — crossing it put the pointer over bare header, fired
+   * mouseleave on the wrapper and closed the menu before it could be used. The
+   * menu opened correctly and was still impossible to click, which is why it
+   * survived a spec that only ever asserted its contents were visible.
+   */
+  test("@desktop the dropdown survives the pointer travelling into it", async ({ page }) => {
+    await page.goto("/");
+
+    const trigger = nav(page).getByRole("button", { name: "Fragrances", exact: true });
+    await trigger.hover();
+
+    const item = nav(page).locator('a[href^="/fragrance/"]').first();
+    await expect(item).toBeVisible();
+
+    // Step through the gap the way a hand does, rather than teleporting.
+    const from = (await trigger.boundingBox())!;
+    const to = (await item.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+
+    await expect(item, "the menu closed while the pointer was crossing to it").toBeVisible();
+
+    await item.click();
+    await expect(page).toHaveURL(/\/fragrance\//);
   });
 
   test("hero shows the headline and a Discover CTA into the reveal", async ({ page }) => {

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { siteUrl } from "@/lib/env";
+import { getStoreSettings } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Our story",
@@ -32,7 +34,9 @@ const PRINCIPLES = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const settings = await getStoreSettings();
+
   return (
     <>
       {/* Opening statement */}
@@ -104,8 +108,36 @@ export default function AboutPage() {
       {/* Closing */}
       <section className="border-t border-line bg-ink-deep py-section grain">
         <div className="shell relative z-[2] grid items-center gap-12 lg:grid-cols-2">
-          <Reveal className="mx-auto w-full max-w-[16rem]">
-            <BottleFigure slug="white-oud" alt="An Avenues eau de parfum bottle" />
+          {/*
+            The brand photograph, not the drawn bottle.
+
+            BottleFigure is a hand-built SVG — it exists so a page never shows a
+            grey box, and it does that job well in order rows and empty states.
+            But this is the closing statement of the page that explains the
+            brand, and a drawing of a bottle is the one thing here that is not
+            the real product. The same photograph already opens the landing
+            page, so the two pages now close and open on the same image, which
+            reads as a motif rather than a repeat.
+
+            Falls back to the drawing when the setting is empty, exactly as the
+            hero does — the page must never render a hole.
+          */}
+          <Reveal className="mx-auto w-full max-w-[22rem] lg:max-w-none">
+            {settings.brandBannerUrl ? (
+              <div className="relative aspect-[1600/1283] w-full overflow-hidden">
+                <Image
+                  src={settings.brandBannerUrl}
+                  alt="The Avenues range — eau de parfum bottles and the discovery set."
+                  fill
+                  sizes="(max-width: 1024px) 92vw, 45vw"
+                  className="object-contain object-center"
+                />
+              </div>
+            ) : (
+              <div className="mx-auto w-full max-w-[16rem]">
+                <BottleFigure slug="white-oud" alt="An Avenues eau de parfum bottle" />
+              </div>
+            )}
           </Reveal>
           <Reveal delay={0.08}>
             <h2 className="max-w-md font-display text-d3 font-light text-bone">
