@@ -114,6 +114,27 @@ export async function createShipment(
   args: CreateShipmentArgs,
 ): Promise<{ waybill: string; mock: boolean; raw: unknown }> {
   if (!delhiveryLive) {
+    /*
+      Mock mode is for dev and the e2e suite. In production it is a trap.
+
+      A synthetic MOCK########## waybill is written to the shipment row and
+      then emailed to the customer as their tracking number — a number that
+      resolves to nothing on Delhivery's site, for a parcel no courier has been
+      told about. The order looks shipped in the admin panel too, so nobody
+      notices until the customer asks where it is.
+
+      Refusing here turns a silent, customer-visible failure into an actionable
+      error on the admin's own screen at the moment they click Ship.
+    */
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Delhivery is not configured, so no real shipment can be booked. Set " +
+          "DELHIVERY_API_TOKEN in the environment and redeploy. (Refusing to " +
+          "create a mock waybill in production — it would email the customer a " +
+          "tracking number that does not exist.)",
+      );
+    }
+
     // Deterministic synthetic AWB per order, so retries reuse the same number.
     const waybill = `MOCK${String(hashCode(args.orderNumber)).padStart(10, "0")}`;
     return { waybill, mock: true, raw: { mock: true, createdFor: args.orderNumber } };
@@ -150,7 +171,17 @@ export async function createShipment(
         products_desc: args.productsDescription,
       },
     ],
-    pickup_location: { name: env.DELHIVERY_PICKUP_NAME },
+    /*
+      pickupName, not env.DELHIVERY_PICKUP_NAME.
+
+      The guard above resolves "admin setting, else env" and refuses to proceed
+      without one — but the payload then ignored that and read the env var
+      directly. So configuring the warehouse ONLY in Admin → Settings passed
+      validation and shipped `{ name: undefined }`, which Delhivery rejects with
+      its unhelpful "ClientWarehouse matching query does not exist". The guard
+      and the payload have to agree on which value they mean.
+    */
+    pickup_location: { name: pickupName },
   };
 
   // Delhivery's create API expects this exact format=json&data= body.
@@ -214,6 +245,51 @@ const MOCK_JOURNEY: { status: TrackingResult["status"]; detail: string; location
 
 const MOCK_STEP_MS = 8 * 60 * 60 * 1000;
 
+/**
+ * Delhivery's free-text status → our ShipmentStatus.
+ *
+ * ONE mapper, exported, because there were two near-identical copies — this
+ * one and another in the webhook route — and they had already drifted into
+ * agreeing on the happy path while both getting the unhappy one wrong.
+ *
+ * THE EXCEPTION BUCKET is the reason this was rewritten. Every unrecognised
+ * scan used to fall through to IN_TRANSIT, so a failed delivery attempt, an
+ * address problem or a parcel on hold was all reported to the customer as
+ * "Moving through the network" — a reassuring milestone for a parcel that is
+ * stuck and needs them to act. Those now map to FAILED so the journey can say
+ * something true.
+ *
+ * Order matters: "rto delivered" is an RTO, not a delivery, so RTO is tested
+ * before the delivered branch rather than nested inside it.
+ */
+export function normaliseDelhiveryStatus(raw: string): TrackingResult["status"] {
+  const w = raw.toLowerCase();
+
+  if (w.includes("rto")) return "RTO";
+  if (w.includes("delivered")) return "DELIVERED";
+  if (w.includes("out for delivery") || w.includes("dispatched")) return "OUT_FOR_DELIVERY";
+
+  // NDR / exception scans. Delhivery's wording varies by scan type and none of
+  // these mean the parcel is progressing.
+  if (
+    w.includes("undelivered") ||
+    w.includes("not delivered") ||
+    w.includes("delivery attempted") ||
+    w.includes("attempt failed") ||
+    w.includes("address incorrect") ||
+    w.includes("incorrect address") ||
+    w.includes("on hold") ||
+    w.includes("delayed") ||
+    w.includes("exception") ||
+    w.includes("pending")
+  ) {
+    return "FAILED";
+  }
+
+  if (w.includes("manifest") || w.includes("not picked")) return "PICKUP_PENDING";
+  return "IN_TRANSIT";
+}
+
 export async function trackShipment(
   waybill: string,
   opts: { shippedAt?: Date | null } = {},
@@ -272,18 +348,7 @@ export async function trackShipment(
   const shipment = data.ShipmentData?.[0]?.Shipment;
   if (!shipment) throw new Error("Delhivery tracking returned no shipment");
 
-  const statusWord = (shipment.Status?.Status ?? "").toLowerCase();
-  const status: TrackingResult["status"] = statusWord.includes("delivered")
-    ? statusWord.includes("rto")
-      ? "RTO"
-      : "DELIVERED"
-    : statusWord.includes("out for delivery") || statusWord.includes("dispatched")
-      ? "OUT_FOR_DELIVERY"
-      : statusWord.includes("rto")
-        ? "RTO"
-        : statusWord.includes("manifest") || statusWord.includes("not picked")
-          ? "PICKUP_PENDING"
-          : "IN_TRANSIT";
+  const status = normaliseDelhiveryStatus(shipment.Status?.Status ?? "");
 
   return {
     status,

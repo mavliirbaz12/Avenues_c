@@ -1,4 +1,4 @@
-import { OrderStatus, ShipmentStatus, Prisma } from "@prisma/client";
+import { OrderStatus, PaymentStatus, ShipmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { trackShipment, createShipment } from "./delhivery";
 import { getStoreSettings } from "@/lib/settings";
@@ -70,7 +70,15 @@ export async function applyTracking(shipmentId: string, update: TrackingUpdate) 
       id: true,
       status: true,
       orderId: true,
-      order: { select: { id: true, status: true, deliveredAt: true } },
+      order: {
+        select: {
+          id: true,
+          status: true,
+          deliveredAt: true,
+          paymentMethod: true,
+          paymentStatus: true,
+        },
+      },
     },
   });
   if (!shipment) return;
@@ -115,6 +123,26 @@ export async function applyTracking(shipmentId: string, update: TrackingUpdate) 
           deliveredAt:
             nextOrderStatus === OrderStatus.DELIVERED && !shipment.order.deliveredAt
               ? new Date()
+              : undefined,
+          /*
+            A delivered COD order has been paid — in cash, at the door.
+
+            The admin's manual "mark delivered" already applied this rule
+            (actions/admin/orders.ts), but the courier-driven path did not. So
+            every order that completed the way it is SUPPOSED to — automatically,
+            from a Delhivery scan — stayed PENDING forever, while the ones a
+            human clicked through were marked paid. COD revenue silently
+            under-reported on the dashboard in exact proportion to how well the
+            automation was working.
+
+            Guarded on the current value so a refund recorded earlier is not
+            overwritten by a late delivery scan.
+          */
+          paymentStatus:
+            nextOrderStatus === OrderStatus.DELIVERED &&
+            shipment.order.paymentMethod === "COD" &&
+            shipment.order.paymentStatus === PaymentStatus.PENDING
+              ? PaymentStatus.PAID
               : undefined,
         },
       });

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ShipmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { applyTracking } from "@/lib/shipping/sync";
+import { normaliseDelhiveryStatus } from "@/lib/shipping/delhivery";
 import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -51,17 +52,11 @@ export async function POST(req: NextRequest) {
   // Not ours (or not created yet) — acknowledge so Delhivery doesn't retry.
   if (!shipment) return NextResponse.json({ ok: true, ignored: true });
 
-  const status: ShipmentStatus = statusWord.includes("delivered")
-    ? statusWord.includes("rto")
-      ? ShipmentStatus.RTO
-      : ShipmentStatus.DELIVERED
-    : statusWord.includes("out for delivery") || statusWord.includes("dispatched")
-      ? ShipmentStatus.OUT_FOR_DELIVERY
-      : statusWord.includes("rto")
-        ? ShipmentStatus.RTO
-        : statusWord.includes("manifest") || statusWord.includes("not picked")
-          ? ShipmentStatus.PICKUP_PENDING
-          : ShipmentStatus.IN_TRANSIT;
+  // The same mapper the polling path uses. These were two hand-maintained
+  // copies that had already drifted; both funnelled NDR scans into IN_TRANSIT,
+  // so a failed delivery attempt reached the customer as "Moving through the
+  // network". See normaliseDelhiveryStatus.
+  const status: ShipmentStatus = ShipmentStatus[normaliseDelhiveryStatus(statusWord)];
 
   await applyTracking(shipment.id, {
     status,
