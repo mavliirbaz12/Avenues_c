@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { main } from "../utils/selectors";
+import { main, openEmailLogin } from "../utils/selectors";
 import { db } from "../utils/db";
 import { placeOrder, ensureStock, TEST_ADDRESS } from "../utils/orders";
 import { CUSTOMER } from "../utils/env";
@@ -172,8 +172,11 @@ test.describe("order history", () => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
 
-    await page.goto("/login");
-    await page.getByRole("tab", { name: "Email" }).click();
+    // openEmailLogin, not a hand-rolled tab click: the Phone OTP tab only
+    // exists when SMS is configured, and the E2E env blanks those credentials,
+    // so /login renders the password form with no tab bar at all. Clicking a
+    // tab that is never rendered is what made this time out.
+    await openEmailLogin(page);
     await main(page).getByLabel("Email", { exact: true }).fill("fresh@test.dev");
     await main(page).getByLabel("Password", { exact: true }).fill("FreshTest!2026");
     await main(page).getByRole("button", { name: "Sign in" }).click();
@@ -194,6 +197,11 @@ test.describe("wishlist", () => {
     test.skip((await heart.count()) === 0, "no wishlist control");
 
     await heart.click();
+    // Wait for the control to report the new state before navigating. The
+    // toggle updates a persisted store and mirrors to the API; leaving the
+    // page in the same tick can outrun the write, and the wishlist then
+    // resolves an id set that does not include this product yet.
+    await expect(heart).toHaveAttribute("aria-pressed", "true");
     await customerPage.goto("/wishlist");
     await expect(main(customerPage).getByText(/intense/i).first()).toBeVisible();
 

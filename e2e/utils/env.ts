@@ -52,6 +52,12 @@ export function testEnv(): Record<string, string> {
     NODE_ENV: "production",
     PORT: String(TEST_PORT),
     DATABASE_URL: TEST_DATABASE_URL,
+    // Must be set alongside DATABASE_URL, not instead of it: the schema
+    // declares `directUrl = env("DIRECT_DATABASE_URL")`, and anything Prisma
+    // routes through the direct connection would otherwise fall back to
+    // whatever `.env` holds — in this repo, production. See the preflight
+    // guard in scripts/e2e.mjs.
+    DIRECT_DATABASE_URL: TEST_DATABASE_URL,
 
     NEXT_PUBLIC_SITE_URL: TEST_BASE_URL,
     AUTH_URL: TEST_BASE_URL,

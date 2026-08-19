@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { main } from "../utils/selectors";
+import { addToCart, main } from "../utils/selectors";
 import { db } from "../utils/db";
 
 test.afterAll(() => db.$disconnect());
@@ -69,7 +69,7 @@ test.describe("product detail", () => {
 
     // Three "Add to cart" controls exist: the main one, and a duplicate in the
     // mobile sticky bar portalled to <body>. Scope to the page content.
-    await main(page).getByRole("button", { name: "Add to cart" }).first().click();
+    await addToCart(page);
 
     const drawer = page.getByRole("dialog", { name: "Your cart" });
     await expect(drawer).toBeVisible();

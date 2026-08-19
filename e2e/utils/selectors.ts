@@ -107,3 +107,30 @@ export async function openEmailLogin(page: Page) {
 export async function phoneOtpOffered(page: Page) {
   return page.getByRole("tab", { name: "Phone OTP" }).isVisible().catch(() => false);
 }
+
+/**
+ * Click "Add to cart" and wait for the drawer, tolerating a pre-hydration click.
+ *
+ * The button is server-rendered, so it is present and clickable before React
+ * attaches onClick. A click inside that window is swallowed silently — no
+ * error, no drawer — and whatever assertion follows fails against a page that
+ * works perfectly a moment later. The window widens with the route's JS, so
+ * this gets flakier as the app grows rather than settling down.
+ *
+ * Every spec that adds to the cart should go through here. Three of them had
+ * hand-rolled the bare click and each was one slow render away from the same
+ * intermittent failure; the journey had already solved it privately.
+ */
+export async function addToCart(page: Page) {
+  const add = main(page).getByRole("button", { name: "Add to cart" }).first();
+  const drawer = cartDrawer(page);
+
+  await expect(async () => {
+    if (!(await drawer.isVisible().catch(() => false))) {
+      await add.click({ timeout: 5_000 });
+    }
+    await expect(drawer).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 25_000 });
+
+  return drawer;
+}

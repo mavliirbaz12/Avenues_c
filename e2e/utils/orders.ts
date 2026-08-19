@@ -105,13 +105,38 @@ export async function placeOrder(
     clientIp?: string;
     /** Post signed-out, to assert checkout refuses a guest. */
     guest?: boolean;
+    /**
+     * Set false when the spec is asserting a REFUSAL (401, 409, out of stock).
+     * Defaults true: most callers just need an order to exist and go straight
+     * on to use `body.orderNumber`.
+     */
+    expectOk?: boolean;
   },
 ) {
   // Sign in unless the spec is specifically testing the signed-out path.
   const ctx = opts.guest ? null : await customerRequest();
   const api = ctx ?? request;
   try {
-    return await post(api, opts);
+    const result = await post(api, opts);
+
+    /*
+      Fail HERE, with the server's own words, when the order did not happen.
+
+      Callers destructure `body.orderNumber` and hand it straight to Prisma. So
+      a refused checkout surfaced as `orderNumber: undefined` inside a
+      `db.order.update()` several lines later, and the reported error was a
+      PrismaClientValidationError listing every valid `where` key — which says
+      nothing about the 401 or the sold-out variant that actually caused it.
+      Three separate specs were failing that way and none of them named the
+      real reason.
+    */
+    const expectOk = opts.expectOk ?? !opts.guest;
+    if (expectOk && (result.status >= 400 || !result.body?.orderNumber)) {
+      throw new Error(
+        `placeOrder expected an order, got HTTP ${result.status}: ${JSON.stringify(result.body)}`,
+      );
+    }
+    return result;
   } finally {
     await ctx?.dispose();
   }

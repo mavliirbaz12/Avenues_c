@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { main, cartDrawer, openCouponField } from "../utils/selectors";
+import { addToCart, cartDrawer, main, openCouponField, openEmailLogin } from "../utils/selectors";
 import { db } from "../utils/db";
 
 test.afterAll(() => db.$disconnect());
@@ -13,10 +13,11 @@ test.afterAll(() => db.$disconnect());
  * with a tampered client.
  */
 
+/** Adds night-drip via the shared helper, which absorbs the pre-hydration
+ *  click race. See addToCart in e2e/utils/selectors.ts. */
 async function addFirstProduct(page: import("@playwright/test").Page, slug = "night-drip") {
   await page.goto(`/fragrance/${slug}`);
-  await main(page).getByRole("button", { name: "Add to cart" }).first().click();
-  await expect(cartDrawer(page)).toBeVisible();
+  await addToCart(page);
 }
 
 test.describe("cart", () => {
@@ -65,8 +66,11 @@ test.describe("cart", () => {
     await page.keyboard.press("Escape");
 
     // Sign in from the guest session; SessionSync merges the local cart.
-    await page.goto("/login");
-    await page.getByRole("tab", { name: "Email" }).click();
+    // openEmailLogin, not a hand-rolled tab click: the Phone OTP tab only
+    // exists when SMS is configured, and the E2E env blanks those credentials,
+    // so /login renders the password form with no tab bar at all. Clicking a
+    // tab that is never rendered is what made this time out.
+    await openEmailLogin(page);
     await main(page).getByLabel("Email", { exact: true }).fill("customer@test.dev");
     await main(page).getByLabel("Password", { exact: true }).fill("CustomerTest!2026");
     await main(page).getByRole("button", { name: "Sign in" }).click();

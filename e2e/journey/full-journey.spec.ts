@@ -377,9 +377,23 @@ test.describe("the full customer journey", () => {
     await shot(page, testInfo, "empty address book, editor open");
 
     await fillAddress(main(page));
-    await main(page)
-      .getByLabel(/make this my default delivery address/i)
-      .check({ force: true });
+    /*
+      Retried, not re-aimed.
+
+      The input is `peer sr-only` — 1px and clipped — so a forced click
+      occasionally registers without changing state while the address panel is
+      re-rendering behind the pincode lookup. Clicking the label instead looked
+      like the tidier fix and was worse: it moved the click target and the form
+      stopped saving at all.
+
+      So: same interaction the rest of the suite uses, wrapped in a retry that
+      asserts the state actually changed.
+    */
+    const makeDefault = main(page).getByLabel(/make this my default delivery address/i);
+    await expect(async () => {
+      if (!(await makeDefault.isChecked())) await makeDefault.check({ force: true });
+      await expect(makeDefault).toBeChecked();
+    }).toPass({ timeout: 15_000 });
 
     await shot(page, testInfo, "new address filled in", { fullPage: true });
     await main(page).getByRole("button", { name: /save address/i }).click();
@@ -867,6 +881,29 @@ async function pickHeroProduct() {
     },
   });
   if (!variant) throw new Error("No sellable variant in the catalogue — is the seed applied?");
+
+  /*
+    Neutralise expired reservations on this variant BEFORE pinning its stock.
+
+    createOrder() calls releaseExpiredReservations() as housekeeping, so
+    placing the journey's order also returns stock trapped by any earlier
+    abandoned checkout. If one of those held this variant, the order both adds
+    and subtracts, and "stockBefore - QUANTITY" is quietly wrong — the journey
+    failed on 49 instead of 48 with an order that was completely correct.
+
+    Marking them released here means the housekeeping pass finds nothing to
+    give back for this variant, so the decrement the test measures is only its
+    own. The app's behaviour is left exactly as it is; this fixes the test's
+    assumption about it.
+  */
+  await db.order.updateMany({
+    where: {
+      status: "PENDING",
+      stockReleasedAt: null,
+      items: { some: { variantId: variant.id } },
+    },
+    data: { stockReleasedAt: new Date() },
+  });
 
   const stockBefore = 50;
   await db.variant.update({ where: { id: variant.id }, data: { stock: stockBefore } });

@@ -313,15 +313,20 @@ test.describe("inventory safety", () => {
     await db.variant.update({ where: { id: variant!.id }, data: { stock: 1 } });
 
     const [a, b] = await Promise.all([
+      // expectOk: false on BOTH — the point of this test is that exactly one
+      // of them is refused, so a refusal here is the expected outcome rather
+      // than a broken fixture.
       placeOrder(request, {
         variantId: variant!.id,
         email: "racer-a@test.dev",
         clientIp: "198.51.100.10",
+        expectOk: false,
       }),
       placeOrder(request, {
         variantId: variant!.id,
         email: "racer-b@test.dev",
         clientIp: "198.51.100.20",
+        expectOk: false,
       }),
     ]);
 
@@ -342,7 +347,7 @@ test.describe("inventory safety", () => {
     });
     await db.variant.update({ where: { id: variant!.id }, data: { stock: 2 } });
 
-    const { status } = await placeOrder(request, { variantId: variant!.id, quantity: 5 });
+    const { status } = await placeOrder(request, { variantId: variant!.id, quantity: 5, expectOk: false });
     expect(status, "cannot buy five when two remain").toBeGreaterThanOrEqual(400);
 
     // Restore the sold-out fixture for the specs that depend on it.
@@ -356,7 +361,7 @@ test.describe("inventory safety", () => {
     });
     await db.variant.update({ where: { id: variant!.id }, data: { stock: 0 } });
 
-    const { status } = await placeOrder(request, { variantId: variant!.id });
+    const { status } = await placeOrder(request, { variantId: variant!.id, expectOk: false });
     expect(status).toBeGreaterThanOrEqual(400);
   });
 });

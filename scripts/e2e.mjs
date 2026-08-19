@@ -4,9 +4,10 @@
  *   node scripts/e2e.mjs [...playwright args]
  *
  * Prepares an isolated `avenues_test` database, builds the app, then hands off
- * to Playwright. Every step passes DATABASE_URL explicitly rather than relying
- * on env-file resolution, so the dev database cannot be reached even if a
- * `.env` is sitting right there.
+ * to Playwright. Every step passes its connection variables explicitly rather
+ * than relying on env-file resolution, so neither the dev nor the production
+ * database can be reached even if a `.env` is sitting right there — and the
+ * preflight below aborts the run if one of them somehow still is.
  *
  * Skip the rebuild with --no-build when iterating on specs.
  */
@@ -27,10 +28,57 @@ const TEST_DATABASE_URL =
 const env = {
   ...process.env,
   DATABASE_URL: TEST_DATABASE_URL,
+  // DIRECT_DATABASE_URL is not optional here, and forgetting it was a live
+  // near-miss. `prisma migrate` resolves `directUrl` from the schema, NOT
+  // `url` — so with only DATABASE_URL overridden, `migrate deploy` connected
+  // to whatever DIRECT_DATABASE_URL happened to be in `.env`, which on this
+  // machine is the production Railway database. It reported "No pending
+  // migrations to apply" and did no harm, but a single unapplied migration
+  // would have been pushed to the live store by `npm run test:e2e`.
+  DIRECT_DATABASE_URL: TEST_DATABASE_URL,
   SEED_ADMIN_EMAIL: "admin@test.dev",
   SEED_ADMIN_PASSWORD: "AdminTest!2026",
   SEED_ADMIN_NAME: "Test Admin",
 };
+
+/**
+ * Refuse to run against anything that is not the local test database.
+ *
+ * The override above is the fix; this is the seatbelt. Prisma grows new
+ * connection env vars over time (`directUrl` arrived with the Railway pooler
+ * work), and each one is another chance for a production URL to leak into a
+ * destructive step. Asserting on the values — rather than trusting that we
+ * remembered to set them — is what makes the guarantee in this file's header
+ * actually true.
+ */
+{
+  const offenders = ["DATABASE_URL", "DIRECT_DATABASE_URL", "SHADOW_DATABASE_URL"]
+    .map((key) => [key, env[key]])
+    .filter(([, value]) => value)
+    .filter(([, value]) => !/^postgres(ql)?:\/\/[^@]*@(localhost|127\.0\.0\.1):5433\//.test(value))
+    .concat(
+      // Belt and braces: the database name itself must be unmistakable.
+      TEST_DATABASE_URL.includes(`/${TEST_DB_NAME}`)
+        ? []
+        : [["E2E_DATABASE_URL", TEST_DATABASE_URL]],
+    );
+
+  if (offenders.length > 0) {
+    console.error(
+      `\n\x1b[31m✗ Refusing to run: a database URL does not point at localhost:5433/${TEST_DB_NAME}.\x1b[0m\n`,
+    );
+    for (const [key, value] of offenders) {
+      // Host only — never print credentials.
+      const host = String(value).replace(/^([a-z+]+:\/\/)[^@]*@/i, "$1<redacted>@");
+      console.error(`    ${key} = ${host}`);
+    }
+    console.error(
+      "\n  The E2E suite truncates and reseeds whatever it connects to.\n" +
+        "  Fix the variable above, or unset it so the local default applies.\n",
+    );
+    process.exit(1);
+  }
+}
 
 function run(cmd, args, opts = {}) {
   const useShell = process.platform === "win32";
