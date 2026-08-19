@@ -8,6 +8,7 @@ import {
   ensureStock,
   TEST_ADDRESS,
   UNSERVICEABLE_PINCODE,
+  customerRequest,
 } from "../utils/orders";
 
 test.afterAll(() => db.$disconnect());
@@ -22,13 +23,29 @@ test.afterAll(() => db.$disconnect());
  */
 
 test.describe("checkout form", () => {
-  test("@smoke a guest can reach checkout and see the total", async ({ page }) => {
+  test("@smoke checkout sends a signed-out visitor to sign in first", async ({ page }) => {
+    // Checkout requires an account. Buy now still works as a shortcut — it just
+    // lands on /login with the destination preserved, so signing in returns
+    // them to checkout with the cart they arrived with.
     await page.goto("/fragrance/night-drip");
     await main(page).getByRole("button", { name: /buy now/i }).first().click();
-    await page.waitForURL(/\/checkout/);
 
+    await page.waitForURL(/\/login/);
+    await expect(page).toHaveURL(/next=%2Fcheckout/);
     await expect(main(page).getByLabel("Email", { exact: true })).toBeVisible();
-    await expect(main(page).getByRole("button", { name: /pay|place order/i })).toBeVisible();
+  });
+
+  test("@smoke a signed-in customer reaches checkout and sees the total", async ({
+    customerPage,
+  }) => {
+    await customerPage.goto("/fragrance/night-drip");
+    await main(customerPage).getByRole("button", { name: /buy now/i }).first().click();
+    await customerPage.waitForURL(/\/checkout/);
+
+    await expect(main(customerPage).getByLabel("Email", { exact: true })).toBeVisible();
+    await expect(
+      main(customerPage).getByRole("button", { name: /pay|place order/i }),
+    ).toBeVisible();
   });
 
   test("terms must be accepted before an order is placed", async ({ request }) => {
@@ -85,21 +102,46 @@ test.describe("checkout form", () => {
     expect(res.status()).toBe(400);
   });
 
-  test("a guest cannot check out against someone else's saved address", async ({ request }) => {
+  test("@smoke a signed-out caller cannot place an order at all", async ({ request }) => {
+    // The page guard only stops a browser; /api/checkout is a plain public POST
+    // and is where the rule is actually enforced.
     const variant = await ensureStock("intense");
-    const addr = await db.address.findFirst({ select: { id: true } });
-    const res = await request.post("/api/checkout", {
-      headers: { "x-forwarded-for": nextClientIp() },
-      data: {
-        items: [{ variantId: variant!.id, quantity: 1 }],
-        email: "guest@test.dev",
-        phone: TEST_ADDRESS.phone,
-        paymentMethod: "COD",
-        termsAccepted: true,
-        addressId: addr!.id,
-      },
+    const { status } = await placeOrder(request, { variantId: variant.id, guest: true });
+    expect(status, "checkout must refuse an unauthenticated caller").toBe(401);
+
+    const orders = await db.order.count({ where: { email: "customer@test.dev", userId: null } });
+    expect(orders, "no ownerless order should ever be created").toBe(0);
+  });
+
+  test("a customer cannot check out against someone else's saved address", async () => {
+    const variant = await ensureStock("intense");
+
+    // An address belonging to a DIFFERENT account than the one we sign in as.
+    const addr = await db.address.findFirst({
+      where: { user: { email: { not: "customer@test.dev" } } },
+      select: { id: true },
     });
-    expect(res.status(), "an addressId from a signed-out caller must be refused").toBe(401);
+    test.skip(!addr, "no address owned by another account to borrow");
+
+    const api = await customerRequest();
+    try {
+      const res = await api.post("/api/checkout", {
+        headers: { "x-forwarded-for": nextClientIp() },
+        data: {
+          items: [{ variantId: variant.id, quantity: 1 }],
+          email: "customer@test.dev",
+          phone: TEST_ADDRESS.phone,
+          paymentMethod: "COD",
+          termsAccepted: true,
+          addressId: addr!.id,
+        },
+      });
+      // Saved addresses are re-read scoped to the session user, so another
+      // account's id simply does not resolve.
+      expect(res.status(), "an addressId owned by someone else must not resolve").toBe(400);
+    } finally {
+      await api.dispose();
+    }
   });
 });
 

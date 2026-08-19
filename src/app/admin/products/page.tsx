@@ -5,12 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { formatPaise } from "@/lib/format";
 import { AdminPageHeader, AdminChip } from "@/components/admin/ui";
 import { BottleFigure } from "@/components/brand/bottle-figure";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 const LOW_STOCK_AT = 10;
 
 export default async function AdminProductsPage() {
+  await requireAdmin();
+
   // `select`, not `include`. The previous `include` pulled every Product
   // column — four @db.Text fields (description, sensoryNarrative, howToUse,
   // caution) plus the notes, occasions and whyChoose arrays — and full Variant

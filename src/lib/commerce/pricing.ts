@@ -1,4 +1,4 @@
-import { CouponType, PaymentMethod, type ProductType } from "@prisma/client";
+import { CouponType, OrderStatus, PaymentMethod, type ProductType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings, type StoreSettings } from "@/lib/settings";
 
@@ -123,8 +123,23 @@ export async function evaluateCoupon(args: {
   if (coupon.endsAt && coupon.endsAt < now) {
     return { status: "rejected", code, message: "That code has expired." };
   }
-  if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
-    return { status: "rejected", code, message: "That code has been fully claimed." };
+  if (coupon.usageLimit !== null) {
+    // `usedCount` is only incremented at CONFIRMATION, which for a prepaid
+    // order is up to a payment window later — and the retry link keeps that
+    // window open indefinitely. Counting only confirmed redemptions therefore
+    // let one person stage N unpaid orders that each saw usedCount = 0, then
+    // pay them all and redeem a single-use code N times. Orders already holding
+    // the code and still payable count against the limit too.
+    const held = await prisma.order.count({
+      where: {
+        couponId: coupon.id,
+        status: OrderStatus.PENDING,
+        paymentExpiresAt: { gt: new Date() },
+      },
+    });
+    if (coupon.usedCount + held >= coupon.usageLimit) {
+      return { status: "rejected", code, message: "That code has been fully claimed." };
+    }
   }
   if (args.subtotalPaise < coupon.minOrderPaise) {
     const short = (coupon.minOrderPaise - args.subtotalPaise) / 100;
@@ -135,7 +150,17 @@ export async function evaluateCoupon(args: {
     };
   }
 
-  if (coupon.perUserLimit !== null && args.userId) {
+  if (coupon.perUserLimit !== null) {
+    // Fails CLOSED when there is no signed-in user. The old `&& args.userId`
+    // skipped the check entirely for anonymous callers, so a "one per customer"
+    // code was unlimited to anyone checking out logged out — and a customer who
+    // had used theirs only had to sign out to reset it. A per-customer cap is
+    // meaningless without a customer, so the honest answer is to refuse rather
+    // than to wave it through. Checkout requires an account, so a real buyer
+    // never sees this; it only bites the signed-out cart preview.
+    if (!args.userId) {
+      return { status: "rejected", code, message: "Sign in to use this code." };
+    }
     const used = await prisma.couponRedemption.count({
       where: { couponId: coupon.id, userId: args.userId },
     });

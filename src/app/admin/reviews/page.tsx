@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AdminPageHeader } from "@/components/admin/ui";
 import { ReviewModerationCard } from "@/components/admin/review-moderation";
 import { cn } from "@/lib/utils";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export default async function AdminReviewsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireAdmin();
+
   const sp = await searchParams;
   const tabValue = (Array.isArray(sp.tab) ? sp.tab[0] : sp.tab) ?? "";
   const tab = TABS.find((t) => t.value === tabValue) ?? TABS[0];

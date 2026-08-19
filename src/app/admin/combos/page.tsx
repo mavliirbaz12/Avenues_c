@@ -3,12 +3,15 @@ import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatPaise } from "@/lib/format";
 import { AdminPageHeader, AdminChip } from "@/components/admin/ui";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 const LOW_STOCK_AT = 10;
 
 export default async function AdminCombosPage() {
+  await requireAdmin();
+
   const combos = await prisma.product.findMany({
     where: { type: "COMBO" },
     orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }],

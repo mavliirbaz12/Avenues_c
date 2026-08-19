@@ -5,6 +5,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginMethods } from "@/components/auth/login-methods";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { integrations } from "@/lib/env";
+import { safeNext } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -18,12 +19,6 @@ const ERRORS: Record<string, string> = {
     "That email is already registered with a password. Sign in with it instead.",
   AccessDenied: "That account can't sign in.",
 };
-
-/** Only allow same-origin relative paths, so ?next= can't be an open redirect. */
-function safeNext(raw: string | undefined) {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/account";
-  return raw;
-}
 
 export default async function LoginPage({
   searchParams,
@@ -54,7 +49,8 @@ export default async function LoginPage({
             Create an account
           </Link>
           <span className="mt-3 block text-xs text-stone-dark">
-            Buying as a guest? You don&rsquo;t need an account —{" "}
+            An account keeps your addresses, order history and tracking in one
+            place —{" "}
             <Link href="/shop" className="underline underline-offset-4 hover:text-gold-light">
               carry on shopping
             </Link>

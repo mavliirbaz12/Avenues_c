@@ -7,10 +7,13 @@ import { formatPaise, formatDateTime } from "@/lib/format";
 import { AdminPageHeader, AdminStatusChip, AdminChip } from "@/components/admin/ui";
 import { AdminOrderActions, AdminNoteForm } from "@/components/admin/admin-order-actions";
 import { orderAccessToken } from "@/lib/commerce/order-token";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
+
   const { id } = await params;
 
   const order = await prisma.order.findUnique({

@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { AdminPageHeader } from "@/components/admin/ui";
 import { CollectionManager } from "@/components/admin/collection-manager";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCollectionsPage() {
+  await requireAdmin();
+
   const [collections, products] = await Promise.all([
     prisma.collection.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],

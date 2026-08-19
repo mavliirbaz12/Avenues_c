@@ -13,6 +13,7 @@ import { DetailAccordion } from "@/components/product/detail-accordion";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { ProductCard } from "@/components/product/product-card";
 import { Reveal } from "@/components/motion/reveal";
+import { jsonLdHtml } from "@/lib/seo";
 
 // Same reasoning as the fragrance page: the reviews band reads the session and
 // the buy box shows live stock.
@@ -121,7 +122,7 @@ export default async function SetPage({ params }: { params: Promise<{ slug: stri
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
 
       <nav aria-label="Breadcrumb" className="shell pt-8">

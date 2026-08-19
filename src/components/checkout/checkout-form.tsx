@@ -227,11 +227,9 @@ export function CheckoutForm({
                 className={cn("field", fieldErrors.email && "field-error")}
               />
               {fieldErrors.email && <span className="field-msg-error">{fieldErrors.email}</span>}
-              {!user && (
-                <span className="field-hint">
-                  No account needed — your order confirmation and tracking link land here.
-                </span>
-              )}
+              <span className="field-hint">
+                Your order confirmation and tracking link land here.
+              </span>
             </div>
             <div>
               <label htmlFor="co-phone" className="field-label">

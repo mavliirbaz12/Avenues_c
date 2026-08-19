@@ -1,10 +1,13 @@
 import { AdminPageHeader } from "@/components/admin/ui";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { getStoreSettings } from "@/lib/settings";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
+  await requireAdmin();
+
   const settings = await getStoreSettings();
 
   return (

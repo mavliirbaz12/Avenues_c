@@ -60,6 +60,13 @@ export function testEnv(): Record<string, string> {
     AUTH_SECRET: "e2e-fixed-auth-secret-do-not-use-outside-tests-0000000000",
 
     // --- Every integration blank => mock mode -----------------------------
+    // The suite runs with NODE_ENV=production against a real `next start`, and
+    // mock payments are refused in production builds — that guard exists
+    // precisely so a keyless deploy cannot hand out free orders. This is the
+    // sanctioned escape hatch, and the one place it belongs: without it the
+    // whole mock gateway is unreachable and every payment spec fails.
+    ALLOW_MOCK_PAYMENTS: "1",
+
     RAZORPAY_KEY_ID: "",
     RAZORPAY_KEY_SECRET: "",
     RAZORPAY_WEBHOOK_SECRET: "e2e_razorpay_webhook_secret",

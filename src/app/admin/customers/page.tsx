@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatPaise, formatDate } from "@/lib/format";
 import { AdminPageHeader, AdminChip } from "@/components/admin/ui";
 import { cn } from "@/lib/utils";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ export default async function AdminCustomersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireAdmin();
+
   const sp = await searchParams;
   const q = ((Array.isArray(sp.q) ? sp.q[0] : sp.q) ?? "").trim();
 

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatPaise, formatDateTime } from "@/lib/format";
 import { AdminStatusChip } from "@/components/admin/ui";
 import { integrations } from "@/lib/env";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ const REVENUE_STATUSES: OrderStatus[] = [
 ];
 
 export default async function AdminDashboard() {
+  await requireAdmin();
+
   const now = new Date();
   const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);

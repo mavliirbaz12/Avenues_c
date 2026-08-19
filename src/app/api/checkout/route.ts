@@ -59,8 +59,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Check the highlighted fields.", fieldErrors }, { status: 400 });
   }
 
+  // CHECKOUT REQUIRES AN ACCOUNT. This is the enforcement point — the page
+  // guard only stops a browser, and this endpoint is a plain public POST.
+  //
+  // Beyond the product decision, ownerless orders were load-bearing for two
+  // separate defects: a coupon's per-customer cap had no customer to count
+  // against, and any guest order could be inherited by whoever registered that
+  // email address first, since nothing verified it.
   const session = await auth().catch(() => null);
   const userId = session?.user?.id ?? null;
+  if (!userId) {
+    return NextResponse.json(
+      { error: "Please sign in to place your order.", code: "AUTH_REQUIRED" },
+      { status: 401 },
+    );
+  }
   const body = parsed.data;
 
   // Resolve the delivery address. A saved id is only honoured for its owner —

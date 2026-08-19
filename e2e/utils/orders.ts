@@ -1,5 +1,6 @@
-import type { APIRequestContext } from "@playwright/test";
+import { request as playwrightRequest, type APIRequestContext } from "@playwright/test";
 import { db } from "./db";
+import { STORAGE, TEST_BASE_URL } from "./env";
 
 /**
  * Places an order through the real POST /api/checkout.
@@ -75,6 +76,22 @@ export function nextClientIp() {
   return `203.0.113.${(ipCounter % 250) + 1}`;
 }
 
+/**
+ * An API context carrying the signed-in customer's session.
+ *
+ * Checkout requires an account, so the bare `request` fixture — which is a
+ * guest — now gets a 401 from /api/checkout. Specs that merely need an order to
+ * *exist* shouldn't have to care, so this helper signs in for them by reusing
+ * the storage state the setup project already wrote. Specs that are actually
+ * about the signed-out case pass `guest: true` and assert the 401 themselves.
+ */
+export async function customerRequest() {
+  return playwrightRequest.newContext({
+    baseURL: TEST_BASE_URL,
+    storageState: STORAGE.customer,
+  });
+}
+
 export async function placeOrder(
   request: APIRequestContext,
   opts: {
@@ -86,7 +103,23 @@ export async function placeOrder(
     couponCode?: string | null;
     /** Override to make two calls share, or deliberately not share, a bucket. */
     clientIp?: string;
+    /** Post signed-out, to assert checkout refuses a guest. */
+    guest?: boolean;
   },
+) {
+  // Sign in unless the spec is specifically testing the signed-out path.
+  const ctx = opts.guest ? null : await customerRequest();
+  const api = ctx ?? request;
+  try {
+    return await post(api, opts);
+  } finally {
+    await ctx?.dispose();
+  }
+}
+
+async function post(
+  request: APIRequestContext,
+  opts: Parameters<typeof placeOrder>[1],
 ) {
   const res = await request.post("/api/checkout", {
     headers: { "x-forwarded-for": opts.clientIp ?? nextClientIp() },

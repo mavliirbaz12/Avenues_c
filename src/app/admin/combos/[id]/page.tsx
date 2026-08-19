@@ -5,6 +5,7 @@ import { AdminPageHeader } from "@/components/admin/ui";
 import { ComboForm } from "@/components/admin/combo-form";
 import { ImageManager } from "@/components/admin/image-manager";
 import { integrations } from "@/lib/env";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export default async function EditComboPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdmin();
+
   const { id } = await params;
 
   const [combo, products] = await Promise.all([

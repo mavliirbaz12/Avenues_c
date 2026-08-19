@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { AdminPageHeader } from "@/components/admin/ui";
 import { ComboForm } from "@/components/admin/combo-form";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewComboPage() {
+  await requireAdmin();
+
   // Only fragrances can go in a box — a set inside a set would recurse on the
   // storefront, and the server action refuses it too.
   const products = await prisma.product.findMany({

@@ -7,10 +7,13 @@ import { ProductForm } from "@/components/admin/product-form";
 import { VariantEditor } from "@/components/admin/variant-editor";
 import { ImageManager } from "@/components/admin/image-manager";
 import { integrations } from "@/lib/env";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
+
   const { id } = await params;
 
   const product = await prisma.product.findUnique({

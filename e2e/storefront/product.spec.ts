@@ -77,12 +77,15 @@ test.describe("product detail", () => {
     await expect(drawer.getByRole("link", { name: /checkout/i })).toBeVisible();
   });
 
-  test("Buy now goes straight to checkout with the item", async ({ page }) => {
-    await page.goto("/fragrance/intense");
-    await main(page).getByRole("button", { name: /buy now/i }).first().click();
+  test("Buy now goes straight to checkout with the item", async ({ customerPage }) => {
+    // Checkout requires an account, so this asserts the signed-in shortcut.
+    // The signed-out half — Buy now landing on /login with the destination
+    // preserved — is covered in cart-checkout/checkout.spec.ts.
+    await customerPage.goto("/fragrance/intense");
+    await main(customerPage).getByRole("button", { name: /buy now/i }).first().click();
 
-    await page.waitForURL(/\/checkout/);
-    await expect(main(page).getByText(/intense/i).first()).toBeVisible();
+    await customerPage.waitForURL(/\/checkout/);
+    await expect(main(customerPage).getByText(/intense/i).first()).toBeVisible();
   });
 
   test("quantity stepper respects available stock", async ({ page }) => {

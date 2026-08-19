@@ -4,17 +4,13 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignupForm } from "@/components/auth/signup-form";
 import { getCurrentUser } from "@/lib/auth-guards";
+import { safeNext } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Create an account",
   description: "Create an Avenues account to track orders and save your addresses.",
   robots: { index: false, follow: true },
 };
-
-function safeNext(raw: string | undefined) {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/account";
-  return raw;
-}
 
 export default async function SignupPage({
   searchParams,

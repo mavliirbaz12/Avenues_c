@@ -2,10 +2,13 @@ import { Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/format";
 import { AdminPageHeader } from "@/components/admin/ui";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNewsletterPage() {
+  await requireAdmin();
+
   const [subscribers, total] = await Promise.all([
     prisma.newsletterSubscriber.findMany({
       orderBy: { createdAt: "desc" },

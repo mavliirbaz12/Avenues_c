@@ -2,10 +2,13 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/ui";
 import { ProductForm } from "@/components/admin/product-form";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
-export default function NewProductPage() {
+export default async function NewProductPage() {
+  await requireAdmin();
+
   return (
     <div className="mx-auto max-w-4xl">
       <Link

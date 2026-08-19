@@ -18,6 +18,7 @@ import { ProductReviews } from "@/components/product/product-reviews";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
 import { Sparkle } from "@/components/brand/sparkle";
+import { jsonLdHtml } from "@/lib/seo";
 
 // Dynamic, not ISR: the reviews band reads the session (to offer the right
 // form state) and the buy box shows live stock — both want fresh renders.
@@ -163,7 +164,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
 
       {/* Breadcrumb */}

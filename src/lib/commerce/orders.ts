@@ -265,6 +265,7 @@ export async function confirmOrder(
       where: { id: orderId },
       select: {
         id: true,
+        orderNumber: true,
         status: true,
         paymentStatus: true,
         couponId: true,
@@ -312,10 +313,37 @@ export async function confirmOrder(
     }
 
     if (order.couponId) {
-      await tx.coupon.update({
-        where: { id: order.couponId },
+      // Claim the redemption CONDITIONALLY, the same shape as the stock guard
+      // in createOrder. The previous unconditional increment keyed on the
+      // primary key alone, so nothing here re-checked the cap that
+      // evaluateCoupon had tested a payment window earlier — N staged orders
+      // could each confirm against a one-use code.
+      const claimed = await tx.coupon.updateMany({
+        where: {
+          id: order.couponId,
+          OR: [
+            { usageLimit: null },
+            { usedCount: { lt: prisma.coupon.fields.usageLimit } },
+          ],
+        },
         data: { usedCount: { increment: 1 } },
       });
+
+      if (claimed.count !== 1) {
+        // The money has already arrived, so refusing here would mean owing a
+        // refund on an order the customer believes is placed. Deliberate
+        // policy: honour this one, keep usedCount honest so it still reconciles
+        // against the redemption rows, and shout — the pre-check in
+        // evaluateCoupon is what stops this happening at any volume.
+        console.error(
+          `[orders] coupon ${order.couponId} redeemed past its usage limit on ` +
+            `order ${order.orderNumber} — honoured, needs review`,
+        );
+        await tx.coupon.update({
+          where: { id: order.couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
       // orderId is unique on redemptions, so a webhook/verify race cannot
       // record the same redemption twice.
       await tx.couponRedemption
@@ -474,6 +502,8 @@ export async function retryPayment(orderId: string): Promise<CreateOrderResult> 
       paymentStatus: true,
       totalPaise: true,
       stockReleasedAt: true,
+      couponId: true,
+      couponCode: true,
       items: { select: { variantId: true, quantity: true, productName: true, variantSize: true } },
     },
   });
@@ -485,6 +515,31 @@ export async function retryPayment(orderId: string): Promise<CreateOrderResult> 
     order.paymentStatus === PaymentStatus.PAID
   ) {
     throw new OrderError("This order can't be paid again.", "NOT_RETRYABLE");
+  }
+
+  // The retry link is what turned a 30-minute payment window into a permanent
+  // one: the discount is frozen on the order at creation and nothing here used
+  // to look at the coupon again, so an order staged during a sale could be paid
+  // months later, at the sale price, on a code that had since expired or been
+  // switched off. Re-check it, and refuse rather than silently honour it.
+  if (order.couponId) {
+    const coupon = await prisma.coupon.findUnique({
+      where: { id: order.couponId },
+      select: { isActive: true, endsAt: true, usageLimit: true, usedCount: true },
+    });
+    const stillValid =
+      coupon !== null &&
+      coupon.isActive &&
+      (coupon.endsAt === null || coupon.endsAt >= new Date()) &&
+      (coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit);
+
+    if (!stillValid) {
+      throw new OrderError(
+        `The code ${order.couponCode ?? "on this order"} is no longer available. ` +
+          `Start a fresh order to check out at today's prices.`,
+        "NOT_RETRYABLE",
+      );
+    }
   }
 
   await prisma.$transaction(async (tx) => {
