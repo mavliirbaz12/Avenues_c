@@ -1,14 +1,24 @@
+import dynamic from "next/dynamic";
 import { SiteNav } from "@/components/layout/site-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
-import { MobileMenu } from "@/components/layout/mobile-menu";
-import { SearchOverlay } from "@/components/layout/search-overlay";
 import { AnnouncementBar } from "@/components/layout/announcement-bar";
-import { WhatsAppFab } from "@/components/layout/whatsapp-fab";
-import { CartDrawer } from "@/components/cart/cart-drawer";
 import { SessionSync } from "@/components/providers/session-sync";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
 import { getNavFragrances } from "@/lib/catalog";
+
+const MobileMenu = dynamic(
+  () => import("@/components/layout/mobile-menu").then((m) => m.MobileMenu),
+);
+const SearchOverlay = dynamic(
+  () => import("@/components/layout/search-overlay").then((m) => m.SearchOverlay),
+);
+const CartDrawer = dynamic(
+  () => import("@/components/cart/cart-drawer").then((m) => m.CartDrawer),
+);
+const WhatsAppFab = dynamic(
+  () => import("@/components/layout/whatsapp-fab").then((m) => m.WhatsAppFab),
+);
 
 /** The storefront shell: announcement strip, nav, overlays, footer, channels. */
 export default async function StoreLayout({
@@ -57,13 +67,14 @@ export default async function StoreLayout({
       />
       <SearchOverlay />
 
+
       {/* --header-h is nav + announcement strip; the landing hero cancels the
           same value to bleed under the fixed chrome. */}
       <main id="main" className="pt-[var(--header-h)]">
         {children}
       </main>
 
-      <SiteFooter />
+      <SiteFooter settings={settings} products={fragrances} />
 
       <CartDrawer />
       <WhatsAppFab href={wa} />

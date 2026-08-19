@@ -4,8 +4,10 @@ import { Logo } from "@/components/brand/logo";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
 import { EnquiryForm } from "@/components/forms/enquiry-form";
-import { getStoreSettings, whatsappLink } from "@/lib/settings";
-import { getNavFragrances } from "@/lib/catalog";
+import { whatsappLink } from "@/lib/settings";
+import type { StoreSettings } from "@/lib/settings";
+
+type NavFragrance = { slug: string; name: string };
 
 const COMPANY = [
   { href: "/about", label: "Our story" },
@@ -21,12 +23,13 @@ const LEGAL = [
   { href: "/policies/terms", label: "Terms of service" },
 ];
 
-export async function SiteFooter() {
-  const [settings, products] = await Promise.all([
-    getStoreSettings(),
-    getNavFragrances(),
-  ]);
-
+export function SiteFooter({
+  settings,
+  products,
+}: {
+  settings: StoreSettings;
+  products: NavFragrance[];
+}) {
   const wa = whatsappLink(
     settings.whatsappNumber,
     "Hi Avenues, I have a question.",

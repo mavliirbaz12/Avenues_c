@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { Hero } from "@/components/landing/hero";
-import { BottleReveal } from "@/components/landing/bottle-reveal";
-import { FeaturedSlider } from "@/components/landing/featured-slider";
-import { BrandBanner } from "@/components/landing/brand-banner";
-import { NotesStory } from "@/components/landing/notes-story";
-import { CollectionGrid } from "@/components/landing/collection-grid";
-import { ComboBand } from "@/components/landing/combo-band";
-import { BrandStory } from "@/components/landing/brand-story";
+import { LazyBottleReveal } from "@/components/landing/lazy-bottle-reveal";
 import {
   getFeaturedProductCards,
   getFeaturedCombo,
@@ -15,6 +10,25 @@ import {
 } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/env";
+
+const FeaturedSlider = dynamic(
+  () => import("@/components/landing/featured-slider").then((m) => m.FeaturedSlider),
+);
+const BrandBanner = dynamic(
+  () => import("@/components/landing/brand-banner").then((m) => m.BrandBanner),
+);
+const NotesStory = dynamic(
+  () => import("@/components/landing/notes-story").then((m) => m.NotesStory),
+);
+const CollectionGrid = dynamic(
+  () => import("@/components/landing/collection-grid").then((m) => m.CollectionGrid),
+);
+const ComboBand = dynamic(
+  () => import("@/components/landing/combo-band").then((m) => m.ComboBand),
+);
+const BrandStory = dynamic(
+  () => import("@/components/landing/brand-story").then((m) => m.BrandStory),
+);
 
 /**
  * Built from the catalogue rather than asserted.
@@ -95,7 +109,7 @@ export default async function HomePage() {
         countWord={countWord}
         sizeLabel={summary.sizeLabel}
       />
-      <BottleReveal />
+      <LazyBottleReveal />
       <FeaturedSlider products={products} />
       {/*
         No photograph behind the mantra.

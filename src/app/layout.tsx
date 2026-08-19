@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { Toaster } from "@/components/ui/toaster";
+import { LazyToaster } from "@/components/ui/lazy-toaster";
 import { StoreHydrator } from "@/components/providers/store-hydrator";
 import { Analytics } from "@/components/analytics/analytics";
 import { siteUrl } from "@/lib/env";
@@ -91,7 +91,7 @@ export default function RootLayout({
       <body className="min-h-dvh bg-ink text-bone">
         <StoreHydrator />
         {children}
-        <Toaster />
+        <LazyToaster />
         <Analytics />
       </body>
     </html>
