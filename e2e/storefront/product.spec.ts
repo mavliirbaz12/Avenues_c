@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { addToCart, main } from "../utils/selectors";
+import { addToCart, buyNow, cartButton, main, openCart } from "../utils/selectors";
 import { db } from "../utils/db";
 
 test.afterAll(() => db.$disconnect());
@@ -64,15 +64,21 @@ test.describe("product detail", () => {
     });
   }
 
-  test("@smoke add to cart opens the drawer with the right item", async ({ page }) => {
+  test("@smoke add to cart counts on the bar without hijacking the page", async ({ page }) => {
     await page.goto("/fragrance/night-drip");
 
     // Three "Add to cart" controls exist: the main one, and a duplicate in the
     // mobile sticky bar portalled to <body>. Scope to the page content.
     await addToCart(page);
 
-    const drawer = page.getByRole("dialog", { name: "Your cart" });
-    await expect(drawer).toBeVisible();
+    // The whole point of the change: the shopper is still reading the product
+    // they were reading. Nothing has been thrown over it to dismiss.
+    await expect(cartButton(page, 1)).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Your cart" })).toBeHidden();
+    await expect(main(page).getByRole("heading", { level: 1 })).toBeVisible();
+
+    // And the item really is in there, for anyone who taps the cart to look.
+    const drawer = await openCart(page);
     await expect(drawer.getByText(/night drip/i).first()).toBeVisible();
     await expect(drawer.getByRole("link", { name: /checkout/i })).toBeVisible();
   });
@@ -82,9 +88,8 @@ test.describe("product detail", () => {
     // The signed-out half — Buy now landing on /login with the destination
     // preserved — is covered in cart-checkout/checkout.spec.ts.
     await customerPage.goto("/fragrance/intense");
-    await main(customerPage).getByRole("button", { name: /buy now/i }).first().click();
+    await buyNow(customerPage);
 
-    await customerPage.waitForURL(/\/checkout/);
     await expect(main(customerPage).getByText(/intense/i).first()).toBeVisible();
   });
 

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { rupeeInputToPaise } from "@/lib/format";
 import { slugify } from "@/lib/utils";
-import type { FormState } from "@/lib/form-state";
+import type { FormState, SimpleActionState } from "@/lib/form-state";
 
 function collectErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -113,6 +113,43 @@ export async function toggleCoupon(couponId: string, isActive: boolean) {
   await requireAdminActor();
   await prisma.coupon.update({ where: { id: couponId }, data: { isActive } });
   revalidatePath("/admin/coupons");
+}
+
+/**
+ * Delete a coupon outright.
+ *
+ * Refused once the code has been redeemed. CouponRedemption cascades from
+ * Coupon, so deleting one would erase the record of every discount it ever
+ * gave — the per-user limit it enforced, and the reason an old order was
+ * cheaper than its line items say. Order.couponId is `SetNull`, so those
+ * orders would also lose the link. Disabling stops the code working and keeps
+ * all of it, which is what "get rid of this coupon" means once it is live.
+ *
+ * An unredeemed coupon is a typo or a campaign that never ran, and deletes
+ * cleanly.
+ */
+export async function deleteCoupon(couponId: string): Promise<SimpleActionState> {
+  await requireAdminActor();
+
+  const coupon = await prisma.coupon.findUnique({
+    where: { id: couponId },
+    select: { code: true, _count: { select: { redemptions: true } } },
+  });
+  if (!coupon) return { ok: false, message: "Coupon not found." };
+
+  if (coupon._count.redemptions > 0) {
+    return {
+      ok: false,
+      message:
+        `${coupon.code} has been used ${coupon._count.redemptions} time` +
+        `${coupon._count.redemptions === 1 ? "" : "s"}. ` +
+        `Turn it off instead of deleting, so those orders keep their discount history.`,
+    };
+  }
+
+  await prisma.coupon.delete({ where: { id: couponId } });
+  revalidatePath("/admin/coupons");
+  return { ok: true, message: `${coupon.code} deleted.` };
 }
 
 /* -------------------------------------------------------------------------- */

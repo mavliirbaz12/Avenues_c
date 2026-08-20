@@ -73,18 +73,53 @@ export async function openFilters(page: Page) {
 }
 
 /**
+ * Opens the mobile menu.
+ *
+ * The click is retried until the drawer is actually on screen, for the same
+ * reason addToCart retries: the nav is a client component rendered on the
+ * server, so the button exists and accepts clicks a beat before React attaches
+ * `onClick`. A click inside that window is swallowed with no error, and the
+ * assertion that follows fails against a menu that opens perfectly a moment
+ * later. Two specs hand-rolled the bare click and both were intermittent.
+ */
+export async function openMobileMenu(page: Page) {
+  const menu = page.getByRole("dialog", { name: "Menu" });
+
+  await expect(async () => {
+    if (!(await menu.isVisible().catch(() => false))) {
+      await nav(page).getByRole("button", { name: /open menu/i }).click({ timeout: 5_000 });
+    }
+    await expect(menu).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 25_000 });
+
+  return menu;
+}
+
+/**
  * Opens the search overlay from wherever it lives on this viewport: a labelled
  * control in the desktop nav, or inside the mobile menu.
+ *
+ * Retried end-to-end rather than click-and-hope — see openMobileMenu. The
+ * condition is the search box itself, so whichever route was taken has to
+ * finish with a field the caller can type into.
  */
 export async function openSearch(page: Page) {
   const direct = nav(page).getByRole("button", { name: /search fragrances/i });
-  if (await direct.isVisible().catch(() => false)) {
-    await direct.click();
-  } else {
-    await nav(page).getByRole("button", { name: /open menu/i }).click();
-    await page.getByRole("button", { name: /search/i }).first().click();
-  }
-  return page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
+  const box = page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
+
+  await expect(async () => {
+    if (await box.isVisible().catch(() => false)) return;
+
+    if (await direct.isVisible().catch(() => false)) {
+      await direct.click({ timeout: 5_000 });
+    } else {
+      const menu = await openMobileMenu(page);
+      await menu.getByRole("button", { name: /search/i }).first().click({ timeout: 5_000 });
+    }
+    await expect(box).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 25_000 });
+
+  return box;
 }
 
 /**
@@ -109,25 +144,90 @@ export async function phoneOtpOffered(page: Page) {
 }
 
 /**
- * Click "Add to cart" and wait for the drawer, tolerating a pre-hydration click.
+ * Click "Add to cart" and wait for the bar to acknowledge it.
+ *
+ * Adding does NOT open the drawer — see components/product/add-to-cart-button.tsx
+ * for why. The confirmation a shopper actually gets is the count on the cart
+ * button, so that is what this waits on, and waiting on it asserts the real
+ * contract rather than a side effect of it.
  *
  * The button is server-rendered, so it is present and clickable before React
  * attaches onClick. A click inside that window is swallowed silently — no
- * error, no drawer — and whatever assertion follows fails against a page that
+ * error, no count — and whatever assertion follows fails against a page that
  * works perfectly a moment later. The window widens with the route's JS, so
  * this gets flakier as the app grows rather than settling down.
  *
- * Every spec that adds to the cart should go through here. Three of them had
- * hand-rolled the bare click and each was one slow render away from the same
- * intermittent failure; the journey had already solved it privately.
+ * Every spec that adds to the cart goes through here, the journey included —
+ * it used to keep a private copy of this retry, which meant a change to how
+ * adding confirms itself had two places to land instead of one.
+ *
+ * `expected` is the item count the bar should report once the click lands —
+ * 1 for the usual "add one thing to an empty cart".
  */
-export async function addToCart(page: Page) {
+export async function addToCart(page: Page, expected = 1) {
   const add = main(page).getByRole("button", { name: "Add to cart" }).first();
+  // The count lives in the aria-label, so this asserts what a screen reader is
+  // told, not just what is drawn.
+  const settled = cartButton(page, expected);
+
+  await expect(async () => {
+    if (!(await settled.isVisible().catch(() => false))) {
+      await add.click({ timeout: 5_000 });
+    }
+    await expect(settled).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 25_000 });
+}
+
+/**
+ * Click "Buy now" and wait for it to land.
+ *
+ * Same pre-hydration race as addToCart and the same retry: the button is
+ * server-rendered, so it accepts clicks before React attaches its handler and
+ * a swallowed click leaves the page exactly where it was, with nothing in the
+ * cart and no error to explain it. Under a loaded suite this failed reliably
+ * enough to look like a broken feature, and passed three times out of three in
+ * isolation.
+ *
+ * Where it lands depends on the session — /checkout when signed in, /login
+ * with the destination preserved when not — so the caller says which.
+ */
+export async function buyNow(page: Page, lands: RegExp = /\/checkout/) {
+  const buy = main(page).getByRole("button", { name: /buy now/i }).first();
+
+  await expect(async () => {
+    if (lands.test(page.url())) return;
+    await buy.click({ timeout: 5_000 });
+    await page.waitForURL(lands, { timeout: 5_000 });
+  }).toPass({ timeout: 25_000 });
+}
+
+/**
+ * The nav's cart control, optionally pinned to the count it should be
+ * reporting. `items` omitted matches it whatever the cart holds.
+ */
+export function cartButton(page: Page, items?: number): Locator {
+  const name =
+    items === undefined
+      ? /^cart\b/i
+      : items === 0
+        ? /^cart, empty/i
+        : new RegExp(String.raw`^cart, ${items} items?\b`, "i");
+  return nav(page).getByRole("button", { name });
+}
+
+/**
+ * Open the cart drawer from the bar.
+ *
+ * Specs that want to look inside the cart now have to say so, because adding
+ * no longer does it for them. Same retry shape as addToCart, and for the same
+ * reason: the nav is a client component and its handler lands late.
+ */
+export async function openCart(page: Page) {
   const drawer = cartDrawer(page);
 
   await expect(async () => {
     if (!(await drawer.isVisible().catch(() => false))) {
-      await add.click({ timeout: 5_000 });
+      await cartButton(page).click({ timeout: 5_000 });
     }
     await expect(drawer).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 25_000 });

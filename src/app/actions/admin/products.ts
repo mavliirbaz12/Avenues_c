@@ -310,6 +310,59 @@ export async function deleteVariant(variantId: string): Promise<FormState> {
 /* Images                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Delete a product outright.
+ *
+ * Refused, not silently softened, when the fragrance has ever been ordered.
+ * OrderItem keeps a text snapshot of what was bought, but `variantId` is what
+ * a refund, the packing list and every per-product report resolve against, and
+ * that FK is `SetNull` — so a delete would leave historic orders pointing at
+ * nothing and quietly wrong rather than loudly broken. `isActive: false` takes
+ * a fragrance off the storefront and keeps all of that intact, which is what
+ * "remove this product" almost always means.
+ *
+ * Gift sets block it for the same reason retiring does: a set that contains a
+ * deleted fragrance is a set that cannot be fulfilled.
+ *
+ * What is left after those two guards is the case this exists for — something
+ * added by mistake, or a draft that never went live. Those delete cleanly, and
+ * their variants, images, collection entries and reviews go with them by
+ * cascade.
+ */
+export async function deleteProduct(productId: string): Promise<SimpleActionState> {
+  await requireAdminActor();
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { slug: true, name: true, type: true },
+  });
+  if (!product) return { ok: false, message: "Product not found." };
+  if (product.type === "COMBO") {
+    return { ok: false, message: "That is a gift set — delete it from the gift sets page." };
+  }
+
+  const sold = await prisma.orderItem.count({ where: { variant: { productId } } });
+  if (sold > 0) {
+    return {
+      ok: false,
+      message:
+        `${product.name} appears on ${sold} order${sold === 1 ? "" : "s"}. ` +
+        `Retire it instead of deleting, so those orders keep their history.`,
+    };
+  }
+
+  const refusal = await blockedByCombos(productId);
+  if (refusal) return { ok: false, message: refusal };
+
+  await prisma.product.delete({ where: { id: productId } });
+
+  revalidateProduct(product.slug, product.slug);
+  revalidatePath("/admin/products");
+  revalidatePath("/sets");
+  revalidateTag(CATALOG_TAG);
+  return { ok: true, message: `${product.name} deleted.` };
+}
+
 export async function reorderImages(productId: string, orderedIds: string[]): Promise<void> {
   await requireAdminActor();
 

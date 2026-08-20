@@ -2,8 +2,9 @@
 
 import { useTransition } from "react";
 import { ReviewStatus } from "@prisma/client";
-import { BadgeCheck, Check, EyeOff, Trash2 } from "lucide-react";
+import { BadgeCheck, Check, EyeOff } from "lucide-react";
 import { moderateReview, deleteReview } from "@/app/actions/admin/operations";
+import { ConfirmDelete } from "./confirm-delete";
 import { Stars } from "@/components/product/stars";
 import { AdminChip } from "./ui";
 import { formatDate } from "@/lib/format";
@@ -84,15 +85,18 @@ export function ReviewModerationCard({ review }: { review: ReviewCard }) {
             Hide
           </button>
         )}
-        <button
-          type="button"
+        {/*
+          Two-step. This used to delete a customer's review on one click, with
+          nothing between a mis-tap and permanently destroying something the
+          store did not write and cannot get back. Hiding is the reversible
+          option and is one button to the left.
+        */}
+        <ConfirmDelete
           disabled={busy}
-          onClick={() => act(() => deleteReview(review.id), "Review deleted.")}
-          className="btn btn-danger btn-sm"
-        >
-          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
-          Delete
-        </button>
+          question="Delete this review for good?"
+          onConfirm={() => act(() => deleteReview(review.id), "Review deleted.")}
+          className="ml-1 self-center"
+        />
       </div>
     </li>
   );

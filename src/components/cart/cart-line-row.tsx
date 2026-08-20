@@ -24,13 +24,20 @@ export function CartLineRow({
   const atStockLimit = line.quantity >= line.stock;
 
   return (
-    <li className="flex gap-4 py-5">
+    /*
+      `compact` is the drawer's row and it is tuned by measurement: at 137px a
+      400x767 phone showed 2.7 of them, and every pixel here is one the list
+      does not get. 112px is the floor — below that the two-line title block and
+      the 36px quantity stepper stop fitting beside the thumbnail and the row
+      starts growing again from the text side.
+    */
+    <li className={cn("flex gap-4", compact ? "py-4" : "py-5")}>
       <Link
         href={line.type === "COMBO" ? `/set/${line.slug}` : `/fragrance/${line.slug}`}
         onClick={onNavigate}
         className={cn(
           "relative shrink-0 overflow-hidden border border-line bg-ink-deep",
-          compact ? "h-24 w-20" : "h-32 w-28",
+          compact ? "h-20 w-16" : "h-32 w-28",
         )}
       >
         {line.imageUrl ? (
@@ -38,7 +45,7 @@ export function CartLineRow({
             src={line.imageUrl}
             alt={line.name}
             fill
-            sizes="112px"
+            sizes={compact ? "80px" : "112px"}
             className="object-cover"
           />
         ) : (
@@ -52,11 +59,14 @@ export function CartLineRow({
             <Link
               href={line.type === "COMBO" ? `/set/${line.slug}` : `/fragrance/${line.slug}`}
               onClick={onNavigate}
-              className="font-display text-lg font-light leading-tight text-bone transition-colors hover:text-gold-light"
+              className={cn(
+                "font-display font-light leading-tight text-bone transition-colors hover:text-gold-light",
+                compact ? "text-base" : "text-lg",
+              )}
             >
               {line.name.replace(/^Avenues\s+/i, "")}
             </Link>
-            <p className="mt-1 font-sans text-xs uppercase tracking-label text-stone-dark">
+            <p className="mt-0.5 font-sans text-xs uppercase tracking-label text-stone-dark">
               {line.size}
             </p>
           </div>
@@ -77,7 +87,7 @@ export function CartLineRow({
           </p>
         )}
 
-        <div className="mt-auto flex items-end justify-between gap-3 pt-3">
+        <div className={cn("mt-auto flex items-end justify-between gap-3", compact ? "pt-2" : "pt-3")}>
           <div className="flex items-center border border-line">
             <Step
               label="Decrease quantity"

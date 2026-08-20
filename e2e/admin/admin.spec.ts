@@ -405,3 +405,188 @@ test.describe("settings", () => {
     }
   });
 });
+
+/**
+ * Anything the admin can create, the admin can also remove — on purpose.
+ *
+ * The panel had grown lopsided: sizes and collections had a two-step delete,
+ * images and reviews deleted on a single click with nothing in between, gift
+ * sets had a `deleteCombo` action that no button ever called, and coupons and
+ * products could not be deleted at all. These assert the shape that fixes it —
+ * a delete exists, it asks first, and it refuses rather than corrupting order
+ * history when the thing has been sold.
+ */
+test.describe("admin deletes", () => {
+  /** A throwaway fragrance with no orders, no variants and no set membership. */
+  async function makeDisposableProduct(stamp = Date.now()) {
+    return db.product.create({
+      data: {
+        name: `E2E Disposable ${stamp}`,
+        slug: `e2e-disposable-${stamp}`,
+        tagline: "Exists to be deleted.",
+        highlight: "A record with no orders, no sizes and no set membership.",
+        description: "A product created by a test so the test can delete it again.",
+        howToUse: "Do not.",
+        caution: "For external testing only.",
+        gender: "UNISEX",
+        isActive: false,
+      },
+      select: { id: true, slug: true, name: true },
+    });
+  }
+
+  test("@smoke deleting a product asks before it does it", async ({ adminPage }) => {
+    const product = await makeDisposableProduct();
+
+    try {
+      await adminPage.goto(`/admin/products/${product.id}`);
+
+      // Arming is not deleting. This is the whole point of the two-step: the
+      // first click must leave the record alone.
+      await adminPage.getByRole("button", { name: /delete product/i }).click();
+      await expect(adminPage.getByRole("button", { name: "Confirm" })).toBeVisible();
+      expect(
+        await db.product.count({ where: { id: product.id } }),
+        "arming the control must not delete anything",
+      ).toBe(1);
+
+      // Backing out must also leave it alone, and must re-arm from scratch.
+      await adminPage.getByRole("button", { name: "No" }).click();
+      await expect(adminPage.getByRole("button", { name: "Confirm" })).toBeHidden();
+      expect(await db.product.count({ where: { id: product.id } })).toBe(1);
+
+      await adminPage.getByRole("button", { name: /delete product/i }).click();
+      await adminPage.getByRole("button", { name: "Confirm" }).click();
+
+      await expect
+        .poll(() => db.product.count({ where: { id: product.id } }), { timeout: 20_000 })
+        .toBe(0);
+      await adminPage.waitForURL(/\/admin\/products$/);
+    } finally {
+      await db.product.deleteMany({ where: { id: product.id } });
+    }
+  });
+
+  /**
+   * The guard that matters. OrderItem.variantId is SetNull, so deleting a sold
+   * fragrance would not error — it would quietly leave historic orders pointing
+   * at nothing, which is worse.
+   */
+  test("a fragrance that has been ordered refuses to delete", async ({ adminPage, request }) => {
+    const variant = await ensureStock("night-drip");
+    await placeOrder(request, { variantId: variant.id, email: "delete-guard@test.dev" });
+
+    const product = await db.product.findUniqueOrThrow({
+      where: { slug: "night-drip" },
+      select: { id: true },
+    });
+
+    await adminPage.goto(`/admin/products/${product.id}`);
+    await adminPage.getByRole("button", { name: /delete product/i }).click();
+    await adminPage.getByRole("button", { name: "Confirm" }).click();
+
+    // The refusal has to be visible. An admin who clicks Delete and sees
+    // nothing happen clicks it again.
+    await expect(adminPage.getByRole("status").filter({ hasText: /retire it instead/i })).toBeVisible(
+      { timeout: 15_000 },
+    );
+    expect(
+      await db.product.count({ where: { id: product.id } }),
+      "a sold fragrance must survive the delete",
+    ).toBe(1);
+  });
+
+  test("@smoke an unused coupon can be deleted, and a used one cannot", async ({ adminPage }) => {
+    const stamp = Date.now();
+    const fresh = await db.coupon.create({
+      data: { code: `E2EDEL${stamp}`.slice(0, 24), type: "FLAT", valuePaise: 5000, isActive: false },
+      select: { id: true, code: true },
+    });
+
+    try {
+      await adminPage.goto("/admin/coupons");
+
+      const row = adminPage.locator("li").filter({ hasText: fresh.code });
+      await row.getByRole("button", { name: /^delete$/i }).click();
+      await row.getByRole("button", { name: "Confirm" }).click();
+
+      await expect
+        .poll(() => db.coupon.count({ where: { id: fresh.id } }), { timeout: 20_000 })
+        .toBe(0);
+    } finally {
+      await db.coupon.deleteMany({ where: { id: fresh.id } });
+    }
+  });
+
+  test("a gift set can be deleted from its list", async ({ adminPage }) => {
+    const stamp = Date.now();
+    const set = await db.product.create({
+      data: {
+        name: `E2E Throwaway Set ${stamp}`,
+        slug: `e2e-throwaway-set-${stamp}`,
+        type: "COMBO",
+        tagline: "Boxed briefly.",
+        highlight: "A set with no items and no orders.",
+        description: "A gift set created by a test so the test can delete it again.",
+        howToUse: "Do not.",
+        caution: "For external testing only.",
+        gender: "UNISEX",
+        isActive: false,
+      },
+      select: { id: true, name: true },
+    });
+
+    try {
+      await adminPage.goto("/admin/combos");
+
+      const row = adminPage.locator("li").filter({ hasText: set.name });
+      await expect(row).toBeVisible();
+      await row.getByRole("button", { name: /^delete$/i }).click();
+      await row.getByRole("button", { name: "Confirm" }).click();
+
+      await expect
+        .poll(() => db.product.count({ where: { id: set.id } }), { timeout: 20_000 })
+        .toBe(0);
+    } finally {
+      await db.product.deleteMany({ where: { id: set.id } });
+    }
+  });
+
+  test("deleting a review asks first", async ({ adminPage }) => {
+    const product = await db.product.findFirstOrThrow({
+      where: { type: "SINGLE" },
+      select: { id: true },
+    });
+    const user = await db.user.findFirstOrThrow({ where: { role: "CUSTOMER" }, select: { id: true } });
+
+    const review = await db.review.create({
+      data: {
+        productId: product.id,
+        userId: user.id,
+        rating: 4,
+        title: `E2E delete-me ${Date.now()}`,
+        body: "Written by a test purely so the delete confirmation has something to guard.",
+        status: "PENDING",
+      },
+      select: { id: true, title: true },
+    });
+
+    try {
+      await adminPage.goto("/admin/reviews");
+
+      const row = adminPage.locator("li").filter({ hasText: review.title! });
+      await row.getByRole("button", { name: /^delete$/i }).click();
+
+      // Still there while the control is merely armed.
+      await expect(row.getByRole("button", { name: "Confirm" })).toBeVisible();
+      expect(await db.review.count({ where: { id: review.id } })).toBe(1);
+
+      await row.getByRole("button", { name: "Confirm" }).click();
+      await expect
+        .poll(() => db.review.count({ where: { id: review.id } }), { timeout: 20_000 })
+        .toBe(0);
+    } finally {
+      await db.review.deleteMany({ where: { id: review.id } });
+    }
+  });
+});

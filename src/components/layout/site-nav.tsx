@@ -76,7 +76,7 @@ export function SiteNav({ fragrances }: { fragrances: NavFragrance[] }) {
       )}
       style={{ top: "var(--announce-h)", height: "var(--nav-h)" }}
     >
-      <nav className="shell flex h-full items-center justify-between gap-4" aria-label="Primary">
+      <nav className="shell flex h-full items-center justify-between gap-2 sm:gap-4" aria-label="Primary">
         <div className="flex items-center gap-2 lg:hidden">
           <IconButton label="Open menu" onClick={openMenu}>
             <Menu className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.4} />
@@ -93,8 +93,25 @@ export function SiteNav({ fragrances }: { fragrances: NavFragrance[] }) {
           66px: the brand name squeezed to a smudge, and worse the wider the
           screen got. Nothing about it looked like a layout bug, only like a
           logo that was too small.
+
+          It is NO LONGER absolutely centred on the phone bar.
+
+          Centring was what pushed the wordmark off small screens. An absolutely
+          centred element is bounded by twice its distance to the NEARER edge,
+          and with four controls on the right and one on the left those are very
+          different distances — measured at 360px the lockup could be 110px wide
+          against the ~157px a legible mark-plus-name needs, so the name was
+          gated behind `min-[400px]` and phones below that showed the monogram
+          alone. Two people on two phones saw two different brands.
+
+          In flow it is bounded by the space that is actually free (194px at the
+          same 360px), the name fits everywhere, and the phone bar now matches
+          what `lg` and up have always done. `justify-between` seats it in the
+          gap between the menu button and the icon cluster; it reads as centred
+          between the controls rather than on the viewport's axis, which is the
+          price of showing the whole brand and worth paying.
         */}
-        <div className="absolute left-1/2 w-max shrink-0 -translate-x-1/2 lg:static lg:translate-x-0">
+        <div className="w-max shrink-0">
           <Logo size="md" />
         </div>
 
@@ -139,9 +156,10 @@ export function SiteNav({ fragrances }: { fragrances: NavFragrance[] }) {
             invisible there too, so a saved item gave no signal it had been
             saved.
 
-            This costs the centred lockup ~76px of clearance below 768px, which
-            is why the `md` steps in components/brand/logo.tsx were re-measured
-            against the new cluster rather than left alone.
+            This costs the lockup ~76px of the phone bar, which is why the `md`
+            steps in components/brand/logo.tsx are measured against this cluster
+            rather than guessed, and ultimately why the lockup had to come out
+            of absolute centring to keep the brand name on small screens.
           */}
           <IconButton
             label={`Wishlist${wishIds.length ? `, ${wishIds.length} saved` : ""}`}
@@ -321,11 +339,14 @@ function IconButton({
   className?: string;
 }) {
   const classes = cn(
-    // Tighter horizontal padding below `sm`: the phone bar now carries four
+    // Tighter horizontal padding below `sm`: the phone bar carries four
     // controls (menu, wishlist, account, cart) where it used to carry two, and
-    // the padding is the only place to find the room. The 44px tap target is
-    // preserved by `h-11` plus the gap, not by the padding.
-    "relative inline-flex h-11 items-center justify-center gap-2 px-1.5 sm:px-2.5 text-bone/85",
+    // the padding is the only place to find the room. Tighter again below
+    // `min-[400px]`, which is where the lockup and the cluster are closest to
+    // touching — that step is worth 12px across the cluster and it goes to the
+    // wordmark. The 44px tap target is preserved by `h-11` plus the gap, not by
+    // the padding.
+    "relative inline-flex h-11 items-center justify-center gap-2 px-1 min-[400px]:px-1.5 sm:px-2.5 text-bone/85",
     "transition-colors duration-300 ease-smoke hover:text-gold-light",
     className,
   );

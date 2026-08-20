@@ -6,6 +6,7 @@ import { AdminPageHeader, AdminChip } from "@/components/admin/ui";
 import { ProductForm } from "@/components/admin/product-form";
 import { VariantEditor } from "@/components/admin/variant-editor";
 import { ImageManager } from "@/components/admin/image-manager";
+import { DeleteProductPanel } from "@/components/admin/delete-entity";
 import { integrations } from "@/lib/env";
 import { requireAdmin } from "@/lib/auth-guards";
 
@@ -114,6 +115,12 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             metaTitle: product.metaTitle,
             metaDescription: product.metaDescription,
           }}
+        />
+
+        <DeleteProductPanel
+          productId={product.id}
+          name={product.name}
+          isCombo={product.type === "COMBO"}
         />
       </div>
     </div>

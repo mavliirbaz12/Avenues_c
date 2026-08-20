@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { watchConsole, type ConsoleWatcher } from "../fixtures";
-import { main, cartDrawer, nav } from "../utils/selectors";
+import { addToCart, main, nav, openCart } from "../utils/selectors";
 import { db } from "../utils/db";
 import { JOURNEY, JOURNEY_ADDRESS } from "../utils/env";
 import { shot, shotsDir } from "../utils/shots";
@@ -719,24 +719,21 @@ test.describe("the full customer journey", () => {
   }
 
   /**
-   * Adds the hero product from its PDP and waits for the drawer.
+   * Adds the hero product from its PDP, then opens the cart.
    *
-   * Same hydration race as the heart: the add button renders server-side and
-   * only starts working once React has claimed it, so the click is retried
-   * until the drawer it is supposed to open actually opens.
+   * Adding no longer opens the drawer — the count on the bar is the
+   * confirmation now (see components/product/add-to-cart-button.tsx) — but
+   * this journey goes on to adjust and remove lines, so it opens the cart
+   * itself and hands it back.
+   *
+   * Both halves come from e2e/utils/selectors.ts rather than being hand-rolled
+   * here. The journey used to carry its own copy of the add-and-wait retry;
+   * the shared helper is the same retry, and having one of them means the next
+   * change to how adding confirms itself has one place to land.
    */
-  async function addHeroToCart() {
-    const add = main(page).getByRole("button", { name: "Add to cart" }).first();
-    const drawer = cartDrawer(page);
-
-    await expect(async () => {
-      if (!(await drawer.isVisible().catch(() => false))) {
-        await add.click({ timeout: 5_000 });
-      }
-      await expect(drawer).toBeVisible({ timeout: 3_000 });
-    }).toPass({ timeout: 25_000 });
-
-    return drawer;
+  async function addHeroToCart(expected = 1) {
+    await addToCart(page, expected);
+    return openCart(page);
   }
 
   async function fillAddress(scope: Locator) {
@@ -820,6 +817,20 @@ test.describe("known gaps", () => {
     });
 
     await page.goto(`/fragrance/${variant!.product.slug}`);
+    /*
+      Deliberately NOT the shared buyNow() helper.
+
+      This describe block takes the `page` fixture, so it runs signed OUT, and
+      Buy now signed out lands on /login?next=%2Fcheckout — never /checkout. The
+      helper retries the click against a button that no longer exists, and the
+      test ends up timing out at 60s instead of failing cleanly on the City
+      assertion it exists to document. `test.fail()` treats a timeout as a real
+      failure, so that turns the whole suite red over a gap it already knows
+      about.
+
+      The gap this test documents is the City autofill, not the sign-in state,
+      so the plain click stays until somebody gives this test a session.
+    */
     await main(page).getByRole("button", { name: /buy now/i }).first().click();
     await page.waitForURL(/\/checkout/);
 

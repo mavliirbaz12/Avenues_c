@@ -1,191 +1,243 @@
 import { test, expect } from "../fixtures";
 
 /**
- * The scroll-scrubbed bottle reveal.
+ * The bottle film.
  *
- * A screenshot of a canvas proves nothing on its own — a stuck sequence looks
- * identical to a working one in a single frame. So these specs capture the
- * canvas at several scroll depths and assert the pixels DIFFER, then scroll
- * back and assert it returns to where it started.
+ * This section used to be a scroll-scrubbed frame sequence and these specs
+ * used to prove the scrub worked by screenshotting a canvas at four scroll
+ * depths and asserting the pixels differed. There is no canvas and no scrub
+ * any more: the film plays itself, and the three text beats ride its clock.
+ *
+ * So the things worth asserting changed with it. A video element that exists
+ * proves nothing — `autoplay` is refused by browsers routinely and the failure
+ * is silent, leaving a poster that looks like a design choice. The test that
+ * matters is that `currentTime` actually advances.
  */
 
 const REVEAL = '[data-testid="bottle-reveal"]';
-const CANVAS = '[data-testid="bottle-reveal-canvas"]';
+const VIDEO = '[data-testid="bottle-reveal-video"]';
 
-/** Scroll to a fraction of the pinned section's runway and let the lerp settle. */
-async function scrubTo(page: import("@playwright/test").Page, pct: number) {
-  const box = await page.evaluate((sel) => {
-    const el = document.querySelector(sel) as HTMLElement | null;
-    if (!el) return null;
-    return { top: el.getBoundingClientRect().top + window.scrollY, height: el.offsetHeight };
-  }, REVEAL);
-  if (!box) throw new Error("reveal section not found");
-
-  const viewport = page.viewportSize()!.height;
-  await page.evaluate((y) => window.scrollTo(0, y), box.top + (box.height - viewport) * pct);
-  // The scrub eases toward its target on rAF rather than snapping, so give it
-  // time to arrive. This is settling, not a blind sleep — the assertion below
-  // is what actually decides the test.
-  await page.waitForTimeout(1200);
+/** Bring the section into view, which is what starts it. */
+async function scrollToReveal(page: import("@playwright/test").Page) {
+  await page.locator(REVEAL).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
 }
 
-test.describe("bottle reveal", () => {
-  test("@smoke section pins and the canvas mounts", async ({ page }) => {
+async function currentTime(page: import("@playwright/test").Page) {
+  return page.locator(VIDEO).evaluate((el) => (el as HTMLVideoElement).currentTime);
+}
+
+test.describe("bottle film", () => {
+  test("@smoke the film mounts and runs edge to edge", async ({ page }) => {
     await page.goto("/");
     const section = page.locator(REVEAL);
     await expect(section).toHaveCount(1);
+    await expect(page.locator(VIDEO)).toHaveCount(1);
 
-    // Tall runway: the sticky child needs somewhere to be pinned.
-    const height = await section.evaluate((el) => (el as HTMLElement).offsetHeight);
-    const viewport = page.viewportSize()!.height;
-    expect(height, "reveal needs a scroll runway taller than the viewport").toBeGreaterThan(
-      viewport * 2,
+    // Full bleed: the film spans the viewport, not the `shell` container.
+    const width = await page.locator(VIDEO).evaluate((el) => el.getBoundingClientRect().width);
+    const viewport = page.viewportSize()!.width;
+    expect(width, "the film should run the full width of the viewport").toBeGreaterThanOrEqual(
+      viewport - 1,
     );
 
-    await expect(page.locator(CANVAS)).toHaveCount(1);
+    // And it no longer eats three screens of scroll to play six seconds.
+    const height = await section.evaluate((el) => (el as HTMLElement).offsetHeight);
+    expect(
+      height,
+      "the film should occupy about one screen, not a 400vh scrub runway",
+    ).toBeLessThan(page.viewportSize()!.height * 1.5);
   });
 
-  test("@smoke scrolling advances the sequence, and scrolling back reverses it", async ({
+  test("@smoke it plays on its own once it is on screen", async ({ page }) => {
+    await page.goto("/");
+    await scrollToReveal(page);
+
+    // Poll rather than sleep-and-check: the first frames have to arrive over
+    // the network before currentTime can move at all.
+    await expect
+      .poll(() => currentTime(page), {
+        timeout: 20_000,
+        message: "the film should start itself when scrolled into view",
+      })
+      .toBeGreaterThan(0.2);
+
+    const first = await currentTime(page);
+    await page.waitForTimeout(1200);
+    const second = await currentTime(page);
+
+    // Looping means `second` can wrap past the end, so assert movement rather
+    // than a strictly larger number.
+    expect(second, "the film should still be advancing a second later").not.toBe(first);
+  });
+
+  test("it stops when it is nowhere near the screen", async ({ page }) => {
+    await page.goto("/");
+    await scrollToReveal(page);
+    await expect.poll(() => currentTime(page), { timeout: 20_000 }).toBeGreaterThan(0.2);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(1000);
+
+    const paused = await page.locator(VIDEO).evaluate((el) => (el as HTMLVideoElement).paused);
+    expect(paused, "a looping film must not run under the rest of the page").toBe(true);
+  });
+
+  test("the beats play through once, then settle while the film keeps running", async ({
     page,
   }) => {
     await page.goto("/");
-    await page.evaluate(() => document.fonts.ready);
-    // Let the coarse-first batch land so the canvas has frames to draw.
-    await page.waitForTimeout(6000); // real photo frames decode slower than the old vector ones
+    await scrollToReveal(page);
 
-    const canvas = page.locator(CANVAS);
-    const shots: string[] = [];
+    const video = page.locator(VIDEO);
+    await expect
+      .poll(() => video.evaluate((el) => (el as HTMLVideoElement).duration || 0), {
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0);
 
-    for (const pct of [0, 0.35, 0.7, 1]) {
-      await scrubTo(page, pct);
-      shots.push((await canvas.screenshot()).toString("base64"));
-    }
-
-    const distinct = new Set(shots);
-    expect(
-      distinct.size,
-      "each scroll depth should draw a different frame — a stuck canvas yields identical captures",
-    ).toBeGreaterThanOrEqual(3);
-
-    // Reversal, measured after the sequence has finished loading.
-    //
-    // Comparing against the FIRST capture is not a valid invariant: the loader
-    // fetches every 8th frame first, so on the way down frame 0 may have been
-    // drawn from its nearest decoded neighbour. Once everything is decoded the
-    // mapping is deterministic — so the honest test is that two independent
-    // returns to the top draw the same thing, and that it is not the end frame.
-    await scrubTo(page, 0);
-    const back1 = (await canvas.screenshot()).toString("base64");
-    await scrubTo(page, 1);
-    await scrubTo(page, 0);
-    const back2 = (await canvas.screenshot()).toString("base64");
-
-    expect(back1, "returning to the top must be repeatable").toBe(back2);
-    expect(back1, "scrolling back up must reverse, not stay at the end").not.toBe(
-      shots[shots.length - 1],
-    );
-  });
-
-  test("text beats change across the sequence", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(3000);
-
-    // All three beats stay mounted and cross-fade, so innerText is identical
-    // at every scroll depth. Opacity is what actually changes.
+    // All three beats stay mounted and cross-fade, so text content is identical
+    // at every moment. Opacity is what changes.
     const opacities = async () =>
       page.locator(`${REVEAL} h2`).evaluateAll((els) =>
         els.map((e) => Number(getComputedStyle(e.parentElement as Element).opacity)),
       );
 
-    await scrubTo(page, 0.05);
-    const atStart = await opacities();
+    /*
+      Drive the clock rather than waiting the film out.
 
-    await scrubTo(page, 0.95);
-    const atEnd = await opacities();
+      Real time makes this a race against a six-second loop: sample too late
+      and the first pass is already over, the copy has settled, and both
+      samples read the same beat — for a reason that is correct behaviour.
+      Pausing and seeking exercises the same handler deterministically.
+    */
+    await video.evaluate((el) => {
+      const v = el as HTMLVideoElement;
+      v.pause();
+      v.currentTime = v.duration * 0.05;
+    });
+    await page.waitForTimeout(900);
+    const early = await opacities();
+    expect(early.length, "there should be several beats").toBeGreaterThan(1);
+    expect(Math.max(...early), "a beat must be visible near the start").toBeGreaterThan(0.5);
+    const earlyIndex = early.indexOf(Math.max(...early));
 
-    expect(atStart.length, "there should be several beats").toBeGreaterThan(1);
-    expect(Math.max(...atStart), "a beat must be visible near the start").toBeGreaterThan(0.5);
-    expect(Math.max(...atEnd), "a beat must be visible at the end").toBeGreaterThan(0.5);
+    await video.evaluate((el) => {
+      const v = el as HTMLVideoElement;
+      v.currentTime = v.duration * 0.85;
+    });
+    await page.waitForTimeout(900);
+    const late = await opacities();
+    expect(Math.max(...late), "a beat must be visible near the end").toBeGreaterThan(0.5);
     expect(
-      atStart.indexOf(Math.max(...atStart)),
-      "a different beat should be showing at the end",
-    ).not.toBe(atEnd.indexOf(Math.max(...atEnd)));
+      late.indexOf(Math.max(...late)),
+      "a different beat should be showing near the end",
+    ).not.toBe(earlyIndex);
+
     // The final beat carries the CTA into the collection.
     await expect(
       page.locator(REVEAL).getByRole("link", { name: /explore the collection/i }),
     ).toBeVisible();
   });
 
-  test("the sequence loads coarse-first so the scrub works before every frame lands", async ({
-    page,
-  }) => {
-    const requested: string[] = [];
-    page.on("request", (r) => {
-      if (r.url().includes("/sequence/")) requested.push(r.url());
+  /**
+   * The film is continuous; the copy is not.
+   *
+   * Looping the beats along with the picture meant the headline reset to "It
+   * starts as detail." every six seconds and the CTA under the final beat went
+   * with it. This is the assertion that keeps the two clocks apart: once the
+   * film has wrapped, it is still playing and the button is still there.
+   */
+  test("@smoke it loops forever, and the CTA does not blink out with it", async ({ page }) => {
+    await page.goto("/");
+    await scrollToReveal(page);
+
+    const cta = page.locator(REVEAL).getByRole("link", { name: /explore the collection/i });
+
+    // The component marks the end of the first pass when the film wraps.
+    await expect(page.locator(REVEAL)).toHaveAttribute("data-narrated", "true", {
+      timeout: 30_000,
     });
 
-    await page.goto("/");
-    await page.waitForTimeout(2500);
+    const state = await page.locator(VIDEO).evaluate((el) => ({
+      paused: (el as HTMLVideoElement).paused,
+      loop: (el as HTMLVideoElement).loop,
+    }));
+    expect(state.loop, "the film should be set to loop").toBe(true);
+    expect(state.paused, "the film should still be running after its first pass").toBe(false);
+    await expect(cta, "the CTA must survive the loop").toBeVisible();
 
-    const early = requested.length;
-    expect(early, "some frames must load quickly").toBeGreaterThan(5);
-
-    // The priority pass is a stride, not the first N in order — so the early
-    // requests should span the whole sequence, not cluster at the start.
-    const indices = requested
-      .slice(0, 15)
-      .map((u) => Number(/-(\d{4})\.webp$/.exec(u)?.[1] ?? -1))
-      .filter((n) => n >= 0);
-    expect(Math.max(...indices), "priority pass should reach the end of the sequence").toBeGreaterThan(
-      60,
-    );
-  });
-
-  test("serves the small frame set on a phone", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    const requested: string[] = [];
-    page.on("request", (r) => {
-      if (r.url().includes("/sequence/")) requested.push(r.url());
-    });
-
-    await page.goto("/");
-    await page.waitForTimeout(2500);
-
-    expect(requested.length).toBeGreaterThan(0);
+    // And still be there a further pass later.
+    await page.waitForTimeout(3000);
+    await expect(cta).toBeVisible();
     expect(
-      requested.every((u) => /\/sequence\/sm-/.test(u)),
-      "a phone must not download the 1200px frames",
-    ).toBe(true);
+      await page.locator(VIDEO).evaluate((el) => (el as HTMLVideoElement).paused),
+      "still looping",
+    ).toBe(false);
   });
 
-  test("reduced motion loads no sequence and collapses to one viewport", async ({ browser }) => {
+  test("there are no playback controls over the film", async ({ page }) => {
+    await page.goto("/");
+    await scrollToReveal(page);
+
+    await expect(page.getByRole("button", { name: /play|pause/i })).toHaveCount(0);
+    expect(
+      await page.locator(VIDEO).evaluate((el) => (el as HTMLVideoElement).controls),
+      "the video element must not expose native controls either",
+    ).toBe(false);
+  });
+
+  test("reduced motion shows the poster and never autoplays", async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: "reduce" });
     const page = await ctx.newPage();
 
-    const requested: string[] = [];
+    await page.goto("/");
+    const section = page.locator(REVEAL);
+    await expect(section).toHaveAttribute("data-manual", "true");
+
+    await section.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1500);
+
+    const state = await page.locator(VIDEO).evaluate((el) => {
+      const v = el as HTMLVideoElement;
+      return { paused: v.paused, time: v.currentTime };
+    });
+    expect(state.paused, "reduced motion must not autoplay").toBe(true);
+    expect(state.time, "and must not have advanced").toBe(0);
+
+    // And no control offering to start it anyway — the visitor has already
+    // said they do not want this moving.
+    await expect(page.getByRole("button", { name: /play|pause/i })).toHaveCount(0);
+
+    // The heading and CTA still have to be readable with nothing playing —
+    // without a clock the beats would otherwise all sit at opacity 0.
+    await expect(
+      page.locator(REVEAL).getByRole("link", { name: /explore the collection/i }),
+    ).toBeVisible();
+    const visible = await page.locator(`${REVEAL} h2`).evaluateAll((els) =>
+      els.map((e) => Number(getComputedStyle(e.parentElement as Element).opacity)),
+    );
+    expect(Math.max(...visible), "a beat must be legible with the film paused").toBeGreaterThan(
+      0.5,
+    );
+
+    await ctx.close();
+  });
+
+  test("the 1.3MB film is not fetched before the section is anywhere near view", async ({
+    page,
+  }) => {
+    const filmRequests: string[] = [];
     page.on("request", (r) => {
-      if (r.url().includes("/sequence/")) requested.push(r.url());
+      if (r.url().includes("hero-reveal.mp4")) filmRequests.push(r.url());
     });
 
     await page.goto("/");
     await page.waitForTimeout(2500);
 
-    const section = page.locator(REVEAL);
-    await expect(section).toHaveAttribute("data-reduced", "true");
-    // No canvas, no rAF loop.
-    await expect(page.locator(CANVAS)).toHaveCount(0);
-
-    // Exactly one image: the static final frame. The scrub must not load.
     expect(
-      requested.length,
-      `reduced motion should fetch at most the single fallback frame, got ${requested.length}`,
-    ).toBeLessThanOrEqual(1);
-
-    const height = await section.evaluate((el) => (el as HTMLElement).offsetHeight);
-    expect(height, "no pinning under reduced motion").toBeLessThan(
-      page.viewportSize()!.height * 2,
-    );
-
-    await ctx.close();
+      filmRequests.length,
+      "preload=none plus the intersection gate should keep the film off the initial load",
+    ).toBe(0);
   });
 });

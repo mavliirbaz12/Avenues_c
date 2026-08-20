@@ -4,7 +4,8 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { CouponType } from "@prisma/client";
 import { Plus, Pencil } from "lucide-react";
-import { saveCoupon, toggleCoupon } from "@/app/actions/admin/marketing";
+import { saveCoupon, toggleCoupon, deleteCoupon } from "@/app/actions/admin/marketing";
+import { ConfirmDelete } from "./confirm-delete";
 import { formatPaise, paiseToRupeeInput, formatDate } from "@/lib/format";
 import { AdminChip } from "./ui";
 import { useUI } from "@/store/ui";
@@ -75,6 +76,13 @@ function CouponLine({ coupon, onEdit, disabled }: { coupon: CouponRow; onEdit: (
     });
   }
 
+  function remove() {
+    startTransition(async () => {
+      const res = await deleteCoupon(coupon.id);
+      toast({ title: res.message, tone: res.ok ? "default" : "danger" });
+    });
+  }
+
   return (
     <li className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3", busy && "opacity-50")}>
       <span className="w-32 font-sans text-sm tracking-wide2 text-bone">{coupon.code}</span>
@@ -122,6 +130,17 @@ function CouponLine({ coupon, onEdit, disabled }: { coupon: CouponRow; onEdit: (
           <Pencil className="h-3 w-3" strokeWidth={1.6} />
           Edit
         </button>
+        {/*
+          Coupons could be created here but never removed, so a typo'd code was
+          permanent furniture — disabled, still listed, still in the way. Once a
+          code has been redeemed the action refuses and says to disable instead;
+          the toast carries that refusal rather than swallowing it.
+        */}
+        <ConfirmDelete
+          disabled={disabled || busy}
+          question={`Delete ${coupon.code}?`}
+          onConfirm={remove}
+        />
       </span>
     </li>
   );

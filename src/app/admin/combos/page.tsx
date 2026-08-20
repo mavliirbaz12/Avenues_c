@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatPaise } from "@/lib/format";
 import { AdminPageHeader, AdminChip } from "@/components/admin/ui";
+import { DeleteComboButton } from "@/components/admin/delete-entity";
 import { requireAdmin } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
@@ -92,6 +93,14 @@ export default async function AdminCombosPage() {
                 >
                   {v ? (v.stock <= 0 ? "Out" : `${v.stock} left`) : "No SKU"}
                 </span>
+
+                {/*
+                  deleteCombo has existed since sets were built, guard and all,
+                  but nothing ever called it — a set could be created here and
+                  then never removed. It refuses once the set has been ordered
+                  and says to retire it instead.
+                */}
+                <DeleteComboButton comboId={c.id} name={c.name} />
               </li>
             );
           })}

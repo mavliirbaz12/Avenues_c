@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { main } from "../utils/selectors";
+import { buyNow, main } from "../utils/selectors";
 import { db } from "../utils/db";
 import {
   placeOrder,
@@ -28,9 +28,8 @@ test.describe("checkout form", () => {
     // lands on /login with the destination preserved, so signing in returns
     // them to checkout with the cart they arrived with.
     await page.goto("/fragrance/night-drip");
-    await main(page).getByRole("button", { name: /buy now/i }).first().click();
+    await buyNow(page, /\/login/);
 
-    await page.waitForURL(/\/login/);
     await expect(page).toHaveURL(/next=%2Fcheckout/);
     await expect(main(page).getByLabel("Email", { exact: true })).toBeVisible();
   });
@@ -39,8 +38,7 @@ test.describe("checkout form", () => {
     customerPage,
   }) => {
     await customerPage.goto("/fragrance/night-drip");
-    await main(customerPage).getByRole("button", { name: /buy now/i }).first().click();
-    await customerPage.waitForURL(/\/checkout/);
+    await buyNow(customerPage);
 
     await expect(main(customerPage).getByLabel("Email", { exact: true })).toBeVisible();
     await expect(

@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { addToCart, cartDrawer, main, nav } from "../utils/selectors";
+import { addToCart, cartButton, cartDrawer, nav, openCart, openMobileMenu } from "../utils/selectors";
 
 /**
  * Mobile-specific navigation and buying affordances.
@@ -40,13 +40,19 @@ test.describe("mobile navigation", () => {
   });
 
   /**
-   * The bar is the tightest layout in the app and it just gained two controls.
-   * The centred lockup is absolutely positioned, so nothing in the flex layout
-   * stops it running underneath the icons — only the measured sizes in
-   * components/brand/logo.tsx do. This asserts that measurement holds.
+   * The bar is the tightest layout in the app, and the lockup has to carry the
+   * mark AND the name on every phone that renders it.
+   *
+   * It used to carry the mark alone below 400px, so a 360px phone and a 400px
+   * phone showed two different brands. That was a consequence of the lockup
+   * being absolutely centred — a centred element is bounded by twice its
+   * distance to the nearer edge, and the four-control cluster made that far
+   * too small for the name. It is a flex item now, so the flex layout keeps it
+   * off the icons; what still has to be asserted is that the sizes in
+   * components/brand/logo.tsx leave it room to sit there without collapsing.
    */
-  test("@mobile the lockup does not collide with the icon cluster", async ({ page }) => {
-    for (const width of [320, 360, 412]) {
+  test("@mobile the lockup keeps the brand name and clears the icon cluster", async ({ page }) => {
+    for (const width of [320, 360, 375, 390, 412]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/");
 
@@ -61,6 +67,13 @@ test.describe("mobile navigation", () => {
         .boundingBox();
 
       expect(logo && wishlist && menu, `missing nav elements at ${width}px`).toBeTruthy();
+
+      // The name, not just the monogram. This is the regression that started
+      // it: the wordmark was gated behind `min-[400px]`.
+      const word = nav(page).getByRole("img", { name: "Avenues" });
+      await expect(word, `no wordmark at ${width}px`).toBeVisible();
+      const wordBox = await word.boundingBox();
+      expect(wordBox!.width, `wordmark collapsed at ${width}px`).toBeGreaterThan(60);
       expect(
         logo!.x + logo!.width,
         `lockup overlaps the icon cluster at ${width}px`,
@@ -73,33 +86,40 @@ test.describe("mobile navigation", () => {
 
   test("@smoke @mobile the menu opens and reaches every fragrance", async ({ page }) => {
     await page.goto("/");
-    await nav(page).getByRole("button", { name: /open menu/i }).click();
-
-    const menu = page.getByRole("dialog").or(page.locator("[data-mobile-menu]")).first();
-    const scope = (await menu.count()) ? menu : page;
+    const menu = await openMobileMenu(page);
 
     for (const label of [/^shop$/i, /gift sets/i, /know avenues/i, /track order/i, /contact/i]) {
-      await expect(scope.getByRole("link", { name: label }).first()).toBeVisible();
+      await expect(menu.getByRole("link", { name: label }).first()).toBeVisible();
     }
-    await expect(scope.getByRole("link", { name: /night drip/i }).first()).toBeVisible();
+    await expect(menu.getByRole("link", { name: /night drip/i }).first()).toBeVisible();
   });
 
   test("@mobile the menu offers sign-in when signed out", async ({ page }) => {
     await page.goto("/");
-    await nav(page).getByRole("button", { name: /open menu/i }).click();
-    await expect(
-      page.getByRole("link", { name: /login|sign in|account/i }).first(),
-    ).toBeVisible();
+    const menu = await openMobileMenu(page);
+    await expect(menu.getByRole("link", { name: /login|sign in|account/i }).first()).toBeVisible();
   });
 
-  test("@mobile the cart badge counts what was added", async ({ page }) => {
+  /**
+   * The badge IS the confirmation.
+   *
+   * Adding used to throw the drawer — a full-height sheet on a phone — over
+   * whatever was being read, so the shopper had to dismiss it before carrying
+   * on. Now the count on the bar goes up and the page stays put, which puts
+   * the whole weight of the confirmation on this badge being right.
+   */
+  test("@mobile the cart badge counts what was added, and nothing covers the page", async ({
+    page,
+  }) => {
     await page.goto("/fragrance/night-drip");
     await addToCart(page);
-    await expect(cartDrawer(page)).toBeVisible();
-    await page.keyboard.press("Escape");
 
     // aria-label carries the count so it is announced, not just drawn.
-    await expect(nav(page).getByRole("button", { name: /cart, 1 item/i })).toBeVisible();
+    await expect(cartButton(page, 1)).toBeVisible();
+    await expect(cartDrawer(page)).toBeHidden();
+
+    // Tapping the cart is still the way in.
+    await expect(await openCart(page)).toBeVisible();
   });
 
   test("@mobile the PDP shows a thumb-reachable sticky buy bar", async ({ page }) => {

@@ -2,494 +2,264 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useReducedMotion, useScroll } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 /**
- * The scroll-scrubbed bottle reveal.
+ * The bottle film — a full-bleed video that plays itself.
  *
- * A tall wrapper holds a sticky, full-height stage. As you scroll the wrapper
- * past the viewport, scroll progress scrubs a frame sequence: an extreme macro
- * on the engraved monogram pulling back to the whole bottle. Scrolling up
- * reverses it. Frames come from `npm run gen:sequence`.
+ * This used to be a scroll-scrubbed frame sequence: 120 WebP stills drawn to a
+ * canvas, with a 400vh runway pinning a sticky stage so the scrollbar acted as
+ * a transport control. It was replaced by the film it was cut from.
  *
- * DESIGN NOTES
+ * WHY THE VIDEO IS BETTER HERE, not just simpler:
  *
- * Canvas, not an <img> whose src is swapped. Reassigning src 120 times fights
- * the browser's image pipeline — you get decode jank and occasional blank
- * frames mid-scrub. Drawing pre-decoded bitmaps to a canvas is frame-accurate.
+ * - The scrub made the reveal conditional on the visitor scrolling at roughly
+ *   the right speed. Scroll fast and the camera move is a blur; stop halfway
+ *   and the bottle is frozen mid-pull-back. A film plays at the speed it was
+ *   cut at, which is the speed it was cut at for a reason.
+ * - It cost 400vh of page. Three viewport-heights of scrolling bought one
+ *   six-second move, and everything below the fold was that much further away.
+ * - 7.3MB of committed frames and a decode budget that had already caused one
+ *   round of memory work become a single 1.3MB h264 file the browser decodes
+ *   on its own hardware path.
  *
- * Smoothed, not snapped. `currentFrame` chases `targetFrame` through a lerp on
- * rAF. Mapping scroll straight to a frame index feels mechanical; the easing
- * is what makes it read as a camera move.
+ * WHAT WAS KEPT
  *
- * Reduced motion mounts none of this — no canvas, no rAF, and critically no
- * sequence request at all. It renders one final frame and the text beats as
- * ordinary content, which matches how every other motion component here
- * degrades.
+ * The three text beats, and their timing. They now ride the video's clock
+ * instead of the scrollbar's — same copy, same in and out points, driven by
+ * `timeupdate` rather than scroll progress. The narrative was the point; the
+ * scrollbar was only ever the thing that happened to be driving it.
  *
- * ---------------------------------------------------------------------------
- * WHY THIS WAS REWRITTEN — three faults that compounded into "the page lags"
+ * FULL BLEED, AND THE CROP THAT COMES WITH IT
  *
- * 1. MEMORY. The old version decoded all 120 frames and held every one for the
- *    life of the page. Decoded size is what counts, not file size, and it is
- *    invisible in a network tab: the phone frames are 460x576, so
- *    460 x 576 x 4 bytes = 1.06MB each = ~127MB resident. Desktop frames are
- *    1024x576, so ~283MB. On a mid-range Android that is GC thrash, scroll
- *    stutter across the WHOLE page, and sometimes a tab reload. The 2.7MB of
- *    WebP everyone looks at was never the problem.
+ * The film is 16:9. `object-cover` fills the width edge to edge and takes the
+ * difference out of the sides, so the stage height decides how much is lost:
  *
- *    Now: ImageBitmaps, not HTMLImageElements, because a bitmap can be
- *    explicitly close()d — an <img> is released whenever the GC feels like it,
- *    which is not a policy. A coarse every-8th set stays resident as the
- *    fallback layer, plus a sliding window around the current frame. Peak is
- *    ~32 frames instead of 120.
+ *   phones    62vh — about 0.87:1, inside the 4:5 centre crop the sequence
+ *                    generator had already verified keeps the bottle in shot
+ *                    across the whole clip
+ *   sm and up 100dvh — roughly 1.6:1 against a 1.78:1 source, a few percent
+ *                    off the sides and nothing near the subject
  *
- * 2. THE rAF LOOP NEVER STOPPED. It started once `ready` and ran until the
- *    page was unloaded — redrawing a full-screen canvas while you read the
- *    footer, and while the tab sat in the background. Now it is gated on the
- *    section actually being on screen and the tab being visible, and the
- *    IntersectionObserver stays connected instead of disconnecting after the
- *    first hit.
- *
- * 3. REACT RE-RENDERED ON EVERY SCROLL FRAME. `scrollYProgress.on("change")`
- *    called setProgress, so the component and its three motion.div beats
- *    re-rendered on every scroll tick. The beats are now plain elements driven
- *    by direct style writes inside the existing rAF tick — the same work the
- *    canvas draw already does, with no reconciliation behind it.
- * ---------------------------------------------------------------------------
+ * A full-height stage on a phone would be ~0.46:1, which crops 16:9 down to a
+ * quarter of its width and loses the bottle entirely. That is the reason for
+ * the breakpoint, and it is not a taste call.
  */
 
-/** Must match FRAMES in scripts/gen-bottle-sequence.mjs. */
-const FRAME_COUNT = 120;
-/**
- * Every Nth frame is loaded first AND kept forever.
- *
- * Fifteen frames is a small permanent cost (~16MB on a phone) that guarantees
- * `nearestLoaded` always has something within four frames to draw, so a fast
- * flick never shows a blank stage while the window catches up.
- */
-const COARSE_STRIDE = 8;
-/**
- * Frames kept either side of the current one.
- *
- * Eight covers about a viewport of scrolling at normal speed, which is far
- * more than the lerp can traverse between two loads. Raising it costs ~1MB per
- * frame per side on a phone.
- */
-const WINDOW_RADIUS = 8;
-/**
- * How much of the frame's height may be cropped to reach full width.
- *
- * 15% is the most that can come off the top and bottom of these frames before
- * it starts taking the cap of the bottle.
- */
-const MAX_CROP = 0.15;
-
-/** Below this viewport width we load the 640px frames instead of 1200px. */
-const SMALL_BP = 768;
-
-const frameUrl = (variant: "lg" | "sm", i: number) =>
-  `/sequence/${variant}-${String(i).padStart(4, "0")}.webp`;
-
-/** Text beats, keyed to scroll progress. */
 const BEATS = [
   { at: 0, until: 0.3, title: "It starts as detail.", body: "Gold, pressed into black glass." },
   { at: 0.38, until: 0.62, title: "Then it becomes form.", body: "Weight you notice before you open it." },
   { at: 0.72, until: 1.01, title: "Then it becomes yours.", body: null },
 ] as const;
 
-/** The frames that must be resident for a given centre. */
-function windowFor(center: number) {
-  const keep = new Set<number>();
-  for (let i = 0; i < FRAME_COUNT; i += COARSE_STRIDE) keep.add(i);
-  keep.add(FRAME_COUNT - 1);
-  const lo = Math.max(0, center - WINDOW_RADIUS);
-  const hi = Math.min(FRAME_COUNT - 1, center + WINDOW_RADIUS);
-  for (let i = lo; i <= hi; i++) keep.add(i);
-  return keep;
-}
+const POSTER = "/hero-reveal-poster.webp";
+const FILM = "/hero-reveal.mp4";
 
 export function BottleReveal() {
   const reduce = useReducedMotion();
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const barRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const beatRefs = useRef<Array<HTMLDivElement | null>>([]);
-
-  const framesRef = useRef<Array<ImageBitmap | null>>([]);
-  const inflightRef = useRef<Set<number>>(new Set());
-  const [ready, setReady] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
 
   /**
-   * Whether the section is close enough to be worth downloading.
-   *
-   * The sequence is several megabytes. Fetching it the moment the page mounts
-   * made every arrival at the homepage — including someone who only wanted the
-   * nav — pull it down whether or not they ever scrolled, competing with the
-   * requests for whatever page they clicked next.
+   * True when the film is not going to play on its own — reduced motion, Data
+   * Saver, or an autoplay the browser refused. All three land in the same
+   * place: the poster, with the final beat and the CTA pinned over it. No play
+   * button anywhere — someone on reduced motion has said they do not want this
+   * moving, and a control offering to move it anyway is the wrong answer.
    */
-  const [near, setNear] = useState(false);
+  const [manual, setManual] = useState(false);
 
   /**
-   * Whether the stage is actually on screen.
+   * The film loops forever. The COPY does not.
    *
-   * Separate from `near`, and the distinction is the point: `near` arms the
-   * loader a viewport early and stays true, while this goes false again the
-   * moment the section leaves, which is what stops the rAF loop.
+   * These are two different clocks on purpose. A hero that stops moving reads
+   * as a broken video, so the film runs continuously and there are no controls
+   * over it — nothing to press, nothing to dismiss.
+   *
+   * But the beats ride the film's clock, and tying them to the loop as well
+   * meant that every six seconds the headline snapped back to "It starts as
+   * detail." and the Explore the collection button under the final beat
+   * disappeared with it. A call to action that blinks out of existence on a
+   * timer costs more than the motion is worth.
+   *
+   * So the narrative plays once — detail, form, yours — and then settles. The
+   * film keeps rolling underneath it. `narrated` is the flag for "the story
+   * has been told"; after it flips, the clock still drives the picture and
+   * stops driving the type.
    */
-  const onScreenRef = useRef(false);
+  const [narrated, setNarrated] = useState(false);
+  const narratedRef = useRef(false);
+  const lastProgress = useRef(0);
 
   /**
-   * The second gate: the page must have finished loading first.
-   *
-   * The hero is about 790px tall and a laptop viewport is about 800px, so the
-   * wrapper's top edge is ALREADY on screen at scroll zero — every rootMargin
-   * fires on mount and the observer buys nothing on its own. Frame requests
-   * then opened while the hero image, the fonts and the route JS were still in
-   * flight, and because the browser counts them as part of the initial load,
-   * the tab kept its spinner running for as long as the sequence took to
-   * stream — which reads as a page that never finishes.
+   * Save-Data is a real signal on this store's primary market, and a hero
+   * video is exactly the kind of thing it is asking us not to send. Checked on
+   * the client only — it is a browser hint, and reading it during render would
+   * mismatch the server's HTML.
    */
-  const [afterLoad, setAfterLoad] = useState(false);
-
-  /**
-   * Which frame set to draw — and it has to be able to CHANGE.
-   *
-   * This was read once, from `window.innerWidth`, when the loader first ran.
-   * Any viewport change after that left the wrong set decoded: open devtools
-   * on a laptop, or rotate a tablet, and the phone frames (460x576, portrait)
-   * stayed on a wide canvas, where `contain` letterboxed them with black down
-   * both sides.
-   */
-  const [variant, setVariant] = useState<"lg" | "sm">("lg");
-
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${SMALL_BP - 1}px)`);
-    const sync = () => setVariant(mq.matches ? "sm" : "lg");
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  useEffect(() => {
-    if (document.readyState === "complete") {
-      setAfterLoad(true);
+    if (reduce) {
+      setManual(true);
       return;
     }
-    const on = () => setAfterLoad(true);
-    window.addEventListener("load", on, { once: true });
-    return () => window.removeEventListener("load", on);
-  }, []);
+    const conn = (
+      navigator as Navigator & { connection?: { saveData?: boolean } }
+    ).connection;
+    if (conn?.saveData) setManual(true);
+  }, [reduce]);
 
-  const { scrollYProgress } = useScroll({
-    target: wrapRef,
-    // Start when the wrapper's top hits the viewport top, finish when its
-    // bottom does — i.e. exactly the span over which the sticky child is
-    // pinned.
-    offset: ["start start", "end end"],
-  });
-
-  /** Nearest decoded frame at or before `i`, else the nearest after. */
-  const nearestLoaded = useCallback((i: number) => {
-    const frames = framesRef.current;
-    if (frames[i]) return frames[i];
-    for (let d = 1; d < FRAME_COUNT; d++) {
-      if (frames[i - d]) return frames[i - d];
-      if (frames[i + d]) return frames[i + d];
+  /** Paint the beats and the progress hairline for a given 0..1 position. */
+  const paint = useCallback((progress: number) => {
+    for (let i = 0; i < BEATS.length; i++) {
+      const el = beatRefs.current[i];
+      if (!el) continue;
+      const beat = BEATS[i]!;
+      const on = progress >= beat.at && progress < beat.until;
+      el.style.opacity = on ? "1" : "0";
+      el.style.transform = on ? "translateY(0)" : "translateY(18px)";
     }
-    return null;
+    if (barRef.current) barRef.current.style.width = `${Math.min(1, progress) * 100}%`;
   }, []);
 
-  const draw = useCallback(
-    (index: number) => {
-      const canvas = canvasRef.current;
-      const img = nearestLoaded(index);
-      if (!canvas || !img) return;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const cw = canvas.clientWidth;
-      const ch = canvas.clientHeight;
-      if (canvas.width !== cw * dpr || canvas.height !== ch * dpr) {
-        canvas.width = cw * dpr;
-        canvas.height = ch * dpr;
-      }
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, cw, ch);
-
-      // FILL THE WIDTH, and allow a bounded crop of the height to do it.
-      //
-      // Plain `contain` guarantees the subject is never cut, but on a phone
-      // that means the frame is fitted to whichever edge runs out first, and
-      // the section stops reaching the sides of the screen. A full-bleed image
-      // is most of the point of this section.
-      //
-      // Plain `cover` is the other extreme and was tried first: on a short
-      // wide window it sliced the top and bottom off the bottle.
-      const scale = Math.min(cw / img.width, (ch / img.height) * (1 + MAX_CROP));
-      const w = img.width * scale;
-      const h = img.height * scale;
-      ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
-    },
-    [nearestLoaded],
-  );
-
-  // ---- Observe the section ------------------------------------------------
-  // One observer, two jobs, and it stays connected. The old one disconnected
-  // after the first intersection, which is why nothing was ever able to tell
-  // the rAF loop that the section had left again.
+  /**
+   * Play only while on screen.
+   *
+   * A looping video left running under the footer burns battery and data for
+   * nobody, and on a phone that is the difference between a hero and a
+   * complaint. `play()` returns a promise that REJECTS when autoplay is
+   * blocked — iOS Low Power Mode is the common case — and an unhandled
+   * rejection there would leave the poster up with no way to start it.
+   */
   useEffect(() => {
-    if (reduce) return;
-    const el = wrapRef.current;
-    if (!el) return;
-
-    if (typeof IntersectionObserver === "undefined") {
-      setNear(true);
-      onScreenRef.current = true;
-      return;
-    }
+    const video = videoRef.current;
+    if (!video || manual) return;
 
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
-        onScreenRef.current = entry.isIntersecting;
-        if (entry.isIntersecting) setNear(true);
+        if (entry.isIntersecting) {
+          video.play().catch(() => setManual(true));
+        } else {
+          video.pause();
+        }
       },
-      // A viewport of lead-in, so loading starts before the stage arrives.
-      { rootMargin: "100% 0px" },
+      { threshold: 0.25 },
     );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [reduce]);
+    io.observe(video);
 
-  /** Set by the loader effect; called by the scrub to slide the resident window. */
-  const reconcileRef = useRef<((center: number) => void) | null>(null);
-
-  // ---- Load the sequence --------------------------------------------------
-  useEffect(() => {
-    if (reduce || !near || !afterLoad) return;
-
-    let cancelled = false;
-    const frames: Array<ImageBitmap | null> = new Array(FRAME_COUNT).fill(null);
-    framesRef.current = frames;
-    inflightRef.current = new Set();
-
-    /**
-     * Decode straight to an ImageBitmap.
-     *
-     * `createImageBitmap` hands back an object we can free on demand, which is
-     * the whole reason this is not an <img>: releasing 120 HTMLImageElements
-     * means dropping references and hoping, and the old code did not even do
-     * that — it held all of them deliberately.
-     */
-    const load = async (i: number) => {
-      if (frames[i] || inflightRef.current.has(i)) return;
-      inflightRef.current.add(i);
-      try {
-        const res = await fetch(frameUrl(variant, i));
-        if (!res.ok) return;
-        const bitmap = await createImageBitmap(await res.blob());
-        // The variant may have flipped, or the component unmounted, while this
-        // was in flight — dropping the reference would leak the bitmap.
-        if (cancelled || framesRef.current !== frames) {
-          bitmap.close();
-          return;
-        }
-        frames[i] = bitmap;
-      } catch {
-        // A missing or undecodable frame must not stall anything; the
-        // nearest-loaded fallback covers the gap.
-      } finally {
-        inflightRef.current.delete(i);
-      }
+    const onVisibility = () => {
+      if (document.hidden) video.pause();
     };
-
-    /** Load what the window needs and free what it does not. */
-    const reconcile = (center: number) => {
-      if (cancelled) return;
-      const keep = windowFor(center);
-      for (let i = 0; i < FRAME_COUNT; i++) {
-        if (keep.has(i)) {
-          void load(i);
-        } else if (frames[i]) {
-          frames[i]!.close();
-          frames[i] = null;
-        }
-      }
-    };
-    reconcileRef.current = reconcile;
-
-    (async () => {
-      // Priority pass: the coarse set makes the scrub usable almost at once.
-      const coarse: number[] = [];
-      for (let i = 0; i < FRAME_COUNT; i += COARSE_STRIDE) coarse.push(i);
-      if (coarse[coarse.length - 1] !== FRAME_COUNT - 1) coarse.push(FRAME_COUNT - 1);
-      await Promise.all(coarse.map(load));
-      if (cancelled) return;
-
-      setReady(true);
-      draw(0);
-      reconcile(0);
-    })();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      cancelled = true;
-      reconcileRef.current = null;
-      for (let i = 0; i < FRAME_COUNT; i++) {
-        frames[i]?.close();
-        frames[i] = null;
-      }
+      io.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [reduce, near, afterLoad, variant, draw]);
+  }, [manual]);
 
-
-  // ---- Scrub --------------------------------------------------------------
+  /**
+   * The beats, on the film's clock.
+   *
+   * `timeupdate` fires roughly four times a second, which is far too coarse to
+   * animate with — but it is not animating anything. It flips three elements
+   * between two declared states and lets the CSS transition cover the gap, the
+   * same trick the scroll version used. No rAF loop, nothing running when the
+   * video is paused.
+   */
   useEffect(() => {
-    if (reduce || !ready) return;
+    const video = videoRef.current;
+    if (!video) return;
 
-    let raf = 0;
-    let current = 0;
-    let target = 0;
-    let lastDrawn = -1;
-    let lastWindow = -1;
-    let progress = 0;
+    const onTime = () => {
+      if (!video.duration || Number.isNaN(video.duration)) return;
+      if (narratedRef.current) return;
 
-    /**
-     * The beats, written directly.
-     *
-     * This used to be React state plus three motion.div animations, which
-     * meant a render pass per scroll tick. The transition lives in CSS now, so
-     * a write here is a style change the compositor handles — no diffing, no
-     * reconciliation, and the same easing on screen.
-     */
-    const paintBeats = () => {
-      for (let i = 0; i < BEATS.length; i++) {
-        const el = beatRefs.current[i];
-        if (!el) continue;
-        const beat = BEATS[i]!;
-        const on = progress >= beat.at && progress < beat.until;
-        el.style.opacity = on ? "1" : "0";
-        el.style.transform = on ? "translateY(0)" : "translateY(18px)";
-        el.style.pointerEvents = on ? "auto" : "none";
-      }
-      if (barRef.current) {
-        barRef.current.style.width = `${Math.round(progress * 100)}%`;
-      }
-    };
+      const progress = video.currentTime / video.duration;
 
-    const unsubscribe = scrollYProgress.on("change", (p) => {
-      target = p * (FRAME_COUNT - 1);
-      progress = p;
-    });
-
-    const tick = () => {
-      // Stop burning frames when nobody can see the result. The loop used to
-      // run for the life of the page; on a long homepage that is a full-screen
-      // canvas redraw behind every other section.
-      if (!onScreenRef.current || document.hidden) {
-        raf = requestAnimationFrame(tick);
+      /*
+        `loop` restarts the film without firing `ended`, so the wrap is what
+        marks the end of the first pass: progress jumping backwards by more
+        than a fifth of the film cannot be ordinary playback at any rate a
+        browser reports. A plain `progress < last` would also fire on the tiny
+        backwards jitter `timeupdate` sometimes reports between frames.
+      */
+      if (progress < lastProgress.current - 0.2) {
+        narratedRef.current = true;
+        setNarrated(true);
+        paint(1);
         return;
       }
-
-      // Chase, don't jump. 0.18 is the point where it still tracks the scroll
-      // closely but loses the mechanical one-to-one feel.
-      current += (target - current) * 0.18;
-      const frame = Math.round(current);
-      if (frame !== lastDrawn) {
-        draw(frame);
-        paintBeats();
-        lastDrawn = frame;
-
-        // Slide the resident window, but not on every single frame — moving it
-        // costs a pass over 120 slots, and four frames of travel is well
-        // inside the radius.
-        if (lastWindow < 0 || Math.abs(frame - lastWindow) >= 4) {
-          reconcileRef.current?.(frame);
-          lastWindow = frame;
-        }
-      }
-      raf = requestAnimationFrame(tick);
+      lastProgress.current = progress;
+      paint(progress);
     };
-
-    paintBeats();
-    raf = requestAnimationFrame(tick);
-
-    const onResize = () => draw(lastDrawn < 0 ? 0 : lastDrawn);
-    window.addEventListener("resize", onResize);
-
+    onTime();
+    video.addEventListener("timeupdate", onTime);
+    video.addEventListener("loadedmetadata", onTime);
+    video.addEventListener("seeked", onTime);
     return () => {
-      cancelAnimationFrame(raf);
-      unsubscribe();
-      window.removeEventListener("resize", onResize);
+      video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("loadedmetadata", onTime);
+      video.removeEventListener("seeked", onTime);
     };
-  }, [reduce, ready, scrollYProgress, draw]);
+  }, [paint]);
 
-  // ---- Reduced motion -----------------------------------------------------
-  if (reduce) {
-    return (
-      <section
-        className="relative bg-ink py-section"
-        aria-labelledby="reveal-heading"
-        data-testid="bottle-reveal"
-        data-reduced="true"
-      >
-        <div className="shell flex flex-col items-center text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={frameUrl("lg", FRAME_COUNT - 1)}
-            alt="The Avenues bottle — black glass with the gold monogram engraved on the face."
-            className="max-h-[60vh] w-auto"
-          />
-          <h2
-            id="reveal-heading"
-            className="mt-12 max-w-2xl font-display text-d3 font-light text-bone"
-          >
-            {BEATS[BEATS.length - 1].title}
-          </h2>
-          <Link href="#collection" className="btn btn-primary btn-lg mt-8">
-            Explore the collection
-          </Link>
-        </div>
-      </section>
-    );
-  }
+  /**
+   * With no clock driving them the beats would all sit at opacity 0 and the
+   * section would have a headline nobody can see. Pin the last one — the beat
+   * carrying the heading id and the CTA — both when the story has been told
+   * and when it is never going to be: reduced motion, Data Saver, or an
+   * autoplay the browser refused. In those three cases the section is simply a
+   * still hero — poster, headline, button — which is a perfectly good thing
+   * for it to be and needs no control offered over it.
+   */
+  useEffect(() => {
+    if (manual || narrated) paint(1);
+  }, [manual, narrated, paint]);
 
   return (
-    <div
+    <section
       id="reveal"
-      ref={wrapRef}
-      className="relative bg-ink"
-      // Scroll runway. The sticky child is pinned for (height - 100dvh), so
-      // 400vh gives three viewport-heights of scrub — enough for 120 frames
-      // to advance without feeling either rushed or interminable.
-      style={{ height: "400vh" }}
+      className="relative overflow-hidden bg-ink"
+      aria-labelledby="reveal-heading"
       data-testid="bottle-reveal"
+      data-manual={manual ? "true" : undefined}
+      data-narrated={narrated ? "true" : undefined}
     >
-      <section
-        className="sticky top-0 flex h-[100dvh] items-center justify-center overflow-hidden"
-        aria-labelledby="reveal-heading"
-      >
-        <canvas
-          ref={canvasRef}
-          className={cn(
-            "absolute inset-0 h-full w-full transition-opacity duration-1000 ease-smoke",
-            ready ? "opacity-100" : "opacity-0",
-          )}
-          // The canvas is decoration; the beats below carry the meaning.
+      {/*
+        Full bleed. No `shell`, no gutter — the film runs edge to edge and the
+        only thing inside the container is the type sitting on top of it.
+      */}
+      <div className="relative h-[62vh] w-full sm:h-[100dvh]">
+        <video
+          ref={videoRef}
+          className="absolute inset-0 h-full w-full object-cover"
+          poster={POSTER}
+          muted
+          loop
+          playsInline
+          // `none`, not `metadata`: the poster is 32KB and already tells the
+          // browser what shape to reserve, so there is nothing to gain from
+          // touching the 1.3MB file before the section is anywhere near view.
+          preload="none"
+          // Decoration. The beats below carry the meaning, and a video element
+          // announcing itself as a media player adds a control surface a
+          // screen-reader user has no reason to want.
           aria-hidden="true"
-          data-testid="bottle-reveal-canvas"
-        />
+          tabIndex={-1}
+          data-testid="bottle-reveal-video"
+        >
+          <source src={FILM} type="video/mp4" />
+        </video>
 
         {/*
           Bottom-weighted scrim. The beats sit in the lower third, and at the
-          middle of the sequence the gold monogram fills the frame — white
-          display type straight over it was unreadable. A radial vignette was
-          the wrong instrument: it darkens the edges and leaves the centre lit,
-          which is exactly backwards for bottom-anchored type.
+          middle of the film the gold monogram fills the frame — display type
+          straight over it was unreadable. A radial vignette was the wrong
+          instrument: it darkens the edges and leaves the centre lit, which is
+          exactly backwards for bottom-anchored type.
         */}
         <div
           aria-hidden="true"
@@ -508,57 +278,77 @@ export function BottleReveal() {
           }}
         />
 
+        {/*
+          Extra weight under the type on phones only.
+          The scrim above was tuned against a 100dvh stage. A 62vh stage crops
+          the same 16:9 frame harder, which pushes the lit body of the bottle
+          straight into the band the beats sit in — bone display type over
+          backlit glass, at the size a phone renders it. This is the difference
+          between reading the line and guessing at it.
+        */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 sm:hidden"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(11,11,13,0) 0%, rgba(11,11,13,0.62) 42%, rgba(11,11,13,0.92) 100%)",
+          }}
+        />
+
         {/* Text beats. Only one is on screen at a time. */}
-        <div className="relative z-[2] flex h-full w-full flex-col items-center justify-end pb-[12vh] text-center">
-          <div className="shell">
-            {BEATS.map((beat, i) => {
-              const isLast = i === BEATS.length - 1;
-              return (
-                <div
-                  key={beat.title}
-                  ref={(el) => {
-                    beatRefs.current[i] = el;
-                  }}
-                  className="absolute inset-x-0 bottom-[12vh] px-gutter"
-                  // Opacity and transform are written by the rAF tick; the
-                  // easing is declared here so the compositor owns it.
-                  style={{
-                    opacity: 0,
-                    transform: "translateY(18px)",
-                    pointerEvents: "none",
-                    transition: "opacity 700ms cubic-bezier(0.22,1,0.36,1), transform 700ms cubic-bezier(0.22,1,0.36,1)",
-                  }}
+        <div className="relative z-[2] flex h-full w-full flex-col items-center justify-end pb-[10vh] text-center sm:pb-[12vh]">
+          {BEATS.map((beat, i) => {
+            const isLast = i === BEATS.length - 1;
+            return (
+              <div
+                key={beat.title}
+                ref={(el) => {
+                  beatRefs.current[i] = el;
+                }}
+                className="absolute inset-x-0 bottom-[10vh] px-gutter sm:bottom-[12vh]"
+                style={{
+                  opacity: 0,
+                  transform: "translateY(18px)",
+                  pointerEvents: isLast ? "auto" : "none",
+                  transition:
+                    "opacity 700ms cubic-bezier(0.22,1,0.36,1), transform 700ms cubic-bezier(0.22,1,0.36,1)",
+                }}
+              >
+                <h2
+                  {...(isLast ? { id: "reveal-heading" } : {})}
+                  className="mx-auto max-w-2xl font-display text-d3 font-light text-bone"
                 >
-                  <h2
-                    {...(isLast ? { id: "reveal-heading" } : {})}
-                    className="mx-auto max-w-2xl font-display text-d3 font-light text-bone"
-                  >
-                    {beat.title}
-                  </h2>
-                  {beat.body && (
-                    <p className="mx-auto mt-4 max-w-md font-sans text-body-lg leading-relaxed text-stone">
-                      {beat.body}
-                    </p>
-                  )}
-                  {isLast && (
-                    <Link href="#collection" className="btn btn-primary btn-lg mt-8">
-                      Explore the collection
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  {beat.title}
+                </h2>
+                {beat.body && (
+                  <p className="mx-auto mt-4 max-w-md font-sans text-body-lg leading-relaxed text-stone">
+                    {beat.body}
+                  </p>
+                )}
+                {isLast && (
+                  <Link href="#collection" className="btn btn-primary btn-lg mt-8">
+                    Explore the collection
+                  </Link>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Progress hairline — the same gauge device as the featured slider. */}
         <div
           aria-hidden="true"
-          className="absolute bottom-6 left-1/2 h-px w-[7rem] -translate-x-1/2 bg-line-strong"
+          className={cn(
+            "absolute bottom-6 left-1/2 h-px w-[7rem] -translate-x-1/2 bg-line-strong transition-opacity duration-500",
+            // The gauge tracks the narrative, not the film. Once the story has
+            // been told it is a line that would fill and reset forever under a
+            // CTA that is not going anywhere.
+            manual || narrated ? "opacity-0" : "opacity-100",
+          )}
         >
           <div ref={barRef} className="h-px w-0 bg-gold" />
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }

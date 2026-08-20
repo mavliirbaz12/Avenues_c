@@ -2,8 +2,9 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { saveVariant, deleteVariant } from "@/app/actions/admin/products";
+import { ConfirmDelete } from "./confirm-delete";
 import { formatPaise, paiseToRupeeInput } from "@/lib/format";
 import { AdminChip } from "./ui";
 import { useUI } from "@/store/ui";
@@ -84,14 +85,12 @@ function VariantLine({
   editingDisabled: boolean;
 }) {
   const [pending, startTransition] = useTransition();
-  const [confirming, setConfirming] = useState(false);
   const toast = useUI((s) => s.toast);
 
   function remove() {
     startTransition(async () => {
       const res = await deleteVariant(variant.id);
       toast({ title: res.message, tone: res.ok ? "default" : "danger" });
-      setConfirming(false);
     });
   }
 
@@ -126,26 +125,11 @@ function VariantLine({
           <Pencil className="h-3 w-3" strokeWidth={1.6} />
           Edit
         </button>
-        {confirming ? (
-          <span className="flex items-center gap-2">
-            <button type="button" onClick={remove} className="font-sans text-[0.6875rem] uppercase tracking-wide2 text-danger">
-              Confirm
-            </button>
-            <button type="button" onClick={() => setConfirming(false)} className="font-sans text-[0.6875rem] uppercase tracking-wide2 text-stone-dark">
-              No
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            disabled={editingDisabled}
-            className="inline-flex items-center gap-1.5 font-sans text-[0.6875rem] uppercase tracking-wide2 text-stone transition-colors hover:text-danger disabled:opacity-40"
-          >
-            <Trash2 className="h-3 w-3" strokeWidth={1.6} />
-            Delete
-          </button>
-        )}
+        <ConfirmDelete
+          disabled={editingDisabled}
+          question={`Delete ${variant.size}?`}
+          onConfirm={remove}
+        />
       </span>
     </li>
   );

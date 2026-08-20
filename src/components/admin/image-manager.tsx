@@ -20,8 +20,9 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Upload, Star, Trash2, GripVertical, Loader2 } from "lucide-react";
+import { Upload, Star, GripVertical, Loader2 } from "lucide-react";
 import { reorderImages, setPrimaryImage, deleteImage } from "@/app/actions/admin/products";
+import { ConfirmDelete } from "./confirm-delete";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
 
@@ -252,14 +253,13 @@ function SortableImage({
               <Star className="h-3.5 w-3.5" strokeWidth={1.6} />
             </button>
           )}
-          <button
-            type="button"
-            onClick={onDelete}
-            aria-label="Delete image"
-            className="p-1 text-stone-dark transition-colors hover:text-danger"
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
-          </button>
+          {/*
+            Two-step, even though it is a 14px icon in a tile footer — arguably
+            especially because it is. It sat one pixel-perfect tap from the
+            "make primary" star and removed the photo immediately, and an image
+            deleted here is gone from Cloudinary as well as the row.
+          */}
+          <ConfirmDelete iconOnly label="Delete image" onConfirm={onDelete} />
         </div>
       </div>
     </li>

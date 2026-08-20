@@ -75,9 +75,9 @@ async function settle(page: import("@playwright/test").Page) {
 async function scan(page: import("@playwright/test").Page) {
   return new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    // The pinned canvas is decorative and aria-hidden; axe still tries to
-    // reason about the frames mid-scrub and reports noise.
-    .exclude('[data-testid="bottle-reveal-canvas"]')
+    // The film is decorative and aria-hidden; axe still reasons about it as a
+    // media player and reports noise about controls and captions.
+    .exclude('[data-testid="bottle-reveal-video"]')
     .analyze();
 }
 

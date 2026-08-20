@@ -13,7 +13,25 @@ import { cn } from "@/lib/utils";
 export function Toaster() {
   const toasts = useUI((s) => s.toasts);
   const dismiss = useUI((s) => s.dismissToast);
+  const cartOpen = useUI((s) => s.cartOpen);
   const reduce = useReducedMotion();
+
+  /*
+    Nothing while the cart is open.
+
+    Toasts sit at z-70 and the cart panel at z-65, so "Night Drip added · 1 in
+    your cart" floated over the Checkout button — covering the primary action
+    in order to describe something the open panel was already showing in full.
+    Reachable in one ordinary sequence: add to cart, then tap the cart inside
+    the toast's four seconds.
+
+    Suppressing rather than repositioning is deliberate. On a phone the panel
+    is the full width of the screen, so there is no free corner to move to; and
+    a toast is a summary of the cart, which is the one thing the customer no
+    longer needs summarised. The queue keeps draining on its own timers, so
+    nothing piles up waiting to reappear.
+  */
+  if (cartOpen) return null;
 
   return (
     <div

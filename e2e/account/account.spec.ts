@@ -209,3 +209,66 @@ test.describe("wishlist", () => {
     await expect(main(customerPage).getByText(/intense/i).first()).toBeVisible();
   });
 });
+
+/**
+ * The account nav.
+ *
+ * It was a horizontally scrollable strip of tabs on mobile — about 430px of
+ * content in a ~350px bar — so Orders, Wishlist and Sign out were off the right
+ * edge with nothing on screen to say they existed. On the one page whose job is
+ * "where are my orders", the answer was hidden behind a swipe nobody makes.
+ *
+ * It is a two-column grid of tiles now. What has to hold is that every
+ * destination is on screen and the page does not scroll sideways.
+ */
+test.describe("account navigation", () => {
+  const DESTINATIONS = [/^profile$/i, /^addresses$/i, /^orders$/i, /^wishlist$/i];
+
+  test("@smoke every destination is reachable without scrolling sideways", async ({
+    customerPage,
+  }) => {
+    await customerPage.goto("/account");
+    const accountNav = customerPage.getByRole("navigation", { name: "Account" });
+
+    for (const label of DESTINATIONS) {
+      await expect(accountNav.getByRole("link", { name: label })).toBeVisible();
+    }
+    await expect(accountNav.getByRole("button", { name: /sign out/i })).toBeVisible();
+
+    // Visible is not enough: a tab strip that overflows still reports its
+    // off-screen tabs as visible. Assert the document itself does not scroll.
+    const overflow = await customerPage.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(
+      overflow.scrollWidth,
+      "the account page must not scroll horizontally",
+    ).toBeLessThanOrEqual(overflow.clientWidth + 1);
+
+    // And every tile has to sit inside the viewport, not merely inside a
+    // scrollable parent.
+    for (const label of DESTINATIONS) {
+      const box = await accountNav.getByRole("link", { name: label }).boundingBox();
+      expect(box, `${label} should be laid out`).not.toBeNull();
+      expect(box!.x, `${label} starts off the left edge`).toBeGreaterThanOrEqual(-1);
+      expect(box!.x + box!.width, `${label} runs past the right edge`).toBeLessThanOrEqual(
+        overflow.clientWidth + 1,
+      );
+    }
+  });
+
+  test("the nav marks the page you are on", async ({ customerPage }) => {
+    await customerPage.goto("/account/orders");
+    const accountNav = customerPage.getByRole("navigation", { name: "Account" });
+
+    await expect(accountNav.getByRole("link", { name: /^orders$/i })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(accountNav.getByRole("link", { name: /^profile$/i })).not.toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+});

@@ -2,8 +2,9 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { saveCollection, deleteCollection } from "@/app/actions/admin/marketing";
+import { ConfirmDelete } from "./confirm-delete";
 import { AdminChip } from "./ui";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
@@ -73,14 +74,12 @@ function CollectionLine({
   disabled: boolean;
 }) {
   const [busy, startTransition] = useTransition();
-  const [confirming, setConfirming] = useState(false);
   const toast = useUI((s) => s.toast);
 
   function remove() {
     startTransition(async () => {
       await deleteCollection(collection.id);
       toast({ title: `${collection.title} deleted.` });
-      setConfirming(false);
     });
   }
 
@@ -103,22 +102,11 @@ function CollectionLine({
           <Pencil className="h-3 w-3" strokeWidth={1.6} />
           Edit
         </button>
-        {confirming ? (
-          <span className="flex items-center gap-2">
-            <button type="button" onClick={remove} className="font-sans text-[0.6875rem] uppercase tracking-wide2 text-danger">Confirm</button>
-            <button type="button" onClick={() => setConfirming(false)} className="font-sans text-[0.6875rem] uppercase tracking-wide2 text-stone-dark">No</button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            disabled={disabled}
-            className="inline-flex items-center gap-1.5 font-sans text-[0.6875rem] uppercase tracking-wide2 text-stone transition-colors hover:text-danger disabled:opacity-40"
-          >
-            <Trash2 className="h-3 w-3" strokeWidth={1.6} />
-            Delete
-          </button>
-        )}
+        <ConfirmDelete
+          disabled={disabled}
+          question={`Delete ${collection.title}?`}
+          onConfirm={remove}
+        />
       </span>
     </li>
   );
