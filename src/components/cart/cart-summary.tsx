@@ -12,11 +12,26 @@ export function CartSummary({
   priced,
   loading,
   showCodFee = false,
+  compact = false,
+  aside,
   className,
 }: {
   priced: PricedCartDTO | null;
   loading: boolean;
   showCodFee?: boolean;
+  /**
+   * Total only, for the cart drawer.
+   *
+   * The full breakdown is four rows plus a total plus two notes — around
+   * 200px, which in a drawer comes straight out of the item list. Subtotal is
+   * the total minus a discount the drawer already names, and the delivery line
+   * repeats what the free-shipping meter says at the top of the panel. Neither
+   * earns its height there. The cart page and checkout keep every row.
+   */
+  compact?: boolean;
+  /** Rendered under the "Total" label in compact mode — the drawer puts its
+   *  link to the full cart page there rather than spending a whole row on it. */
+  aside?: React.ReactNode;
   className?: string;
 }) {
   if (!priced) {
@@ -29,6 +44,44 @@ export function CartSummary({
   }
 
   const savedPaise = priced.mrpTotalPaise - priced.subtotalPaise + priced.discountPaise;
+
+  if (compact) {
+    return (
+      <div className={cn("font-sans", className)} aria-busy={loading}>
+        {/*
+          Two labelled rows and a note — the shape the reference cart uses, and
+          the shape asked for here.
+
+          "Cart total" and "Subtotal" carry the same figure, and that is not a
+          slip: delivery is not known until an address is entered, which is what
+          the note underneath says. They diverge the moment a coupon applies,
+          and the discount row above names it.
+        */}
+        <dl className="space-y-1.5">
+          {priced.discountPaise > 0 && priced.coupon.status === "applied" && (
+            <Row label={`Discount (${priced.coupon.code})`} tone="gold">
+              &minus;{formatPaise(priced.discountPaise)}
+            </Row>
+          )}
+          <Row label="Cart total">{formatPaise(priced.subtotalPaise)}</Row>
+          <Row label="Subtotal">{formatPaise(priced.totalPaise)}</Row>
+        </dl>
+
+        {/* Kept, though the reference has no equivalent: this store discounts
+            hard enough that the saving is worth naming. */}
+        {savedPaise > 0 && (
+          <p className="mt-2 text-right font-sans text-xs text-gold">
+            You save {formatPaise(savedPaise)}
+          </p>
+        )}
+
+        <p className="mt-2.5 font-sans text-[0.6875rem] leading-relaxed text-stone-dark">
+          Inclusive of all taxes. Delivery calculated at checkout.
+        </p>
+        {aside}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("font-sans", className)} aria-busy={loading}>
@@ -76,8 +129,22 @@ export function CartSummary({
   );
 }
 
-/** Progress toward free delivery — a real nudge, not a fake urgency banner. */
-export function FreeShippingMeter({ priced }: { priced: PricedCartDTO | null }) {
+/**
+ * Progress toward free delivery — a real nudge, not a fake urgency banner.
+ *
+ * `strip` is the drawer's version: flush to the panel edges, under the header,
+ * where it reads as a status line about the cart rather than a card floating
+ * in the money column. It sits above the item list on purpose — it is the one
+ * piece of the old footer worth keeping in view, and up there it costs the
+ * list nothing that a bordered box in the footer did not cost it twice over.
+ */
+export function FreeShippingMeter({
+  priced,
+  variant = "panel",
+}: {
+  priced: PricedCartDTO | null;
+  variant?: "panel" | "strip";
+}) {
   if (!priced || priced.itemCount === 0) return null;
 
   const earned = priced.toFreeShippingPaise <= 0;
@@ -85,17 +152,38 @@ export function FreeShippingMeter({ priced }: { priced: PricedCartDTO | null }) 
   const progress = earned ? 1 : Math.min(1, (goal - priced.toFreeShippingPaise) / goal);
 
   return (
-    <div className="border border-line bg-surface/60 px-4 py-3.5">
-      <p className="font-sans text-xs leading-relaxed text-stone">
+    <div
+      className={cn(
+        variant === "strip"
+          ? "shrink-0 border-b border-line bg-surface/40 px-5 py-4 text-center sm:px-6"
+          : "border border-line bg-surface/60 px-4 py-3.5",
+      )}
+    >
+      {/*
+        Earning it is an ANNOUNCEMENT; not earning it yet is an instruction.
+        The two want different weight, so the strip states the win in the
+        brand's own voice — gold, spaced caps — and otherwise just says the
+        number to beat. Centred in the strip because it now heads the modal.
+      */}
+      <p
+        className={cn(
+          "font-sans leading-relaxed",
+          variant === "strip"
+            ? "text-[0.6875rem] uppercase tracking-label"
+            : "text-xs",
+          earned ? "text-gold-light" : "text-stone",
+        )}
+      >
         {earned ? (
-          <span className="text-gold-light">Delivery is on us.</span>
+          <>Delivery is on us{variant === "strip" ? " — you have earned free shipping" : ""}.</>
         ) : (
-          <>
-            Add {formatPaise(priced.toFreeShippingPaise)} more for free delivery.
-          </>
+          <>Add {formatPaise(priced.toFreeShippingPaise)} more for free delivery.</>
         )}
       </p>
-      <div className="mt-2.5 h-px w-full bg-line-strong" role="presentation">
+      <div
+        className={cn("h-px w-full bg-line-strong", variant === "strip" ? "mt-3" : "mt-2.5")}
+        role="presentation"
+      >
         <div
           className="h-px bg-gold transition-[width] duration-900 ease-smoke"
           style={{ width: `${Math.round(progress * 100)}%` }}

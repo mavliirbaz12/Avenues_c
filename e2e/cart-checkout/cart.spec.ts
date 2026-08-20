@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { addToCart, cartDrawer, main, openCouponField, openEmailLogin } from "../utils/selectors";
+import { addToCart, cartButton, cartDrawer, main, openCart, openCouponField, openEmailLogin } from "../utils/selectors";
 import { db } from "../utils/db";
 
 test.afterAll(() => db.$disconnect());
@@ -14,16 +14,103 @@ test.afterAll(() => db.$disconnect());
  */
 
 /** Adds night-drip via the shared helper, which absorbs the pre-hydration
- *  click race. See addToCart in e2e/utils/selectors.ts. */
+ *  click race. See addToCart in e2e/utils/selectors.ts.
+ *
+ *  Adding leaves the shopper on the page — it does not open the drawer — so
+ *  anything that needs to look inside the cart opens it explicitly. */
 async function addFirstProduct(page: import("@playwright/test").Page, slug = "night-drip") {
   await page.goto(`/fragrance/${slug}`);
   await addToCart(page);
 }
 
 test.describe("cart", () => {
+  test("@smoke the cart offers both Checkout and View cart", async ({ page }) => {
+    await addFirstProduct(page);
+    // addToCart only adds — opening is a separate act now. See openCart.
+    const drawer = await openCart(page);
+
+    await expect(drawer.getByRole("link", { name: /^checkout/i })).toHaveAttribute(
+      "href",
+      "/checkout",
+    );
+    await expect(drawer.getByRole("link", { name: /view cart/i })).toHaveAttribute(
+      "href",
+      "/cart",
+    );
+  });
+
+  /**
+   * The bug this layout actually shipped with, caught by eye before this spec
+   * existed.
+   *
+   * The panel is `max-h-…` with auto height — a cap, not a height. The scroll
+   * container inside it used `h-full`, and height:100% resolves against a
+   * parent that has no definite height, so it computed to auto: the list grew
+   * to its content instead of scrolling, and the footer painted straight over
+   * the last item. Everything still "rendered", which is why a visibility
+   * assertion would have sailed past it.
+   *
+   * Geometry is the only thing that catches this. The list's bottom edge must
+   * sit above the footer's top edge, and the whole panel must fit the viewport.
+   */
+  for (const vp of [
+    { name: "phone", width: 390, height: 767 },
+    { name: "desktop", width: 1440, height: 900 },
+  ]) {
+    test(`the cart footer never overlaps the item list (${vp.name})`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+
+      // Two different products, so the list has more than one row to push down.
+      await page.goto("/fragrance/night-drip");
+      await addToCart(page);
+      await page.keyboard.press("Escape");
+      await page.goto("/fragrance/intense");
+      // The count is cumulative — the helper asserts the badge, so the second
+      // add has to say it expects two.
+      await addToCart(page, 2);
+      const panel = await openCart(page);
+
+      const panelBox = (await panel.boundingBox())!;
+      expect(panelBox, "cart panel should be laid out").toBeTruthy();
+      expect(
+        panelBox.y + panelBox.height,
+        "the panel must not run past the bottom of the viewport",
+      ).toBeLessThanOrEqual(vp.height + 1);
+
+      const list = panel.getByRole("list").first();
+      const checkout = panel.getByRole("link", { name: /^checkout/i });
+      const listBox = (await list.boundingBox())!;
+      const checkoutBox = (await checkout.boundingBox())!;
+
+      expect(
+        listBox.y + listBox.height,
+        "the item list must end above the Checkout button, not run under it",
+      ).toBeLessThanOrEqual(checkoutBox.y + 1);
+    });
+  }
+
+  test("@desktop the cart is a centred modal, not a full-bleed panel", async ({ page }) => {
+    await addFirstProduct(page);
+    const panel = await openCart(page);
+
+    const box = (await panel.boundingBox())!;
+    const vw = page.viewportSize()!.width;
+
+    // Centred: equal gutters either side, and not touching the edges.
+    const left = box.x;
+    const right = vw - (box.x + box.width);
+    expect(left, "modal should not reach the left edge").toBeGreaterThan(8);
+    expect(Math.abs(left - right), "modal should be horizontally centred").toBeLessThan(4);
+  });
+
+
   test("@smoke add from the PDP, then adjust and remove", async ({ page }) => {
     await addFirstProduct(page);
-    const drawer = cartDrawer(page);
+
+    // Adding confirms itself on the bar and nowhere else: the page the shopper
+    // was reading is still the page they are looking at.
+    await expect(cartButton(page, 1)).toBeVisible();
+    const drawer = await openCart(page);
 
     await expect(drawer.getByText(/night drip/i).first()).toBeVisible();
 
@@ -49,7 +136,6 @@ test.describe("cart", () => {
 
   test("the cart survives a reload for a guest", async ({ page }) => {
     await addFirstProduct(page);
-    await page.keyboard.press("Escape");
 
     await page.goto("/cart");
     await expect(main(page).getByText(/night drip/i).first()).toBeVisible();
@@ -63,7 +149,6 @@ test.describe("cart", () => {
     const page = await ctx.newPage();
 
     await addFirstProduct(page, "pink-aura");
-    await page.keyboard.press("Escape");
 
     // Sign in from the guest session; SessionSync merges the local cart.
     // openEmailLogin, not a hand-rolled tab click: the Phone OTP tab only
@@ -119,19 +204,31 @@ test.describe("cart", () => {
 
 test.describe("coupons", () => {
   /** Applies a code in the drawer and returns the message shown. */
+  /**
+   * Apply a code on /cart, not in the cart modal.
+   *
+   * The modal no longer carries a coupon field: it was the one row asking the
+   * customer to stop and do something at the moment they had decided to buy,
+   * and it cost the item list height on every cart including the majority that
+   * never use a code. The field still exists in the two places it belongs —
+   * /cart, one tap away via "View cart", and the checkout form. These specs
+   * follow it to /cart rather than asserting a control that was deliberately
+   * removed.
+   */
   async function applyCode(page: import("@playwright/test").Page, code: string) {
-    const drawer = cartDrawer(page);
-    await openCouponField(drawer);
-    await drawer.getByLabel("Coupon code").fill(code);
-    await drawer.getByRole("button", { name: "Apply" }).click();
-    return drawer;
+    await page.goto("/cart");
+    const scope = main(page);
+    await openCouponField(scope);
+    await scope.getByLabel("Coupon code").fill(code);
+    await scope.getByRole("button", { name: "Apply" }).click();
+    return scope;
   }
 
   test("@smoke a valid flat coupon discounts the total server-side", async ({ page, request }) => {
     await addFirstProduct(page);
-    const drawer = await applyCode(page, "E2EFLAT100");
+    const scope = await applyCode(page, "E2EFLAT100");
 
-    await expect(drawer.getByRole("status").first()).toContainText(/applied/i, {
+    await expect(scope.getByRole("status").first()).toContainText(/applied/i, {
       timeout: 15_000,
     });
 
@@ -202,16 +299,16 @@ test.describe("coupons", () => {
     expect(disabled, "a disabled code must not be distinguishable from a fake one").toBe(unknown);
   });
 
-  test("an invalid code shows an error in the drawer and applies nothing", async ({ page }) => {
+  test("an invalid code shows an error on the cart page and applies nothing", async ({ page }) => {
     await addFirstProduct(page);
-    const drawer = await applyCode(page, "NOPENOPENOPE");
+    const scope = await applyCode(page, "NOPENOPENOPE");
 
-    // The field reports the rejection and marks itself invalid. Note the
-    // drawer legitimately shows a saving from the MRP-vs-offer difference, so
+    // The field reports the rejection and marks itself invalid. Note the page
+    // legitimately shows a saving from the MRP-vs-offer difference, so
     // asserting on "you save" would fail against correct behaviour; and a
     // Remove control staying available to clear the bad code is fine too.
-    await expect(drawer.getByRole("alert").first()).toBeVisible({ timeout: 15_000 });
-    await expect(drawer.getByLabel("Coupon code")).toHaveAttribute("aria-invalid", "true");
-    await expect(drawer.getByRole("status")).toHaveCount(0);
+    await expect(scope.getByRole("alert").first()).toBeVisible({ timeout: 15_000 });
+    await expect(scope.getByLabel("Coupon code")).toHaveAttribute("aria-invalid", "true");
+    await expect(scope.getByRole("status")).toHaveCount(0);
   });
 });
