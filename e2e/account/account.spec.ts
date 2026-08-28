@@ -192,6 +192,28 @@ test.describe("order history", () => {
 
 test.describe("wishlist", () => {
   test("a signed-in wishlist persists across a reload", async ({ customerPage }) => {
+    /*
+      Start from "not saved", because the heart is a TOGGLE.
+
+      A signed-in wishlist is mirrored to the database, so if any earlier test
+      saved Intense for this customer the click below REMOVES it and the
+      assertion sees aria-pressed="false". The test then reports a broken
+      wishlist when the wishlist worked perfectly — it simply ran second.
+    */
+    const owner = await db.user.findUnique({
+      where: { email: CUSTOMER.email },
+      select: { id: true },
+    });
+    const intense = await db.product.findUnique({
+      where: { slug: "intense" },
+      select: { id: true },
+    });
+    if (owner && intense) {
+      await db.wishlistItem.deleteMany({
+        where: { userId: owner.id, productId: intense.id },
+      });
+    }
+
     await customerPage.goto("/fragrance/intense");
     const heart = main(customerPage).getByRole("button", { name: /wishlist|save/i }).first();
     test.skip((await heart.count()) === 0, "no wishlist control");

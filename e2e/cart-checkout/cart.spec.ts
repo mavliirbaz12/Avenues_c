@@ -89,6 +89,34 @@ test.describe("cart", () => {
     });
   }
 
+  /**
+   * The cart closes on the ✕, and not on a swipe.
+   *
+   * There was a drag="y" handler that closed the cart on a downward flick. It
+   * shares an axis with the scrolling list of products directly under the
+   * thumb, so "show me the rest of my cart" and "throw my cart away" were the
+   * same gesture, told apart only by where the list happened to be scrolled.
+   */
+  test("@mobile a downward swipe does not close the cart; the ✕ does", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 767 });
+    await addFirstProduct(page);
+    const panel = await openCart(page);
+
+    const box = (await panel.boundingBox())!;
+    const midX = box.x + box.width / 2;
+
+    // A deliberate downward drag, the kind that used to dismiss it.
+    await page.mouse.move(midX, box.y + 90);
+    await page.mouse.down();
+    await page.mouse.move(midX, box.y + 90 + 260, { steps: 14 });
+    await page.mouse.up();
+
+    await expect(panel, "a swipe must not throw the cart away").toBeVisible();
+
+    await panel.getByRole("button", { name: /close cart/i }).click();
+    await expect(panel).toBeHidden();
+  });
+
   test("@desktop the cart is a centred modal, not a full-bleed panel", async ({ page }) => {
     await addFirstProduct(page);
     const panel = await openCart(page);
@@ -131,7 +159,7 @@ test.describe("cart", () => {
   test("empty cart has personality, not a blank panel", async ({ page }) => {
     await page.goto("/cart");
     await expect(main(page).getByText(/waiting for its first obsession/i)).toBeVisible();
-    await expect(main(page).getByRole("link", { name: /shop the five/i })).toBeVisible();
+    await expect(main(page).getByRole("link", { name: /shop the range/i })).toBeVisible();
   });
 
   test("the cart survives a reload for a guest", async ({ page }) => {
@@ -219,6 +247,23 @@ test.describe("coupons", () => {
     await page.goto("/cart");
     const scope = main(page);
     await openCouponField(scope);
+
+    /*
+      Clear a code left applied by an earlier test before typing a new one.
+
+      The coupon lives in the cart state, which persists across tests in the
+      same browser context. With one already applied the field renders its
+      "applied" form — a Remove button instead of an editable input — so the
+      next test timed out waiting for a textbox that was not on the page. It
+      passed alone and failed in a full run, which is the most expensive kind
+      of flake to read.
+    */
+    const remove = scope.getByRole("button", { name: /^remove$/i });
+    if (await remove.isVisible().catch(() => false)) {
+      await remove.click();
+      await expect(scope.getByLabel("Coupon code")).toBeVisible();
+    }
+
     await scope.getByLabel("Coupon code").fill(code);
     await scope.getByRole("button", { name: "Apply" }).click();
     return scope;

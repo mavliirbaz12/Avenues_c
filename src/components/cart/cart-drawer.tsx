@@ -11,20 +11,20 @@ import { Sparkle } from "@/components/brand/sparkle";
 import { useCart } from "@/store/cart";
 import { useUI } from "@/store/ui";
 import { usePricedCart, type PricedCartDTO } from "@/hooks/use-priced-cart";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 /**
- * Cart — a centred modal on desktop, a full-height panel on phones.
+ * Cart — a centred modal at every width.
  *
- * THE SPLIT IS DELIBERATE, and the note below is why. A centred box needs
- * margin on all four sides, so it can never be full height — which is exactly
- * the constraint that made the old bottom sheet unusable. On a desktop viewport
- * there is height to spare and the modal reads better. On a phone there is not,
- * so the panel keeps the whole screen and the modal styling.
+ * Margins are tight on a phone (`p-3`) and generous from `sm` up, because every
+ * pixel of margin is a pixel the item list does not get, and the list is what
+ * people opened this to see. The reference cart this was modelled on does the
+ * same, including accepting a tall box when the cart holds one item.
  *
- * Everything below is the original reasoning, and it still governs the phone
- * layout:
+ * Closed by the ✕, Escape or the backdrop. Not by a swipe — see the note on the
+ * panel below.
+ *
+ * The history below still governs the sizing, and is worth keeping:
  *
  * It used to be a bottom sheet on phones, capped at `88dvh`, with the
  * free-shipping meter, the coupon field and the whole money column stacked in
@@ -63,7 +63,6 @@ export function CartDrawer() {
   const { priced, loading } = usePricedCart();
   const reduce = useReducedMotion();
   const pathname = usePathname();
-  const isDesktop = useMediaQuery("(min-width: 640px)");
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -160,21 +159,20 @@ export function CartDrawer() {
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 12 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             /*
-              Swipe DOWN to dismiss, on touch only.
-              It used to be swipe-right, which suited a panel that entered from
-              the right. A modal has no edge to throw it back to, and down is
-              the gesture people already use to dismiss a sheet. `drag="y"` with
-              a 0 top constraint means the list still scrolls normally and only
-              a downward pull past the resting position moves the panel.
+              NO SWIPE TO DISMISS. The ✕ closes this, and nothing else does by
+              accident.
+
+              There was a drag="y" handler here that closed the cart on a
+              downward flick. It shares its axis with the thing directly under
+              the thumb — a scrolling list of products — so the gesture that
+              means "show me the rest of my cart" and the gesture that means
+              "throw my cart away" were the same movement, separated only by
+              where the list happened to be scrolled. Losing a cart to a
+              mis-read scroll is not a small annoyance on a store.
+
+              Escape and the backdrop still close it, and the ✕ is a 44px
+              target.
             */
-            drag={isDesktop || reduce ? false : "y"}
-            dragDirectionLock
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.55 }}
-            dragMomentum={false}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 110 || info.velocity.y > 550) close();
-            }}
             /*
               A DEFINITE height, not a cap. This is the whole layout.
 
