@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { sendEmail, emailShell, escapeHtml } from "@/lib/email";
 import { formatPaise } from "@/lib/format";
 import { orderAccessToken } from "./order-token";
@@ -133,6 +134,50 @@ export async function sendOrderDeliveredEmail(order: OrderForEmail) {
   });
 }
 
+/**
+ * Loads an order and sends its delivered email.
+ *
+ * Exists because there are TWO ways an order becomes delivered and only one of
+ * them used to tell the customer. The courier feed (shipping/sync.ts) sent this
+ * mail; the admin's manual "mark delivered" button updated the database and
+ * said nothing — so every order finished by hand, which is every order where
+ * the automation had already let someone down, ended in silence.
+ *
+ * Callers pass the order id rather than the row because the two sites had
+ * different shapes loaded, and duplicating the twelve-field select was how the
+ * two paths drifted apart in the first place.
+ *
+ * Fire-and-forget, like the rest of this file: a mail failure must never undo
+ * a delivery that actually happened.
+ */
+export async function notifyOrderDelivered(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
+  if (!order) return;
+
+  await sendOrderDeliveredEmail({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    email: order.email,
+    paymentMethod: order.paymentMethod,
+    totalPaise: order.totalPaise,
+    shipName: order.shipName,
+    shipLine1: order.shipLine1,
+    shipLine2: order.shipLine2,
+    shipCity: order.shipCity,
+    shipState: order.shipState,
+    shipPincode: order.shipPincode,
+    items: order.items.map((i) => ({
+      productName: i.productName,
+      variantSize: i.variantSize,
+      quantity: i.quantity,
+      totalPaise: i.totalPaise,
+    })),
+  });
+}
+
 export async function sendOrderCancelledEmail(
   order: OrderForEmail,
   opts: { refundPaise: number | null },
@@ -152,7 +197,7 @@ export async function sendOrderCancelledEmail(
                post it within 5 to 7 working days.</p>`
             : "<p>Nothing was charged for this order.</p>"
         }`,
-      cta: { label: "Shop the five", href: `${siteUrl}/shop` },
+      cta: { label: "Shop the range", href: `${siteUrl}/shop` },
     }),
   });
 }

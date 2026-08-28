@@ -34,7 +34,7 @@ export default function NotFound() {
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link href="/shop" className="btn btn-primary btn-lg">
-            Shop the five
+            Shop the range
           </Link>
           <Link href="/" className="btn btn-ghost btn-lg">
             Back to the start

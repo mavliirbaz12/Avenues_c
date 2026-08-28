@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Minus, Plus, MessageCircle, Truck, ShieldCheck, Clock } from "lucide-react";
 import { AddToCartButton } from "./add-to-cart-button";
 import { WishlistButton } from "./wishlist-button";
 import { Stars } from "./stars";
+import { useVariantSelection } from "./variant-selection";
 import { formatPaise, discountPercent } from "@/lib/format";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
@@ -46,12 +47,10 @@ export function BuyBox({
   codEnabled: boolean;
   freeShippingThresholdPaise: number;
 }) {
-  // Default to the first variant that can actually be bought.
-  const initial = useMemo(
-    () => variants.find((v) => v.stock > 0)?.id ?? variants[0]?.id ?? "",
-    [variants],
-  );
-  const [variantId, setVariantId] = useState(initial);
+  // The selected size lives in page context, not here: the statutory Product
+  // information panel further down the page has to name the same size and MRP
+  // the shopper is looking at.
+  const { selectedId: variantId, select: setVariantId } = useVariantSelection();
   const [qty, setQty] = useState(1);
 
   // Drives the thumb-reachable sticky bar on mobile: it appears once the real

@@ -109,7 +109,7 @@ export function FeaturedCollection({
                        ease-smoke hover:border-gold/40"
           >
             <span className="font-display text-3xl font-light text-bone transition-colors group-hover:text-gold-light">
-              All five
+              Shop all
             </span>
             <span className="micro-label">Shop the range</span>
             <ArrowRight

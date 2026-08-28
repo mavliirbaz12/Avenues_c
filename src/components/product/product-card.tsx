@@ -34,6 +34,18 @@ export function ProductCard({
   const v = product.defaultVariant;
   const off = v ? discountPercent(v.mrpPaise, v.pricePaise) : 0;
 
+  // A card can only show one price, so on a multi-size product it shows the
+  // cheapest buyable one — and has to say so. Without this the grid quietly
+  // implied a 50ml-only range while a 100ml sat on the product page unseen.
+  // Past three, spelling them all out overruns the plate's one label line, so
+  // it states the count instead and lets the product page do the listing.
+  const multiSize = product.variantCount > 1;
+  const sizeLabel = !multiSize
+    ? (v?.size ?? null)
+    : product.variantCount > 3
+      ? `${product.variantCount} sizes`
+      : product.variants.map((x) => x.size).join(" / ");
+
   return (
     <article className={cn("group relative flex flex-col", className)}>
       <Link
@@ -80,7 +92,7 @@ export function ProductCard({
         <div className="flex flex-1 flex-col pt-5">
           <p className="micro-label">
             {GENDER_LABEL[product.gender] ?? product.gender}
-            {v && <> &middot; {v.size}</>}
+            {sizeLabel && <> &middot; {sizeLabel}</>}
           </p>
 
           <h3 className="mt-2.5 font-display text-2xl font-light leading-tight text-bone transition-colors duration-400 ease-smoke group-hover:text-gold-light">
@@ -101,6 +113,11 @@ export function ProductCard({
 
           {v && (
             <div className="mt-4 flex items-baseline gap-2.5">
+              {multiSize && (
+                <span className="font-sans text-[0.625rem] uppercase tracking-label text-stone-dark">
+                  From
+                </span>
+              )}
               <span className="font-sans text-base text-bone">{formatPaise(v.pricePaise)}</span>
               {v.mrpPaise > v.pricePaise && (
                 <span className="font-sans text-sm text-stone-dark line-through">
@@ -114,28 +131,37 @@ export function ProductCard({
 
       {/* Quick actions. Always visible on touch, revealed on hover on desktop. */}
       <div className="mt-4 flex items-center gap-2">
-        <AddToCartButton
-          className="btn-outline btn-sm flex-1"
-          line={
-            v
-              ? {
-                  variantId: v.id,
-                  productId: product.id,
-                  slug: product.slug,
-                  name: product.name,
-                  size: v.size,
-                  sku: v.sku,
-                  pricePaise: v.pricePaise,
-                  mrpPaise: v.mrpPaise,
-                  imageUrl: product.image?.url ?? null,
-                  type: product.type,
-                  maxStock: v.stock,
-                }
-              : null
-          }
-        >
-          {product.inStock ? "Add to cart" : "Sold out"}
-        </AddToCartButton>
+        {multiSize && product.inStock ? (
+          // Adding straight from the grid would silently pick the cheapest
+          // size, which is the wrong bottle for anyone who came for the large
+          // one. Send them to the page where the sizes are.
+          <Link href={product.href} className="btn btn-outline btn-sm flex-1">
+            Choose size
+          </Link>
+        ) : (
+          <AddToCartButton
+            className="btn-outline btn-sm flex-1"
+            line={
+              v
+                ? {
+                    variantId: v.id,
+                    productId: product.id,
+                    slug: product.slug,
+                    name: product.name,
+                    size: v.size,
+                    sku: v.sku,
+                    pricePaise: v.pricePaise,
+                    mrpPaise: v.mrpPaise,
+                    imageUrl: product.image?.url ?? null,
+                    type: product.type,
+                    maxStock: v.stock,
+                  }
+                : null
+            }
+          >
+            {product.inStock ? "Add to cart" : "Sold out"}
+          </AddToCartButton>
+        )}
 
         <WishlistButton
           productId={product.id}

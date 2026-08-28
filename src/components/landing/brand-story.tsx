@@ -39,7 +39,10 @@ export function BrandStory() {
           <Reveal>
             <p className="micro-label-gold">Know Avenues</p>
             <h2 id="story-heading" className="mt-5 max-w-xl font-display text-d3 font-light text-bone">
-              We would rather make five well than fifty quickly
+              {/* Not "five well than fifty quickly" — the same sentence stops
+                  being true the day a sixth ships, and the point survives
+                  without the number. */}
+              We would rather make few well than many quickly
             </h2>
           </Reveal>
 

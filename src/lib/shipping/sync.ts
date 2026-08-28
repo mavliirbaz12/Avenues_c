@@ -4,7 +4,7 @@ import { trackShipment, createShipment } from "./delhivery";
 import { getStoreSettings } from "@/lib/settings";
 import {
   sendOrderShippedEmail,
-  sendOrderDeliveredEmail,
+  notifyOrderDelivered,
 } from "@/lib/commerce/order-emails";
 
 /**
@@ -156,31 +156,12 @@ export async function applyTracking(shipmentId: string, update: TrackingUpdate) 
     !shipment.order.deliveredAt &&
     shipment.order.status !== OrderStatus.DELIVERED
   ) {
-    const order = await prisma.order.findUnique({
-      where: { id: shipment.order.id },
-      include: { items: true },
-    });
-    if (order) {
-      await sendOrderDeliveredEmail({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        email: order.email,
-        paymentMethod: order.paymentMethod,
-        totalPaise: order.totalPaise,
-        shipName: order.shipName,
-        shipLine1: order.shipLine1,
-        shipLine2: order.shipLine2,
-        shipCity: order.shipCity,
-        shipState: order.shipState,
-        shipPincode: order.shipPincode,
-        items: order.items.map((i) => ({
-          productName: i.productName,
-          variantSize: i.variantSize,
-          quantity: i.quantity,
-          totalPaise: i.totalPaise,
-        })),
-      }).catch((err) => console.error("[shipping] delivered email failed:", err));
-    }
+    // Shared with the admin's manual "mark delivered" — see the note on
+    // notifyOrderDelivered. Duplicating the load-and-send here is how the two
+    // paths drifted apart, with only this one telling the customer anything.
+    await notifyOrderDelivered(shipment.order.id).catch((err) =>
+      console.error("[shipping] delivered email failed:", err),
+    );
   }
 }
 

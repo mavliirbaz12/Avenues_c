@@ -46,7 +46,7 @@ export default async function OrdersPage() {
           address and it will follow you over.
         </p>
         <Link href="/shop" className="btn btn-outline btn-md mt-7">
-          Shop the five
+          Shop the range
         </Link>
       </div>
     );

@@ -48,12 +48,37 @@ const client = razorpayLive
 
 export { MOCK_ORDER_PREFIX, MOCK_PAYMENT_PREFIX, MOCK_SIGNATURE } from "./mock-constants";
 
+/**
+ * Razorpay's floor. Orders below one rupee are rejected by the API.
+ *
+ * Reachable from the coupon engine rather than from the catalogue: pricing
+ * clamps a discount to the subtotal (`Math.max(0, Math.min(discount,
+ * subtotal))` in commerce/pricing.ts), so a flat coupon worth as much as the
+ * cart — say ₹600 off a ₹599 bottle — lands the total on exactly zero. With
+ * free delivery earned, that goes to the gateway as `amount: 0` and comes back
+ * as an opaque 400 at the last step of checkout.
+ *
+ * Failing here, with a sentence that names the cause, is the least-bad
+ * behaviour available. The RIGHT behaviour is not to involve a payment gateway
+ * in a zero-rupee order at all — confirm it directly, the way COD is confirmed
+ * — but that is a checkout flow that does not exist yet, and inventing one
+ * quietly inside a guard would be worse than saying so.
+ */
+const MIN_GATEWAY_PAISE = 100;
+
 /** Creates a gateway order for the given amount. */
 export async function createGatewayOrder(args: {
   amountPaise: number;
   receipt: string; // our order number
   notes?: Record<string, string>;
 }): Promise<{ razorpayOrderId: string; mock: boolean }> {
+  if (!Number.isInteger(args.amountPaise) || args.amountPaise < MIN_GATEWAY_PAISE) {
+    throw new Error(
+      `A card payment has to be at least ₹1 — this order came to ` +
+        `₹${(args.amountPaise / 100).toFixed(2)}. Check the coupon on it.`,
+    );
+  }
+
   if (!client) {
     // The strongest of the three guards: with no mock Payment row in the
     // database there is nothing for /api/payments/verify to match against, so

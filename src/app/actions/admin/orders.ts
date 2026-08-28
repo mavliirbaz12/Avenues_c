@@ -6,6 +6,7 @@ import { OrderStatus, ReturnStatus, PaymentStatus, RefundStatus, Prisma } from "
 import { prisma } from "@/lib/prisma";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { createOrderShipment, syncOrderTracking } from "@/lib/shipping/sync";
+import { notifyOrderDelivered } from "@/lib/commerce/order-emails";
 import { cancelOrder, CancelError } from "@/lib/commerce/cancellations";
 import { refundPayment } from "@/lib/payments/razorpay";
 import type { SimpleActionState } from "@/lib/form-state";
@@ -61,7 +62,7 @@ export async function adminSetStatus(
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { status: true, paymentMethod: true },
+    select: { status: true, paymentMethod: true, deliveredAt: true },
   });
   if (!order) return { ok: false, message: "Order not found." };
 
@@ -82,6 +83,28 @@ export async function adminSetStatus(
           : undefined,
     },
   });
+
+  /*
+    Tell the customer, the same as the courier feed does.
+
+    Marking an order delivered by hand used to update the database and send
+    nothing. The automatic path (shipping/sync.ts) has always emailed on
+    delivery, so the customer heard from us exactly when everything went well
+    and heard nothing when a human had to step in — which is precisely the
+    order they were already wondering about.
+
+    Guarded on `deliveredAt` for the same reason the courier path is: an admin
+    clicking a second time, or a late Delhivery scan landing after the manual
+    move, must not send it twice.
+
+    Awaited but caught: a mail failure must not report the status change as
+    failed when it has already been written.
+  */
+  if (to === OrderStatus.DELIVERED && !order.deliveredAt) {
+    await notifyOrderDelivered(orderId).catch((err) =>
+      console.error("[admin:orders] delivered email failed:", err),
+    );
+  }
 
   revalidateOrder(orderId);
   return { ok: true, message: `Marked ${to.toLowerCase().replace(/_/g, " ")}.` };

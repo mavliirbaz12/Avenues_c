@@ -12,9 +12,21 @@ import { useRouter } from "next/navigation";
  * success and failure buttons, so the whole flow is walkable without keys.
  */
 
+type RazorpayFailure = {
+  error?: {
+    description?: string;
+    reason?: string;
+    step?: string;
+    code?: string;
+  };
+};
+
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: "payment.failed", handler: (res: RazorpayFailure) => void) => void;
+    };
   }
 }
 
@@ -112,6 +124,29 @@ export function useRazorpay() {
             router.push(`/order/${p.orderNumber}?t=${p.accessToken}`);
           }
         },
+      });
+
+      /*
+        A DECLINED CARD IS NOT A CANCELLED CHECKOUT.
+
+        Razorpay keeps its modal open after a failure so the customer can try
+        another method, and only fires `ondismiss` when they eventually close
+        it. Without this listener that was the only signal we ever saw, so a
+        declined card, an expired card and a failed 3-D Secure step all
+        surfaced as the message for "you changed your mind" — while the actual
+        reason, which Razorpay hands us in plain words, was dropped.
+
+        The webhook records the failure server-side either way (see
+        /api/webhooks/razorpay), so this is purely about telling the person in
+        front of the screen something true and actionable.
+      */
+      rzp.on("payment.failed", (res) => {
+        const reason = res?.error?.description || res?.error?.reason;
+        callbacks.onError(
+          reason
+            ? `${reason} You have not been charged — try another method.`
+            : "That payment didn't go through. You have not been charged — try another method.",
+        );
       });
 
       rzp.open();
