@@ -17,6 +17,19 @@ import { cn } from "@/lib/utils";
  *     computed the percentage into a variable it never rendered;
  *   - `leading-none` was applied on two surfaces and not the other four.
  *
+ * Money is set in the DISPLAY face, MRP included, and that is a constraint
+ * rather than a preference: the rupee sign is the problem. The standard Latin
+ * subset ships U+20AC (euro) but not U+20B9 (rupee), so both self-hosted fonts
+ * arrived without it and every price on the site drew its digits from the brand
+ * face and its currency symbol from a system fallback — a heavier, differently
+ * sized glyph on a different baseline, which is what made a price look broken
+ * at display sizes.
+ *
+ * Cormorant was re-subset from upstream with U+20B9 added (same charset, same
+ * features, same vertical metrics, and slightly smaller than before). Jost has
+ * no rupee glyph upstream at all, so anything setting a price in font-sans goes
+ * back to a mismatched fallback symbol. Keep money in font-display.
+ *
  * So this owns the treatment and callers choose only the scale. Adding a badge
  * or changing the strikethrough is now one edit rather than six, and the two
  * inline re-implementations of the discount maths are gone — `discountPercent`
@@ -27,13 +40,13 @@ export type PriceSize = "sm" | "md" | "lg" | "xl";
 
 const SCALE: Record<PriceSize, { price: string; mrp: string; gap: string; badge: string }> = {
   /** Cart lines, order summaries — beside a quantity stepper. */
-  sm: { price: "text-sm", mrp: "text-xs", gap: "gap-x-2 gap-y-0.5", badge: "text-[0.5625rem] px-1.5 py-0.5" },
+  sm: { price: "text-sm", mrp: "text-sm", gap: "gap-x-2 gap-y-0.5", badge: "text-[0.5625rem] px-1.5 py-0.5" },
   /** Product cards and rails. */
-  md: { price: "text-2xl", mrp: "text-sm", gap: "gap-x-2.5 gap-y-1", badge: "text-[0.625rem] px-2 py-0.5" },
+  md: { price: "text-2xl", mrp: "text-base", gap: "gap-x-2.5 gap-y-1", badge: "text-[0.625rem] px-2 py-0.5" },
   /** Feature bands. */
-  lg: { price: "text-3xl", mrp: "text-base", gap: "gap-x-3 gap-y-1", badge: "text-[0.625rem] px-2.5 py-1" },
+  lg: { price: "text-3xl", mrp: "text-lg", gap: "gap-x-3 gap-y-1", badge: "text-[0.625rem] px-2.5 py-1" },
   /** The buy box, and the set page's hero. */
-  xl: { price: "text-4xl", mrp: "text-lg", gap: "gap-x-4 gap-y-2", badge: "text-[0.625rem] px-2.5 py-1" },
+  xl: { price: "text-4xl", mrp: "text-xl", gap: "gap-x-4 gap-y-2", badge: "text-[0.625rem] px-2.5 py-1" },
 };
 
 export function Price({
@@ -79,7 +92,7 @@ export function Price({
       </span>
 
       {discounted && (
-        <span className={cn("font-sans tabular-nums text-stone-dark line-through", s.mrp)}>
+        <span className={cn("font-display font-light tabular-nums text-stone-dark line-through", s.mrp)}>
           {formatPaise(mrpPaise)}
         </span>
       )}

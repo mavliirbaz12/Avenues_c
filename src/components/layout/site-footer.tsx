@@ -88,21 +88,13 @@ export function SiteFooter({
                 </a>
               </li>
             )}
-            {wa && (
-              <li>
-                <a
-                  href={wa}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 font-sans text-sm text-stone transition-colors hover:text-gold-light"
-                >
-                  <WhatsAppIcon className="h-4 w-4 shrink-0 text-gold/70" />
-                  Message us on WhatsApp
-                </a>
-              </li>
-            )}
           </ul>
 
+          {/* WhatsApp appears once here, as an icon in the social row. It used to
+              also sit in the contact list above as "Message us on WhatsApp" —
+              the same href twice, a few lines apart, which read as two ways to
+              reach us rather than one. Email and phone stay written out because
+              their value IS the address; WhatsApp's is the icon. */}
           {(settings.instagramUrl || settings.facebookUrl || wa) && (
             <div className="mt-7 flex items-center gap-3">
               {wa && (
