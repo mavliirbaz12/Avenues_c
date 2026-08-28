@@ -18,27 +18,57 @@ export function CollectionGrid({ products }: { products: ProductCardData[] }) {
       <div className="shell">
         <Reveal className="text-center">
           <p className="micro-label-gold">The collection</p>
-          <h2
-            id="collection-heading"
-            className="mx-auto mt-5 max-w-lg font-display text-d3 font-light text-bone"
-          >
-            {/* Was "{countWord} fragrances, and no filler". Reading the count
-                live kept it accurate and still made the headline shrink as the
-                shop grew — "Nine fragrances, and no filler" is a worse sentence
-                than the one below, and the grid underneath already says how
-                many there are. */}
-            No filler
+          {/*
+            The heading stays for screen readers and for the #collection anchor,
+            and is hidden visually.
+
+            Deleting it outright broke two things at once: the section carries
+            `aria-labelledby="collection-heading"`, so with no such element it
+            had NO accessible name at all, and the "skip to the collection"
+            anchor had nothing to scroll to. The eyebrow above is a paragraph,
+            not a heading, so it cannot stand in for either.
+          */}
+          <h2 id="collection-heading" className="sr-only">
+            The collection
           </h2>
-          <p className="mx-auto mt-5 max-w-md font-sans text-body-lg leading-relaxed text-stone">
-            Each one built around a single idea, and finished only when it
-            lasted a full day on skin.
-          </p>
+          {/*
+            The visible heading and its paragraph are gone.
+
+            They said "No filler" over "Each one built around a single idea, and
+            finished only when it lasted a full day on skin" — a claim any
+            perfume house could make about any product, sitting directly above
+            the products themselves. The bottles, prices and notes below say
+            more than the sentence did, and they say it about these fragrances
+            specifically.
+          */}
         </Reveal>
 
-        <RevealGroup className="mt-14 grid grid-cols-1 gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 lg:gap-y-16">
+        {/*
+          A RAIL, not a grid.
+
+          Three cards in a three-column grid look like a row that ran out; the
+          same three in a rail read as a range you are moving through, and the
+          layout stops changing shape as the catalogue grows — a fourth product
+          extends the rail instead of starting a lonely second row.
+
+          `items-stretch` plus `h-full` on the card is what keeps them the same
+          height when one tagline wraps and another does not. Card widths are
+          fixed per breakpoint so every card is the same size at every width,
+          which is the thing that makes a rail look deliberate rather than
+          ragged.
+        */}
+        <RevealGroup
+          className="no-scrollbar -mx-gutter mt-14 flex snap-x snap-mandatory items-stretch gap-5
+                     overflow-x-auto px-gutter pb-2 sm:gap-6 lg:mt-16"
+        >
           {products.map((p, i) => (
-            <RevealItem key={p.id}>
-              <ProductCard product={p} index={i + 1} priority={i < 3} showNotes />
+            <RevealItem
+              key={p.id}
+              className="w-[78vw] shrink-0 snap-center sm:w-[46vw] lg:w-[22rem]"
+            >
+              <div className="h-full">
+                <ProductCard product={p} index={i + 1} priority={i < 3} showNotes />
+              </div>
             </RevealItem>
           ))}
         </RevealGroup>

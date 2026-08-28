@@ -16,9 +16,6 @@ const FeaturedSlider = dynamic(
 const BrandBanner = dynamic(
   () => import("@/components/landing/brand-banner").then((m) => m.BrandBanner),
 );
-const NotesStory = dynamic(
-  () => import("@/components/landing/notes-story").then((m) => m.NotesStory),
-);
 const CollectionGrid = dynamic(
   () => import("@/components/landing/collection-grid").then((m) => m.CollectionGrid),
 );
@@ -125,7 +122,6 @@ export default async function HomePage() {
         still drives the hero showcase above.
       */}
       <BrandBanner imageUrl={null} />
-      <NotesStory products={products} />
       {/* One set is a statement; several are a choice, and a rail of one is a
           design failure. /sets makes the same switch at the same threshold. */}
       {sets.length === 1 ? <ComboBand set={sets[0]!} /> : <ComboStrip sets={sets} />}

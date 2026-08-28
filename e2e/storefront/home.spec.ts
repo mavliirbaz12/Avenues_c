@@ -14,8 +14,26 @@ test.describe("landing page", () => {
     const settings = await db.storeSetting.findUnique({ where: { id: 1 } });
     test.skip(!settings?.announcementEnabled, "announcement disabled in settings");
 
-    await page.goto("/");
+    /*
+      Poll the page, because the home page is prerendered.
+
+      This reads the CURRENT announcement text from the database and expects it
+      on screen, but another spec may have changed that text moments earlier and
+      the cached page can still be the copy being replaced. Reloading until it
+      matches is a real check — it fails if the strip never shows the current
+      text — without depending on how quickly the server got round to
+      regenerating.
+    */
     const strip = page.getByRole("link", { name: new RegExp(settings!.announcementText!, "i") });
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/");
+          return strip.count();
+        },
+        { message: "the strip should show the current announcement text", timeout: 20_000 },
+      )
+      .toBeGreaterThan(0);
     await expect(strip).toBeVisible();
 
     await page.getByRole("button", { name: /dismiss announcement/i }).click();
