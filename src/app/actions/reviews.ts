@@ -1,12 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { Prisma, ReviewStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { limitByIp } from "@/lib/rate-limit";
-import { isVerifiedBuyer } from "@/lib/commerce/reviews";
+import { isVerifiedBuyer, recalcProductRating } from "@/lib/commerce/reviews";
+import { CATALOG_TAG } from "@/lib/cache";
 import type { FormState } from "@/lib/form-state";
 
 const schema = z.object({
@@ -62,6 +63,23 @@ export async function submitReview(_prev: FormState, formData: FormData): Promis
 
   const verified = await isVerifiedBuyer(userId, product.id);
 
+  /*
+    A VERIFIED BUYER PUBLISHES IMMEDIATELY. Everyone else queues.
+
+    `isVerifiedBuyer` is not self-declared — it checks this account for a
+    DELIVERED order containing this fragrance. Someone who paid for the bottle
+    and received it has earned the right to say what they think without waiting
+    on a human, and making them wait is how a store ends up with three reviews.
+
+    The queue still exists for everyone else, which is what it is actually for:
+    a competitor, a bot, or someone who has never bought anything has no
+    delivered order and cannot post straight to a product page.
+
+    The two paths differ only in status. Nothing else about the review changes,
+    so a moderator can still hide a verified review later.
+  */
+  const status = verified ? ReviewStatus.APPROVED : ReviewStatus.PENDING;
+
   try {
     await prisma.review.create({
       data: {
@@ -71,7 +89,7 @@ export async function submitReview(_prev: FormState, formData: FormData): Promis
         title: parsed.data.title || null,
         body: parsed.data.body,
         isVerifiedBuyer: verified,
-        status: ReviewStatus.PENDING,
+        status,
       },
     });
   } catch (err) {
@@ -82,9 +100,24 @@ export async function submitReview(_prev: FormState, formData: FormData): Promis
     return { ok: false, message: "Something went wrong. Try again in a moment." };
   }
 
+  /*
+    A review that is live has to be recomputed and re-published, or the rating
+    on the card and the rail on the home page keep the old numbers for an hour.
+    Only the approved path needs it — a pending review changes nothing anyone
+    can see yet.
+  */
+  if (status === ReviewStatus.APPROVED) {
+    await recalcProductRating(product.id);
+    revalidatePath("/shop");
+    revalidatePath("/");
+    revalidateTag(CATALOG_TAG);
+  }
   revalidatePath(`/fragrance/${product.slug}`);
+
   return {
     ok: true,
-    message: "Thank you. Your review will appear once it clears a quick moderation check.",
+    message: verified
+      ? "Thank you — your review is live on the page."
+      : "Thank you. Your review will appear once it clears a quick moderation check.",
   };
 }

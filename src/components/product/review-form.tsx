@@ -7,7 +7,6 @@ import { submitReview } from "@/app/actions/reviews";
 import { Sparkle } from "@/components/brand/sparkle";
 import { cn } from "@/lib/utils";
 import { FORM_IDLE } from "@/lib/form-state";
-import { useSession } from "@/store/session";
 
 /**
  * Sign-in state comes from the client session store, not from a server prop.
@@ -26,22 +25,39 @@ export function ReviewForm({
   productId,
   productName,
   slug,
+  isAuthed,
+  alreadyReviewed,
 }: {
   productId: string;
   productName: string;
   slug: string;
+  /** Resolved on the server — the page is dynamic, so this costs nothing. */
+  isAuthed: boolean;
+  alreadyReviewed: boolean;
 }) {
   const [state, action] = useActionState(submitReview, FORM_IDLE);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
-  const status = useSession((s) => s.status);
+  /*
+    Server-resolved, so this renders in the HTML.
 
-  // Render nothing rather than flashing "Sign in to leave a review" at someone
-  // who is signed in — this panel is below the fold, so there is no layout
-  // cost to waiting a beat.
-  if (status === "loading") return null;
+    It briefly read the client session store instead and returned null while
+    that resolved. The consequence was not a flash — it was that the form was
+    missing from the server HTML entirely, so on a slow connection there was no
+    review call to action at all, and with JS blocked there never was one.
+  */
+  if (alreadyReviewed) {
+    return (
+      <div className="border border-line p-6 text-center">
+        <p className="font-sans text-sm leading-relaxed text-stone">
+          You&rsquo;ve reviewed this fragrance — thank you. One review per
+          customer keeps the numbers honest.
+        </p>
+      </div>
+    );
+  }
 
-  if (status !== "authenticated") {
+  if (!isAuthed) {
     return (
       <div className="border border-line p-6 text-center">
         <p className="font-sans text-sm leading-relaxed text-stone">

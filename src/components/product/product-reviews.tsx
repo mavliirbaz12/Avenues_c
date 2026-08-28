@@ -1,6 +1,7 @@
 import { ReviewStatus } from "@prisma/client";
 import { BadgeCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth-guards";
 import { formatDate } from "@/lib/format";
 import { Stars } from "./stars";
 import { ReviewForm } from "./review-form";
@@ -33,7 +34,25 @@ export async function ProductReviews({
   avgRating: number;
   reviewCount: number;
 }) {
-  const reviews = await prisma.review.findMany({
+  /*
+    Read the visitor on the SERVER again.
+
+    This was moved to the client so the product page could be prerendered. The
+    page is force-dynamic now — the buy box needs live stock — so that reason is
+    gone, and the client-only version had a real cost: the form rendered null
+    until JS loaded and the session probe returned, so the review form was
+    ABSENT from the HTML entirely. On a slow phone that is a blank gap where the
+    call to action should be, and with JS blocked it never appears at all. A
+    review nobody can start is a review that never reaches moderation.
+
+    Resolving it here also brings back the already-reviewed check, so someone
+    who has reviewed this fragrance is told before writing another one rather
+    than after submitting it.
+  */
+  const user = await getCurrentUser();
+
+  const [reviews, own] = await Promise.all([
+    prisma.review.findMany({
       where: { productId, status: ReviewStatus.APPROVED },
       orderBy: [{ isVerifiedBuyer: "desc" }, { createdAt: "desc" }],
       take: 20,
@@ -46,7 +65,14 @@ export async function ProductReviews({
         createdAt: true,
         user: { select: { name: true } },
       },
-  });
+    }),
+    user
+      ? prisma.review.findUnique({
+          where: { productId_userId: { productId, userId: user.id } },
+          select: { id: true },
+        })
+      : null,
+  ]);
 
   // Star distribution for the histogram.
   const dist = [5, 4, 3, 2, 1].map((star) => ({
@@ -112,7 +138,13 @@ export async function ProductReviews({
             )}
 
             <div className="mt-6">
-              <ReviewForm productId={productId} productName={productName} slug={slug} />
+              <ReviewForm
+                productId={productId}
+                productName={productName}
+                slug={slug}
+                isAuthed={Boolean(user)}
+                alreadyReviewed={Boolean(own)}
+              />
             </div>
           </div>
 

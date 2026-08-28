@@ -562,9 +562,18 @@ test.describe("gift sets — admin", () => {
 
       Excluding `new` makes it wait for the thing it always meant to wait for.
     */
+    /*
+      40s, not 20s. The wait is for a server action that now revalidates five
+      paths — "/", /shop, /sets, /set/<slug> and /admin/combos — and the first
+      two are prerendered pages that have to regenerate before it returns. On an
+      idle server that is a few seconds; with five hundred other tests sharing
+      the machine it is not. The test passes in isolation in under four seconds,
+      so this is the redirect being genuinely slower under load rather than an
+      assertion that flakes.
+    */
     await adminPage.waitForURL(
       (u) => /\/admin\/combos\/[a-z0-9]+$/.test(u.pathname) && !u.pathname.endsWith("/new"),
-      { timeout: 20_000 },
+      { timeout: 40_000 },
     );
 
     await expect

@@ -166,46 +166,140 @@ test.describe("product detail", () => {
 });
 
 test.describe("reviews", () => {
-  test("a submitted review stays hidden until an admin approves it", async ({ customerPage }) => {
-    const slug = "intense";
-    const product = await db.product.findUnique({ where: { slug }, select: { id: true } });
-    const user = await db.user.findUnique({
-      where: { email: "customer@test.dev" },
-      select: { id: true },
-    });
+  /**
+   * Two paths, and the difference is the whole point.
+   *
+   * A verified buyer — someone with a DELIVERED order containing this
+   * fragrance — publishes immediately. Anyone else queues for moderation. The
+   * queue exists to stop a competitor or a bot writing on a product page, not
+   * to make a paying customer wait, so gating on the order rather than on a
+   * human's attention gets both.
+   *
+   * Both halves are asserted because the failure modes are opposite and both
+   * are bad: a regression that queues everything makes the store look
+   * reviewless, and one that publishes everything hands your product pages to
+   * anyone with an account.
+   */
+  async function resetReview(productId: string, userId: string) {
+    await db.review.deleteMany({ where: { productId, userId } });
+  }
 
-    // Start clean so the "already reviewed" branch doesn't hide the form.
-    await db.review.deleteMany({ where: { productId: product!.id, userId: user!.id } });
+  async function submitReview(page: import("@playwright/test").Page, slug: string, body: string) {
+    await page.goto(`/fragrance/${slug}`);
+    // Scope to the reviews section: the PDP renders a related-products strip
+    // with its own controls below it.
+    const form = page.locator("#reviews");
+    await form.scrollIntoViewIfNeeded();
+    // The picker is a radiogroup, not five buttons — role="radio" overrides the
+    // implicit button role. That is the correct ARIA pattern for a rating.
+    await form.getByRole("radio", { name: "5 stars" }).click();
+    await form.getByLabel("Your review").fill(body);
+    await form.getByRole("button", { name: /submit review/i }).click();
+  }
+
+  test("a buyer who has not received this fragrance is moderated", async ({ customerPage }) => {
+    const slug = "pink-aura";
+    const [product, user] = await Promise.all([
+      db.product.findUnique({ where: { slug }, select: { id: true } }),
+      db.user.findUnique({ where: { email: "customer@test.dev" }, select: { id: true } }),
+    ]);
+    await resetReview(product!.id, user!.id);
+
+    // Make sure this account has NO delivered order for this fragrance.
+    const delivered = await db.orderItem.count({
+      where: {
+        order: { userId: user!.id, status: "DELIVERED" },
+        variant: { productId: product!.id },
+      },
+    });
+    test.skip(delivered > 0, "this account has bought pink-aura; not the unverified case");
 
     const bodyText = `E2E moderation check ${Date.now()}`;
+    await submitReview(customerPage, slug, bodyText);
 
-    await customerPage.goto(`/fragrance/${slug}`);
-    // Scope to the reviews section itself rather than all of <main>: the PDP
-    // renders a related-products strip with its own controls below it.
-    const form = customerPage.locator("#reviews");
-    await form.scrollIntoViewIfNeeded();
-
-    // The picker is a radiogroup, not five buttons — role="radio" overrides
-    // the implicit button role. That is the correct ARIA pattern for a rating.
-    await form.getByRole("radio", { name: "5 stars" }).click();
-    await form.getByLabel("Your review").fill(bodyText);
-    await form.getByRole("button", { name: /submit review/i }).click();
-
-    // Assert the durable outcome, not a banner that may have already faded:
-    // the row must exist and must be PENDING.
     await expect
       .poll(
         async () =>
           (await db.review.findFirst({ where: { productId: product!.id, userId: user!.id } }))
             ?.status ?? null,
-        { timeout: 20_000, message: "review should be stored as PENDING" },
+        { timeout: 20_000, message: "an unverified review should be stored as PENDING" },
       )
       .toBe("PENDING");
 
-    // And it must not be publicly visible yet.
     await customerPage.goto(`/fragrance/${slug}`);
     await expect(customerPage.getByText(bodyText)).toHaveCount(0);
 
-    await db.review.deleteMany({ where: { productId: product!.id, userId: user!.id } });
+    await resetReview(product!.id, user!.id);
+  });
+
+  test("@smoke a verified buyer's review publishes immediately", async ({ customerPage }) => {
+    const slug = "intense";
+    const [product, user] = await Promise.all([
+      db.product.findUnique({
+        where: { slug },
+        select: { id: true, variants: { select: { id: true, sku: true }, take: 1 } },
+      }),
+      db.user.findUnique({ where: { email: "customer@test.dev" }, select: { id: true } }),
+    ]);
+    await resetReview(product!.id, user!.id);
+
+    // A delivered order for this fragrance is what "verified" means.
+    const order = await db.order.create({
+      data: {
+        orderNumber: `AVN-VER${Date.now().toString().slice(-6)}`,
+        userId: user!.id,
+        email: "customer@test.dev",
+        phone: "9812345670",
+        status: "DELIVERED",
+        paymentMethod: "COD",
+        paymentStatus: "PAID",
+        subtotalPaise: 59900,
+        totalPaise: 59900,
+        shipName: "Test Customer",
+        shipPhone: "9812345670",
+        shipLine1: "1 Test Street",
+        shipCity: "Mumbai",
+        shipState: "Maharashtra",
+        shipPincode: "400001",
+        termsAcceptedAt: new Date(),
+        items: {
+          create: [
+            {
+              variantId: product!.variants[0]!.id,
+              productName: "Avenues Intense",
+              productSlug: slug,
+              sku: product!.variants[0]!.sku,
+              variantSize: "50ml",
+              quantity: 1,
+              mrpPaise: 99900,
+              unitPricePaise: 59900,
+              totalPaise: 59900,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    try {
+      const bodyText = `E2E verified review ${Date.now()}`;
+      await submitReview(customerPage, slug, bodyText);
+
+      await expect
+        .poll(
+          async () =>
+            (await db.review.findFirst({ where: { productId: product!.id, userId: user!.id } }))
+              ?.status ?? null,
+          { timeout: 20_000, message: "a verified buyer's review should be APPROVED on submit" },
+        )
+        .toBe("APPROVED");
+
+      // And it is on the page without anyone having approved it.
+      await customerPage.goto(`/fragrance/${slug}`);
+      await expect(customerPage.getByText(bodyText).first()).toBeVisible();
+    } finally {
+      await resetReview(product!.id, user!.id);
+      await db.order.delete({ where: { id: order.id } }).catch(() => {});
+    }
   });
 });
