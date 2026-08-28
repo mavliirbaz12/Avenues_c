@@ -3,13 +3,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { getComboCards } from "@/lib/catalog";
 import { siteUrl } from "@/lib/env";
-import { formatPaise } from "@/lib/format";
+import { discountPercent } from "@/lib/format";
 import { ProductCard } from "@/components/product/product-card";
 import { AddToCartButton } from "@/components/product/add-to-cart-button";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import type { ProductCard as ProductCardData } from "@/lib/catalog";
+import { Price, DiscountChip } from "@/components/product/price";
 
 export const metadata: Metadata = {
   title: "Gift sets — try the house, or give it",
@@ -96,8 +97,8 @@ export default async function SetsPage() {
 function FeatureOne({ set }: { set: ProductCardData }) {
   const v = set.defaultVariant;
   const discounted = v ? v.mrpPaise > v.pricePaise : false;
-  const pct =
-    v && discounted ? Math.round(((v.mrpPaise - v.pricePaise) / v.mrpPaise) * 100) : 0;
+  // One copy of this maths, shared with <Price> and the product card.
+  const pct = v ? discountPercent(v.mrpPaise, v.pricePaise) : 0;
 
   return (
     <section className="pb-section" aria-label={set.name}>
@@ -120,9 +121,7 @@ function FeatureOne({ set }: { set: ProductCardData }) {
                 </div>
               )}
               {discounted && (
-                <span className="absolute right-4 top-4 bg-bordeaux px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-label text-bone">
-                  {pct}% off
-                </span>
+                <DiscountChip percent={pct} className="absolute right-4 top-4" />
               )}
             </div>
           </Link>
@@ -166,16 +165,7 @@ function FeatureOne({ set }: { set: ProductCardData }) {
           */}
 
           {v && (
-            <div className="mt-8 flex flex-wrap items-baseline gap-3">
-              <span className="font-display text-4xl font-light text-bone">
-                {formatPaise(v.pricePaise)}
-              </span>
-              {discounted && (
-                <span className="font-sans text-lg text-stone-dark line-through">
-                  {formatPaise(v.mrpPaise)}
-                </span>
-              )}
-            </div>
+            <Price pricePaise={v.pricePaise} mrpPaise={v.mrpPaise} badge={false} size="xl" className="mt-8" />
           )}
 
           <div className="mt-9 flex flex-wrap items-center gap-4">

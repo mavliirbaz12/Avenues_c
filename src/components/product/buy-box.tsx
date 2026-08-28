@@ -11,6 +11,7 @@ import { formatPaise, discountPercent } from "@/lib/format";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
+import { Price } from "@/components/product/price";
 
 export type BuyVariant = {
   id: string;
@@ -127,21 +128,7 @@ export function BuyBox({
       {/* Price */}
       {variant && (
         <div className="mt-7 border-y border-line py-6">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-            <span className="font-display text-4xl font-light text-bone">
-              {formatPaise(variant.pricePaise)}
-            </span>
-            {variant.mrpPaise > variant.pricePaise && (
-              <>
-                <span className="font-sans text-lg text-stone-dark line-through">
-                  {formatPaise(variant.mrpPaise)}
-                </span>
-                <span className="bg-bordeaux px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-label text-bone">
-                  {off}% off
-                </span>
-              </>
-            )}
-          </div>
+          <Price pricePaise={variant.pricePaise} mrpPaise={variant.mrpPaise} size="xl" />
           <p className="mt-2.5 font-sans text-xs text-stone-dark">
             MRP inclusive of all taxes &middot; Net quantity: {variant.size}
           </p>

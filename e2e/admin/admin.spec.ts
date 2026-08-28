@@ -310,10 +310,34 @@ test.describe("settings", () => {
     await page.goto("/");
     await expect(page.getByText(text).first()).toBeVisible();
 
-    await db.storeSetting.update({
-      where: { id: 1 },
-      data: { announcementText: original!.announcementText },
-    });
+    /*
+      Restore through the FORM, not through Prisma.
+
+      A direct db.storeSetting.update here left the row holding the old text
+      while the prerendered storefront went on serving the new one: the server
+      action is what calls revalidatePath, so writing round it desynced the
+      cache from the database. home.spec then polled for text the cached page
+      was never going to show, and failed 20s later.
+
+      That desync also outlived the run — seedSettings upserts with
+      an empty update, so this row is never reset and whatever is left here is
+      what the next run starts from. Undoing the change the way it was made
+      keeps the row, the cache and the next run all in step.
+    */
+    await adminPage.goto("/admin/settings");
+    await adminPage
+      .getByRole("textbox", { name: /announcement strip/i })
+      .fill(original!.announcementText ?? "");
+    await adminPage.getByRole("button", { name: /save settings/i }).click();
+
+    await expect
+      .poll(
+        async () =>
+          (await db.storeSetting.findUnique({ where: { id: 1 }, select: { announcementText: true } }))
+            ?.announcementText,
+        { timeout: 20_000 },
+      )
+      .toBe(original!.announcementText);
   });
 
   /**

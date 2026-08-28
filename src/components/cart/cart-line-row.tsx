@@ -5,9 +5,9 @@ import Image from "next/image";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { useCart } from "@/store/cart";
-import { formatPaise } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { PricedLine } from "@/lib/commerce/pricing";
+import { Price } from "@/components/product/price";
 
 export function CartLineRow({
   line,
@@ -107,16 +107,12 @@ export function CartLineRow({
             </Step>
           </div>
 
-          <div className="text-right">
-            <p className="font-sans text-sm text-bone tabular-nums">
-              {formatPaise(line.totalPaise)}
-            </p>
-            {line.mrpPaise > line.unitPricePaise && (
-              <p className="font-sans text-xs text-stone-dark line-through tabular-nums">
-                {formatPaise(line.mrpPaise * line.quantity)}
-              </p>
-            )}
-          </div>
+          <Price
+            pricePaise={line.totalPaise}
+            mrpPaise={line.mrpPaise * line.quantity}
+            size="sm"
+            className="justify-end text-right"
+          />
         </div>
       </div>
     </li>

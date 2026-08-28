@@ -2,8 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { Reveal } from "@/components/motion/reveal";
-import { formatPaise } from "@/lib/format";
+import { discountPercent } from "@/lib/format";
 import type { ProductCard as ProductCardData } from "@/lib/catalog";
+import { Price, DiscountChip } from "@/components/product/price";
 
 /**
  * The gift-set band on the landing page.
@@ -20,8 +21,8 @@ export function ComboBand({ set }: { set: ProductCardData | null }) {
 
   const v = set.defaultVariant;
   const discounted = v ? v.mrpPaise > v.pricePaise : false;
-  const pct =
-    v && discounted ? Math.round(((v.mrpPaise - v.pricePaise) / v.mrpPaise) * 100) : 0;
+  // One copy of this maths, shared with <Price> and the product card.
+  const pct = v ? discountPercent(v.mrpPaise, v.pricePaise) : 0;
 
   return (
     <section
@@ -62,9 +63,7 @@ export function ComboBand({ set }: { set: ProductCardData | null }) {
               )}
 
               {discounted && (
-                <span className="absolute right-4 top-4 bg-bordeaux px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-label text-bone">
-                  {pct}% off
-                </span>
+                <DiscountChip percent={pct} className="absolute right-4 top-4" />
               )}
             </div>
           </Link>
@@ -103,16 +102,7 @@ export function ComboBand({ set }: { set: ProductCardData | null }) {
           */}
 
           {v && (
-            <div className="mt-7 flex flex-wrap items-baseline gap-3">
-              <span className="font-display text-3xl font-light text-bone">
-                {formatPaise(v.pricePaise)}
-              </span>
-              {discounted && (
-                <span className="font-sans text-base text-stone-dark line-through">
-                  {formatPaise(v.mrpPaise)}
-                </span>
-              )}
-            </div>
+            <Price pricePaise={v.pricePaise} mrpPaise={v.mrpPaise} badge={false} size="lg" className="mt-7" />
           )}
 
           <div className="mt-9 flex flex-wrap items-center gap-6">

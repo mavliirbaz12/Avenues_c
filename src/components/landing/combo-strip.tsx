@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { BottleFigure } from "@/components/brand/bottle-figure";
 import { Reveal } from "@/components/motion/reveal";
-import { formatPaise } from "@/lib/format";
 import type { ProductCard as ProductCardData } from "@/lib/catalog";
+import { Price } from "@/components/product/price";
 
 /**
  * Every gift set, in a horizontal rail.
@@ -50,7 +50,6 @@ export function ComboStrip({ sets }: { sets: ProductCardData[] }) {
       >
         {sets.map((set, i) => {
           const v = set.defaultVariant;
-          const discounted = v ? v.mrpPaise > v.pricePaise : false;
 
           return (
             <Reveal
@@ -111,14 +110,12 @@ export function ComboStrip({ sets }: { sets: ProductCardData[] }) {
                 </p>
 
                 {v && (
-                  <p className="mt-3 flex items-baseline gap-2.5 font-sans">
-                    <span className="text-bone">{formatPaise(v.pricePaise)}</span>
-                    {discounted && (
-                      <span className="text-xs text-stone-dark line-through">
-                        {formatPaise(v.mrpPaise)}
-                      </span>
-                    )}
-                  </p>
+                  <Price
+                    pricePaise={v.pricePaise}
+                    mrpPaise={v.mrpPaise}
+                    size="md"
+                    className="mt-3"
+                  />
                 )}
               </Link>
             </Reveal>

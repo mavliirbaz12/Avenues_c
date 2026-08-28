@@ -6,9 +6,10 @@ import { WishlistButton } from "./wishlist-button";
 import { AddToCartButton } from "./add-to-cart-button";
 import { Stars } from "./stars";
 import { RingDraw } from "@/components/brand/gold-arc";
-import { formatPaise, discountPercent } from "@/lib/format";
+import { discountPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProductCard as ProductCardData } from "@/lib/catalog";
+import { Price, DiscountChip } from "@/components/product/price";
 
 const GENDER_LABEL: Record<string, string> = {
   MEN: "For him",
@@ -75,10 +76,8 @@ export function ProductCard({
             </span>
           )}
 
-          {off > 0 && product.inStock && (
-            <span className="absolute right-4 top-4 bg-bordeaux px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-label text-bone">
-              {off}% off
-            </span>
+          {product.inStock && (
+            <DiscountChip percent={off} className="absolute right-4 top-4" />
           )}
 
           {!product.inStock && (
@@ -111,20 +110,24 @@ export function ProductCard({
             <Stars rating={product.avgRating} count={product.reviewCount} className="mt-3" />
           )}
 
+          {/* Money: shared <Price>, so the card, the buy box and the cart all
+              agree on face, weight and strikethrough. The card carries its own
+              "% off" chip on the image, so the inline one is suppressed. */}
           {v && (
-            <div className="mt-4 flex items-baseline gap-2.5">
-              {multiSize && (
-                <span className="font-sans text-[0.625rem] uppercase tracking-label text-stone-dark">
-                  From
-                </span>
-              )}
-              <span className="font-sans text-base text-bone">{formatPaise(v.pricePaise)}</span>
-              {v.mrpPaise > v.pricePaise && (
-                <span className="font-sans text-sm text-stone-dark line-through">
-                  {formatPaise(v.mrpPaise)}
-                </span>
-              )}
-            </div>
+            <Price
+              pricePaise={v.pricePaise}
+              mrpPaise={v.mrpPaise}
+              badge={false}
+              size="md"
+              className="mt-4"
+              prefix={
+                multiSize ? (
+                  <span className="font-sans text-[0.625rem] uppercase tracking-label text-stone-dark">
+                    From
+                  </span>
+                ) : null
+              }
+            />
           )}
         </div>
       </Link>
