@@ -240,3 +240,44 @@ test.describe("contact and enquiry", () => {
     await expect(form.getByLabel("Message")).toBeVisible();
   });
 });
+
+/**
+ * The contact page should answer the common questions before offering a form.
+ *
+ * "Where is my order" is the single biggest reason anyone writes to a store,
+ * and this page had no route to /track-order at all — so that question cost a
+ * form submission and a day's wait for something the site answers instantly.
+ */
+test.describe("contact deflection", () => {
+  test("@smoke offers tracking, policies and an FAQ above the form", async ({ page }) => {
+    await page.goto("/contact");
+    const body = main(page);
+
+    await expect(body.getByRole("link", { name: /track your order/i })).toHaveAttribute(
+      "href",
+      "/track-order",
+    );
+    await expect(body.getByRole("link", { name: /delivery/i }).first()).toHaveAttribute(
+      "href",
+      "/policies/shipping",
+    );
+    await expect(body.getByRole("link", { name: /returns/i }).first()).toHaveAttribute(
+      "href",
+      "/policies/returns",
+    );
+
+    /*
+      The FAQ is collapsed until asked for — three lines of height, not a page.
+
+      Assert on the ANSWER, not the question: the question lives in the
+      <summary> and is always visible, which is the whole point of a disclosure.
+      An earlier version of this checked /cash on delivery/i and matched the
+      summary, so it asserted that a visible heading was hidden.
+    */
+    const answer = body.getByText(/across india wherever delhivery/i);
+    await expect(answer, "the answer stays closed until asked for").toBeHidden();
+
+    await body.getByText(/is cash on delivery available/i).click();
+    await expect(answer).toBeVisible();
+  });
+});

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Mail, Phone, MessageCircle, Clock } from "lucide-react";
+import Link from "next/link";
+import { Mail, Phone, MessageCircle, Clock, Package, ArrowRight } from "lucide-react";
 import { EnquiryForm } from "@/components/forms/enquiry-form";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
@@ -12,6 +13,26 @@ export const metadata: Metadata = {
     "Write to Avenues about an order, a product, or a bulk enquiry — we reply within 24 hours.",
   alternates: { canonical: `${siteUrl}/contact` },
 };
+
+/**
+ * The three questions that arrive most often, answered here so they do not
+ * arrive at all. Deliberately short — an FAQ that needs scrolling is a second
+ * page, not an answer.
+ */
+const FAQS = [
+  {
+    q: "How long does delivery take?",
+    a: "Orders leave us within 24 to 48 hours. Delhivery then takes two to five days depending on your pincode, and you get a tracking link by email the moment the label is made.",
+  },
+  {
+    q: "Is cash on delivery available?",
+    a: "Yes, across India wherever Delhivery services the pincode. You can check yours at checkout before paying anything.",
+  },
+  {
+    q: "Can I return a fragrance I do not like?",
+    a: "Sealed bottles can be returned within the window set out in our returns policy. Once a bottle is opened we cannot resell it, so opened returns are handled case by case — write to us and a person will look at it.",
+  },
+] as const;
 
 export default async function ContactPage() {
   const settings = await getStoreSettings();
@@ -32,6 +53,81 @@ export default async function ContactPage() {
         </Reveal>
         <GoldArc className="mt-10" />
       </header>
+
+      {/*
+        ANSWER IT BEFORE THEY ASK IT.
+
+        Most contact-page traffic is a question the site can already answer, and
+        "where is my order" is the biggest of them by a distance. This page had
+        no route to /track-order at all: someone with a delivery question filled
+        in a form and waited a day for something they could have had in ten
+        seconds. The same is true of delivery timelines and returns, both of
+        which are written out in the policies.
+
+        So the fastest answers come first and the form stays underneath for
+        everything genuinely new. It is fewer messages to answer and a better
+        experience — the customer is not waiting on a human for a fact.
+      */}
+      <div className="mx-auto mt-12 max-w-4xl border border-line bg-surface/40 p-6 sm:p-8">
+        <p className="micro-label-gold">Fastest answers</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <Link
+            href="/track-order"
+            className="group flex items-center justify-between gap-3 border border-line px-4 py-3.5
+                       font-sans text-sm text-bone transition-colors hover:border-gold/40 hover:text-gold-light"
+          >
+            <span className="flex items-center gap-2.5">
+              <Package className="h-4 w-4 text-gold/70" strokeWidth={1.4} />
+              Track your order
+            </span>
+            <ArrowRight
+              className="h-3.5 w-3.5 shrink-0 transition-transform duration-500 ease-smoke group-hover:translate-x-0.5"
+              strokeWidth={1.6}
+            />
+          </Link>
+
+          <Link
+            href="/policies/shipping"
+            className="flex items-center gap-2.5 border border-line px-4 py-3.5 font-sans text-sm
+                       text-bone transition-colors hover:border-gold/40 hover:text-gold-light"
+          >
+            Delivery &amp; timelines
+          </Link>
+
+          <Link
+            href="/policies/returns"
+            className="flex items-center gap-2.5 border border-line px-4 py-3.5 font-sans text-sm
+                       text-bone transition-colors hover:border-gold/40 hover:text-gold-light"
+          >
+            Returns &amp; refunds
+          </Link>
+        </div>
+
+        {/* An accordion, not prose: three answers cost three lines of height
+            until someone wants one. The same reason the reference stores put
+            their FAQ behind a summary rather than on the page. */}
+        <div className="mt-6 divide-y divide-line border-t border-line">
+          {FAQS.map((f) => (
+            <details key={f.q} className="group py-3.5">
+              <summary
+                className="flex cursor-pointer list-none items-center justify-between gap-4
+                           font-sans text-sm text-bone transition-colors hover:text-gold-light"
+              >
+                {f.q}
+                <span
+                  aria-hidden="true"
+                  className="text-gold/60 transition-transform duration-300 group-open:rotate-45"
+                >
+                  +
+                </span>
+              </summary>
+              <p className="mt-2.5 font-sans text-[0.9375rem] leading-relaxed text-stone">
+                {f.a}
+              </p>
+            </details>
+          ))}
+        </div>
+      </div>
 
       <div className="mx-auto mt-12 grid max-w-4xl gap-12 lg:grid-cols-5 lg:gap-16">
         <Reveal className="lg:col-span-2">
