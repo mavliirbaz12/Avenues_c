@@ -132,7 +132,7 @@ export function FeaturedSlider({ products }: { products: ProductCard[] }) {
                   </Link>
                   {variant && (
                     <span className="font-sans text-sm text-stone">
-                      {formatPaise(variant.pricePaise)}
+                      <span className="money">{formatPaise(variant.pricePaise)}</span>
                       <span className="text-stone-dark"> · {variant.size}</span>
                     </span>
                   )}

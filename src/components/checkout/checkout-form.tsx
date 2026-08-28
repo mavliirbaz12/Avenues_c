@@ -424,7 +424,7 @@ export function CheckoutForm({
                   {l.name.replace(/^Avenues\s+/i, "")}
                   <span className="text-stone-dark"> · {l.size} × {l.quantity}</span>
                 </span>
-                <span className="shrink-0 font-sans text-sm tabular-nums text-bone">
+                <span className="money shrink-0 text-sm text-bone">
                   {formatPaise(l.totalPaise)}
                 </span>
               </li>
@@ -446,9 +446,20 @@ export function CheckoutForm({
                 {method === "COD" ? "Placing order" : "Opening payment"}
               </>
             ) : method === "COD" ? (
-              `Place order · ${priced ? formatPaise(priced.totalPaise) : ""}`
+              <>
+                Place order
+                {priced && (
+                  <>
+                    {" · "}
+                    <span className="money">{formatPaise(priced.totalPaise)}</span>
+                  </>
+                )}
+              </>
             ) : (
-              `Pay ${priced ? formatPaise(priced.totalPaise) : ""}`
+              <>
+                Pay{" "}
+                {priced && <span className="money">{formatPaise(priced.totalPaise)}</span>}
+              </>
             )}
           </button>
 

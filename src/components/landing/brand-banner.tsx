@@ -109,7 +109,7 @@ export function BrandBanner({ imageUrl }: { imageUrl: string | null }) {
             {FACTS.map((f) => (
               <div key={f.label}>
                 <dt className="micro-label">{f.label}</dt>
-                <dd className="mt-2.5 font-display text-3xl font-light text-gradient-gold">
+                <dd className="mt-2.5 font-money text-2xl font-light text-gradient-gold">
                   {f.value}
                 </dd>
               </div>

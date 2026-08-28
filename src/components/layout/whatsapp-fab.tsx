@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { useUI } from "@/store/ui";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 
 /**
  * The floating query channel — a dark glass disc with a gold hairline,
@@ -64,7 +65,7 @@ export function WhatsAppFab({ href }: { href: string | null }) {
             aria-label="Chat with Avenues on WhatsApp"
             {...motionProps}
           >
-            <WhatsAppGlyph />
+            <WhatsAppIcon className="h-6 w-6" />
             <Tooltip>Chat with us</Tooltip>
           </motion.a>
         ) : (
@@ -80,24 +81,6 @@ export function WhatsAppFab({ href }: { href: string | null }) {
           </motion.span>
         ))}
     </AnimatePresence>
-  );
-}
-
-/** Drawn to match the site's 1.4 stroke weight, not WhatsApp's brand shape. */
-function WhatsAppGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden="true">
-      <path
-        d="M3.6 20.4l1.2-4.1a7.8 7.8 0 1 1 3 2.9l-4.2 1.2z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M9.1 8.4c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5l.6 1.4c.1.2 0 .4-.1.5l-.4.5c-.1.2-.2.3 0 .6a6 6 0 0 0 2.6 2.2c.3.1.4 0 .6-.1l.5-.6c.2-.2.3-.2.5-.1l1.4.7c.2.1.4.2.4.4v.5c0 .5-.5 1.1-1 1.2-.5.1-1.1.2-3.3-.8a8.2 8.2 0 0 1-3.5-3.4c-.7-1.3-.7-2.1-.6-2.6a1.6 1.6 0 0 1 .5-.8z"
-        fill="currentColor"
-      />
-    </svg>
   );
 }
 

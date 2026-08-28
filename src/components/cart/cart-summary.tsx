@@ -71,7 +71,7 @@ export function CartSummary({
             hard enough that the saving is worth naming. */}
         {savedPaise > 0 && (
           <p className="mt-2 text-right font-sans text-xs text-gold">
-            You save {formatPaise(savedPaise)}
+            You save <span className="money">{formatPaise(savedPaise)}</span>
           </p>
         )}
 
@@ -111,14 +111,14 @@ export function CartSummary({
 
       <div className="mt-5 flex items-baseline justify-between border-t border-line pt-5">
         <span className="font-sans text-micro uppercase text-stone">Total</span>
-        <span className="font-display text-3xl font-light text-bone">
+        <span className="money text-3xl text-bone">
           {formatPaise(priced.totalPaise)}
         </span>
       </div>
 
       {savedPaise > 0 && (
         <p className="mt-2 text-right font-sans text-xs text-gold">
-          You save {formatPaise(savedPaise)}
+          You save <span className="money">{formatPaise(savedPaise)}</span>
         </p>
       )}
 
@@ -205,7 +205,7 @@ function Row({
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className="text-sm text-stone">{label}</dt>
-      <dd className={cn("text-sm tabular-nums", tone === "gold" ? "text-gold" : "text-bone")}>
+      <dd className={cn("money text-sm", tone === "gold" ? "text-gold" : "text-bone")}>
         {children}
       </dd>
     </div>

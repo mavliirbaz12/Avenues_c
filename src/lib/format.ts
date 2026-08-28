@@ -16,10 +16,20 @@ const inrWithPaise = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 2,
 });
 
-/** 119900 → "₹1,199". Falls back to two decimals when the amount isn't whole rupees. */
+/**
+ * 119900 → "₹ 1,199". Falls back to two decimals when the amount isn't whole
+ * rupees.
+ *
+ * The space after the symbol is deliberate and is why this does not just return
+ * what Intl gives it. Set solid, "₹1,199" reads as one word and the symbol
+ * crowds the first digit — worst at display sizes, which is where a price is
+ * most often set. Indian retail sets it open, and so does every reference we
+ * checked. One space, applied here, so no caller has to remember.
+ */
 export function formatPaise(paise: number) {
   const rupees = paise / 100;
-  return Number.isInteger(rupees) ? inr.format(rupees) : inrWithPaise.format(rupees);
+  const formatted = Number.isInteger(rupees) ? inr.format(rupees) : inrWithPaise.format(rupees);
+  return formatted.replace("₹", "₹ ");
 }
 
 /** For number inputs in admin: 119900 → "1199.00" */

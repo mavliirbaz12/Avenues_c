@@ -231,7 +231,7 @@ export function SearchOverlay() {
                         </div>
                         <div className="shrink-0 text-right">
                           {r.pricePaise !== null && (
-                            <p className="font-sans text-sm text-bone">{formatPaise(r.pricePaise)}</p>
+                            <p className="money text-sm text-bone">{formatPaise(r.pricePaise)}</p>
                           )}
                           {!r.inStock && (
                             <p className="font-sans text-[0.625rem] uppercase tracking-label text-stone-dark">

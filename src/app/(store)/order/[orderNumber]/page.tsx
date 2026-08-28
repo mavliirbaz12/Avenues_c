@@ -275,7 +275,7 @@ export default async function OrderPage({
                       {item.variantSize} × {item.quantity}
                     </p>
                   </div>
-                  <p className="shrink-0 font-sans text-sm tabular-nums text-bone">
+                  <p className="money shrink-0 text-sm text-bone">
                     {formatPaise(item.totalPaise)}
                   </p>
                 </li>
@@ -299,7 +299,7 @@ export default async function OrderPage({
 
             <div className="mt-5 flex items-baseline justify-between border-t border-line pt-5">
               <span className="font-sans text-micro uppercase text-stone">Total</span>
-              <span className="font-display text-3xl font-light text-bone">
+              <span className="money text-3xl text-bone">
                 {formatPaise(order.totalPaise)}
               </span>
             </div>
@@ -368,7 +368,7 @@ function Row({
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className="text-stone">{label}</dt>
-      <dd className={gold ? "tabular-nums text-gold" : "tabular-nums text-bone"}>{children}</dd>
+      <dd className={gold ? "money text-gold" : "money text-bone"}>{children}</dd>
     </div>
   );
 }

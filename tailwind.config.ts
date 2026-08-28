@@ -60,8 +60,12 @@ const config: Config = {
         danger: "#C56A63",
       },
       fontFamily: {
-        display: ["var(--font-display)", "Cormorant Garamond", "serif"],
+        display: ["var(--font-display)", "Unbounded", "Jost", "sans-serif"],
         sans: ["var(--font-sans)", "Jost", "system-ui", "sans-serif"],
+        // Numerals — prices, and any figure standing on its own. Cormorant's
+        // default figures are oldstyle and Jost has no rupee glyph, so neither
+        // can set a number. See `money` in layout.tsx.
+        money: ["var(--font-display)", "Unbounded", "Jost", "sans-serif"],
       },
       fontSize: {
         // Fluid display scale — the site's voice.

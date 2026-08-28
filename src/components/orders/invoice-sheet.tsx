@@ -102,9 +102,9 @@ export function InvoiceSheet({
                 </td>
                 <td className="py-2.5 text-center text-neutral-600">3303</td>
                 <td className="py-2.5 text-center">{item.quantity}</td>
-                <td className="py-2.5 text-right tabular-nums text-neutral-500">{formatPaise(item.mrpPaise)}</td>
-                <td className="py-2.5 text-right tabular-nums">{formatPaise(item.unitPricePaise)}</td>
-                <td className="py-2.5 text-right tabular-nums">{formatPaise(item.totalPaise)}</td>
+                <td className="money py-2.5 text-right text-neutral-500">{formatPaise(item.mrpPaise)}</td>
+                <td className="money py-2.5 text-right">{formatPaise(item.unitPricePaise)}</td>
+                <td className="money py-2.5 text-right">{formatPaise(item.totalPaise)}</td>
               </tr>
             ))}
           </tbody>
@@ -124,7 +124,7 @@ export function InvoiceSheet({
           {order.codFeePaise > 0 && <TotalRow label="COD handling">{formatPaise(order.codFeePaise)}</TotalRow>}
           <div className="flex justify-between border-t-2 border-neutral-900 pt-2 text-base font-medium">
             <span>Total</span>
-            <span className="tabular-nums">{formatPaise(order.totalPaise)}</span>
+            <span className="money">{formatPaise(order.totalPaise)}</span>
           </div>
           <p className="text-right text-[0.6875rem] text-neutral-500">Inclusive of all taxes</p>
         </div>
@@ -146,7 +146,7 @@ function TotalRow({ label, children }: { label: string; children: React.ReactNod
   return (
     <div className="flex justify-between text-neutral-700">
       <span>{label}</span>
-      <span className="tabular-nums">{children}</span>
+      <span className="money">{children}</span>
     </div>
   );
 }

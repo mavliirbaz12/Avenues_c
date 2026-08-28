@@ -21,18 +21,23 @@ import "./globals.css";
  * looks at it, which for a brand whose identity is its typography is the worst
  * possible failure mode.
  *
- * Both families ship as variable fonts, so one file covers every weight and the
- * italic is a second file. 112KB for the pair, latin subset.
+ * Both families are variable, so one file covers every weight.
+ *
+ * The display face is Unbounded, self-subset from upstream to the Latin set
+ * plus U+20B9. It replaced Cormorant, which could not set a number: its default
+ * figures are oldstyle, so "8-10h" read as "8-1oh". Unbounded also carries the
+ * rupee sign, which neither previous face did — money used to draw its digits
+ * from the brand font and its currency symbol from a system fallback.
+ *
+ * Unbounded has no italic; the two places that ask for one get a synthesised
+ * oblique. 49KB replaces Cormorant's 74KB pair, and money no longer needs a
+ * file of its own.
  */
 const display = localFont({
-  src: [
-    { path: "./fonts/cormorant.woff2", style: "normal", weight: "300 700" },
-    { path: "./fonts/cormorant-italic.woff2", style: "italic", weight: "300 700" },
-  ],
+  src: [{ path: "./fonts/unbounded.woff2", style: "normal", weight: "200 900" }],
   variable: "--font-display",
   display: "swap",
-  // Measured against the real face so the fallback swap does not reflow.
-  fallback: ["Georgia", "Times New Roman", "serif"],
+  fallback: ["Jost", "Helvetica Neue", "Arial", "sans-serif"],
 });
 
 const sans = localFont({

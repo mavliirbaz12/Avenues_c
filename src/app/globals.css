@@ -397,6 +397,29 @@
    ========================================================================== */
 
 @layer utilities {
+  /*
+    Money, everywhere.
+
+    Set in Unbounded, the same face the rest of the site now uses for display.
+    It is here rather than on each surface because a price should not change
+    typeface between the shelf, the cart and the invoice, which it used to.
+
+    - `tabular-nums`, so a figure under a quantity stepper or a live-updating
+      total keeps its width as it changes. Unbounded's digits are proportional
+      by default (the 1 is half the width of the 0), so this is doing real work.
+    - tracking of 0.0625em, matching the reference exactly: .1rem set on 1.6rem.
+      It also opens the gap after the symbol that formatPaise now inserts.
+
+    Weight is deliberately left alone. Callers that used `font-light` had it
+    removed rather than overridden here, so nothing has to reason about which
+    utility wins. Unbounded starts at 200, so light weights still resolve.
+  */
+  .money {
+    font-family: var(--font-display), "Unbounded", "Jost", sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.0625em;
+  }
+
   /* Very fine film grain. Sits over dark fields so large flat areas of
      near-black don't band on cheap panels. */
   .grain::before {

@@ -162,7 +162,7 @@ export function BuyBox({
                   )}
                 >
                   {v.size}
-                  <span className="ml-2 text-xs text-stone-dark">{formatPaise(v.pricePaise)}</span>
+                  <span className="money ml-2 text-xs text-stone-dark">{formatPaise(v.pricePaise)}</span>
                   {out && (
                     <span className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-stone-dark" />
                   )}
@@ -311,7 +311,7 @@ function StickyBuyBar({
         <div className="min-w-0 flex-1">
           <p className="truncate font-sans text-sm text-bone">{name}</p>
           <p className="font-sans text-xs text-stone">
-            {size} &middot; {formatPaise(pricePaise)}
+            {size} &middot; <span className="money">{formatPaise(pricePaise)}</span>
           </p>
         </div>
         <AddToCartButton

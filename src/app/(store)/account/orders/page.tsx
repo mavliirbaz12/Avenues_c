@@ -122,7 +122,7 @@ export default async function OrdersPage() {
                   >
                     {chip.label}
                   </span>
-                  <span className="font-sans text-sm tabular-nums text-bone">
+                  <span className="money text-sm text-bone">
                     {formatPaise(order.totalPaise)}
                   </span>
 

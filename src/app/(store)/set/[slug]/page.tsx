@@ -208,7 +208,7 @@ export default async function SetPage({ params }: { params: Promise<{ slug: stri
           */}
           {worthPaise !== null && worthPaise > 0 && (
             <p className="mt-5 inline-flex border border-gold/35 px-4 py-2 font-sans text-xs text-gold-light">
-              Worth {formatPaise(worthPaise)} if bought as full bottles
+              Worth <span className="money">{formatPaise(worthPaise)}</span> if bought as full bottles
             </p>
           )}
 
