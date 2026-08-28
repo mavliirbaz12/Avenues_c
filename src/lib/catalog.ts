@@ -66,6 +66,15 @@ export const productCardSelect = {
 
 type ProductCardRow = Prisma.ProductGetPayload<{ select: typeof productCardSelect }>;
 
+export type CardVariant = {
+  id: string;
+  size: string;
+  sku: string;
+  mrpPaise: number;
+  pricePaise: number;
+  stock: number;
+};
+
 export type ProductCard = {
   id: string;
   slug: string;
@@ -91,14 +100,16 @@ export type ProductCard = {
   /** The variant a card's price and Add-to-cart act on: cheapest in-stock,
    *  falling back to the cheapest overall so an out-of-stock card still
    *  shows a price instead of nothing. */
-  defaultVariant: {
-    id: string;
-    size: string;
-    sku: string;
-    mrpPaise: number;
-    pricePaise: number;
-    stock: number;
-  } | null;
+  defaultVariant: CardVariant | null;
+  /**
+   * Every active size, cheapest first.
+   *
+   * The shop's size and price facets are built from this, not from
+   * `defaultVariant`. Reading only the default meant a product's second size
+   * was invisible to the filters: adding a 100ml beside a 50ml produced a
+   * "100ml" facet that matched nothing, because the default stayed 50ml.
+   */
+  variants: CardVariant[];
   variantCount: number;
   /** True when any active variant has stock. */
   inStock: boolean;
@@ -129,6 +140,7 @@ export function toProductCard(row: ProductCardRow): ProductCard {
     reviewCount: row.reviewCount,
     notes: { top: row.notesTop, heart: row.notesHeart, base: row.notesBase },
     defaultVariant,
+    variants,
     variantCount: variants.length,
     inStock: inStockVariants.length > 0,
     image: row.images[0] ?? null,
@@ -325,6 +337,11 @@ export type ComboMember = {
   notes: { top: string[]; heart: string[]; base: string[] };
   image: { url: string; alt: string } | null;
   /**
+   * This fragrance's own full-bottle MRP, for the computed "worth separately"
+   * line. Null when it has no active variant to price.
+   */
+  bottleMrpPaise: number | null;
+  /**
    * Where to read more — null when the fragrance is no longer sold on its own.
    *
    * A deactivated member keeps its identity on the set page (a customer who
@@ -377,6 +394,21 @@ export const comboDetailSelect = {
           notesBase: true,
           isActive: true,
           type: true,
+          /*
+            The member's own FULL BOTTLE price, for the "worth if bought
+            separately" line. Cheapest active variant, matching how every other
+            surface picks a product's headline price.
+
+            Deliberately not the variant matching the member's sizeLabel: a set
+            of 10ml decants has no 10ml SKU to price, and the claim being made
+            is explicitly about buying the full bottles instead.
+          */
+          variants: {
+            where: { isActive: true },
+            orderBy: [{ sortOrder: "asc" }, { pricePaise: "asc" }] as const,
+            take: 1,
+            select: { mrpPaise: true, pricePaise: true },
+          },
           images: {
             orderBy: [{ isPrimary: "desc" }, { position: "asc" }] as const,
             take: 1,
@@ -406,7 +438,43 @@ export function toComboMembers(row: ComboRow): ComboMember[] {
     },
     image: item.product.images[0] ?? null,
     href: item.product.isActive ? productHref(item.product) : null,
+    /** Full-bottle MRP of this fragrance, or null if it has no active variant. */
+    bottleMrpPaise: item.product.variants[0]?.mrpPaise ?? null,
   }));
+}
+
+/**
+ * What the contents would cost as full bottles, at today's prices.
+ *
+ * This replaces `savingsNote`, a free-text field an admin typed once. The
+ * seeded value read "Worth ₹4,796 if bought as full bottles" — correct when
+ * singles were ₹1,199, and still on the live site after they moved to ₹999,
+ * by which point the true figure was ₹3,996. An inflated savings claim is a
+ * worse thing to ship than no claim, and it cannot be kept honest by hand
+ * because it depends on prices that change independently of the set.
+ *
+ * Returns null when any member has no active variant to price, so the caller
+ * renders nothing rather than a total that silently omits a fragrance.
+ */
+export function worthSeparatelyPaise(members: { bottleMrpPaise: number | null }[]) {
+  if (members.length === 0) return null;
+  if (members.some((m) => m.bottleMrpPaise === null)) return null;
+  return members.reduce((sum, m) => sum + (m.bottleMrpPaise ?? 0), 0);
+}
+
+/**
+ * The size label for a set's own variant — "4 x 10ml", or "4 bottles" when the
+ * contents are not all one size.
+ *
+ * The admin action built this as `${items.length} x ${items[0].sizeLabel}`,
+ * reading the FIRST item and applying it to all of them. A set of three 10ml
+ * and one 20ml therefore described itself as "4 x 10ml". Nothing breaks and
+ * nobody notices until a customer counts what arrives.
+ */
+export function comboSizeLabel(sizes: string[]) {
+  const distinct = [...new Set(sizes.map((s) => s.trim()).filter(Boolean))];
+  if (distinct.length === 1) return `${sizes.length} x ${distinct[0]}`;
+  return `${sizes.length} bottles`;
 }
 
 /** A single combo by slug, with its contents. Null for a non-combo slug. */
@@ -490,3 +558,43 @@ export function spellCount(n: number) {
   const words = ["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten"];
   return words[n] ?? String(n);
 }
+
+/**
+ * Approved reviews across the whole catalogue, for the landing page strip.
+ *
+ * Product pages already query their own reviews; this is the store-wide view,
+ * which nothing had. Reviewer names come from the User relation rather than
+ * being stored on the review, so a rename is reflected everywhere at once.
+ *
+ * Only APPROVED rows leave the database. Moderation state is not something the
+ * landing page should be filtering client-side.
+ */
+const homeReviewsUncached = async () =>
+  prisma.review
+    .findMany({
+      where: { status: "APPROVED" },
+      orderBy: [{ isVerifiedBuyer: "desc" }, { createdAt: "desc" }],
+      take: 12,
+      select: {
+        id: true,
+        rating: true,
+        title: true,
+        body: true,
+        isVerifiedBuyer: true,
+        user: { select: { name: true } },
+        product: { select: { name: true, slug: true, type: true } },
+      },
+    })
+    .catch(() => []);
+
+export const getHomeReviews = cache(cachedCatalog(homeReviewsUncached, ["home-reviews"]));
+
+export type HomeReview = {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  isVerifiedBuyer: boolean;
+  user: { name: string | null } | null;
+  product: { name: string; slug: string; type: ProductType };
+};

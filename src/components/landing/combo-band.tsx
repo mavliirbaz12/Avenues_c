@@ -88,11 +88,19 @@ export function ComboBand({ set }: { set: ProductCardData | null }) {
             {set.highlight}
           </p>
 
-          {set.savingsNote && (
-            <p className="mt-6 inline-flex border border-gold/35 px-4 py-2 font-sans text-xs text-gold-light">
-              {set.savingsNote}
-            </p>
-          )}
+          {/*
+            The typed "Worth ₹X" note used to sit here and has been removed.
+
+            It was a free-text field, so it kept its figure while the prices it
+            described moved: the live site was still claiming "Worth ₹4,796"
+            after single bottles dropped to ₹999, where the honest number was
+            ₹3,996. Card surfaces already show the real saving as MRP struck
+            through against the price, computed from the variant every time.
+
+            The "worth as full bottles" line survives on the set's own page,
+            where the members are loaded and it can be added up — see
+            worthSeparatelyPaise.
+          */}
 
           {v && (
             <div className="mt-7 flex flex-wrap items-baseline gap-3">

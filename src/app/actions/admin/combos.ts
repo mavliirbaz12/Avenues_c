@@ -6,6 +6,7 @@ import { CATALOG_TAG } from "@/lib/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { comboSizeLabel } from "@/lib/catalog";
 import { requireAdminActor } from "@/lib/admin-guard";
 import { slugify } from "@/lib/utils";
 import { rupeeInputToPaise } from "@/lib/format";
@@ -195,7 +196,10 @@ export async function saveCombo(_prev: FormState, formData: FormData): Promise<F
         select: { id: true },
       });
       const variantData = {
-        size: `${items.length} x ${items[0]!.sizeLabel}`,
+        // comboSizeLabel, not `items[0].sizeLabel` applied to all of them: a
+        // set of three 10ml and one 20ml used to describe itself as "4 x 10ml",
+        // which nobody notices until a customer counts what arrived.
+        size: comboSizeLabel(items.map((i) => i.sizeLabel)),
         sku: d.sku,
         mrpPaise,
         pricePaise,

@@ -4,10 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { getStoreSettings } from "@/lib/settings";
-import { getCombo, getComboCards } from "@/lib/catalog";
+import { getCombo, getComboCards, worthSeparatelyPaise } from "@/lib/catalog";
 import { siteUrl } from "@/lib/env";
+import { formatPaise } from "@/lib/format";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { BuyBox } from "@/components/product/buy-box";
+import { VariantSelectionProvider } from "@/components/product/variant-selection";
 import { WhatsInside } from "@/components/combo/whats-inside";
 import { DetailAccordion } from "@/components/product/detail-accordion";
 import { ProductReviews } from "@/components/product/product-reviews";
@@ -72,6 +74,7 @@ export default async function SetPage({ params }: { params: Promise<{ slug: stri
   const shortName = combo.name.replace(/^Avenues\s+/i, "");
   const primary = combo.variants.find((v) => v.stock > 0) ?? combo.variants[0] ?? null;
   const itemCount = combo.members.length;
+  const worthPaise = worthSeparatelyPaise(combo.members);
 
   // Other sets, for the strip at the foot of the page.
   const otherSets = (await getComboCards(4)).filter((c) => c.slug !== combo.slug).slice(0, 3);
@@ -164,33 +167,48 @@ export default async function SetPage({ params }: { params: Promise<{ slug: stri
                 : "")}
           </p>
 
+          {/* A set has a single size today, but the buy box reads its
+              selection from context either way. */}
           <div className="mt-4">
-            <BuyBox
-              product={{
-                id: combo.id,
-                slug: combo.slug,
-                name: combo.name,
-                shortName,
-                tagline: combo.tagline,
-                concentration: "Gift set",
-                longevity: "",
-                avgRating: combo.avgRating,
-                reviewCount: combo.reviewCount,
-              }}
-              variants={combo.variants}
-              imageUrl={combo.images[0]?.url ?? null}
-              whatsappNumber={settings.whatsappNumber}
-              codEnabled={settings.codEnabled}
-              freeShippingThresholdPaise={settings.freeShippingThresholdPaise}
-            />
+            <VariantSelectionProvider variants={combo.variants}>
+              <BuyBox
+                product={{
+                  id: combo.id,
+                  slug: combo.slug,
+                  name: combo.name,
+                  shortName,
+                  tagline: combo.tagline,
+                  concentration: "Gift set",
+                  longevity: "",
+                  avgRating: combo.avgRating,
+                  reviewCount: combo.reviewCount,
+                }}
+                variants={combo.variants}
+                imageUrl={combo.images[0]?.url ?? null}
+                whatsappNumber={settings.whatsappNumber}
+                codEnabled={settings.codEnabled}
+                freeShippingThresholdPaise={settings.freeShippingThresholdPaise}
+              />
+            </VariantSelectionProvider>
           </div>
 
-          {/* Savings line, only when the founder has written one. Deliberately
-              not computed from member prices: those move independently, and a
-              stale "worth ₹X" is worse than none. */}
-          {combo.savingsNote && (
+          {/*
+            COMPUTED, not typed.
+
+            This rendered `savingsNote`, a free-text field. Its seeded value —
+            "Worth ₹4,796 if bought as full bottles" — was right when single
+            bottles were ₹1,199 and was still on the live site after they moved
+            to ₹999, by which point the honest figure was ₹3,996. The old note
+            here argued against computing it because member prices "move
+            independently". That is the reason TO compute it: a figure derived
+            from those prices follows them, and a typed one cannot.
+
+            Renders nothing when any member has no active variant to price,
+            rather than quoting a total that quietly leaves a fragrance out.
+          */}
+          {worthPaise !== null && worthPaise > 0 && (
             <p className="mt-5 inline-flex border border-gold/35 px-4 py-2 font-sans text-xs text-gold-light">
-              {combo.savingsNote}
+              Worth {formatPaise(worthPaise)} if bought as full bottles
             </p>
           )}
 

@@ -88,9 +88,49 @@ test.describe("gift sets — storefront", () => {
       `should say "${count} fragrances", read from the database`,
     ).toBeVisible();
 
-    if (set!.savingsNote) {
-      await expect(body.getByText(set!.savingsNote)).toBeVisible();
-    }
+    /*
+      The typed savingsNote is gone from the card surfaces, so this no longer
+      asserts it. It was free text an admin wrote once: the seeded value said
+      "Worth ₹4,796 if bought as full bottles", which was true at ₹1,199 a
+      bottle and still on the live site at ₹999, where the honest figure was
+      ₹3,996. The claim now lives only on the set's own page and is summed from
+      the members' current prices — covered by the spec below.
+    */
+  });
+
+  test("the worth-separately figure is computed, never a stored string", async ({ page }) => {
+    const set = await seededSet();
+    const members = await db.comboItem.findMany({
+      where: { comboId: set!.id },
+      select: {
+        product: {
+          select: {
+            variants: {
+              where: { isActive: true },
+              orderBy: [{ sortOrder: "asc" }, { pricePaise: "asc" }],
+              take: 1,
+              select: { mrpPaise: true },
+            },
+          },
+        },
+      },
+    });
+    const expected = members.reduce(
+      (sum, m) => sum + (m.product.variants[0]?.mrpPaise ?? 0),
+      0,
+    );
+
+    await page.goto(`/set/${SET_SLUG}`);
+    const worth = main(page).getByText(/worth .* if bought as full bottles/i);
+    await expect(worth).toBeVisible();
+
+    // The rendered rupees must equal the sum of the members' own bottle MRPs.
+    const text = (await worth.textContent()) ?? "";
+    const rendered = Number(text.replace(/[^0-9]/g, ""));
+    expect(
+      rendered,
+      "the figure must be the sum of member bottle prices, not a stored note",
+    ).toBe(Math.round(expected / 100));
   });
 
   test("@smoke the set page lists every member, pulled live", async ({ page }) => {
