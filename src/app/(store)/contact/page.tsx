@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, Phone, MessageCircle, Clock, Package, ArrowRight } from "lucide-react";
+import { Mail, Phone, Clock, Package, ArrowRight } from "lucide-react";
 import { EnquiryForm } from "@/components/forms/enquiry-form";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { Reveal } from "@/components/motion/reveal";
 import { getStoreSettings, whatsappLink } from "@/lib/settings";
 import { siteUrl } from "@/lib/env";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -144,7 +145,7 @@ export default async function ContactPage() {
 
             {wa && (
               <Channel
-                icon={<MessageCircle className="h-[1.1rem] w-[1.1rem]" strokeWidth={1.4} />}
+                icon={<WhatsAppIcon className="h-[1.1rem] w-[1.1rem]" />}
                 label="WhatsApp"
                 detail="Fastest for order updates."
               >

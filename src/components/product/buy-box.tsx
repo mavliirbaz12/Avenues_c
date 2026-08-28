@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Minus, Plus, MessageCircle, Truck, ShieldCheck, Clock } from "lucide-react";
+import { Minus, Plus, Truck, ShieldCheck, Clock } from "lucide-react";
 import { AddToCartButton } from "./add-to-cart-button";
 import { WishlistButton } from "./wishlist-button";
 import { Stars } from "./stars";
@@ -10,6 +10,7 @@ import { useVariantSelection } from "./variant-selection";
 import { formatPaise, discountPercent } from "@/lib/format";
 import { useUI } from "@/store/ui";
 import { cn } from "@/lib/utils";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 
 export type BuyVariant = {
   id: string;
@@ -261,7 +262,7 @@ export function BuyBox({
           rel="noopener noreferrer"
           className="mt-7 inline-flex items-center gap-2.5 font-sans text-micro uppercase text-gold transition-colors hover:text-gold-light"
         >
-          <MessageCircle className="h-4 w-4" strokeWidth={1.4} />
+          <WhatsAppIcon className="h-4 w-4" />
           Enquire on WhatsApp
         </a>
       )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, Phone, MessageCircle, Instagram, Facebook } from "lucide-react";
+import { Mail, Phone, Instagram, Facebook } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { GoldArc } from "@/components/brand/gold-arc";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
@@ -8,6 +8,7 @@ import { whatsappLink } from "@/lib/settings";
 import type { StoreSettings } from "@/lib/settings";
 
 import type { NavProduct } from "@/lib/catalog";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 
 type NavFragrance = NavProduct;
 
@@ -95,15 +96,20 @@ export function SiteFooter({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2.5 font-sans text-sm text-stone transition-colors hover:text-gold-light"
                 >
-                  <MessageCircle className="h-4 w-4 shrink-0 text-gold/70" strokeWidth={1.4} />
+                  <WhatsAppIcon className="h-4 w-4 shrink-0 text-gold/70" />
                   Message us on WhatsApp
                 </a>
               </li>
             )}
           </ul>
 
-          {(settings.instagramUrl || settings.facebookUrl) && (
+          {(settings.instagramUrl || settings.facebookUrl || wa) && (
             <div className="mt-7 flex items-center gap-3">
+              {wa && (
+                <SocialLink href={wa} label="WhatsApp">
+                  <WhatsAppIcon className="h-4 w-4" />
+                </SocialLink>
+              )}
               {settings.instagramUrl && (
                 <SocialLink href={settings.instagramUrl} label="Instagram">
                   <Instagram className="h-4 w-4" strokeWidth={1.4} />

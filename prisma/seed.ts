@@ -384,6 +384,8 @@ async function seedSettings() {
       codFeePaise: 4900,
       supportEmail: "supportavenuesperfume@gmail.com",
       customerCareEmail: "supportavenuesperfume@gmail.com",
+      // E.164 without the '+', which is what wa.me expects: +91 99796 12029.
+      whatsappNumber: "919979612029",
       manufacturerName: "Avenues Perfumes",
       manufacturerAddress:
         "Marketed by Avenues Perfumes. Add your full registered address, city, state and PIN from Admin → Settings before going live.",

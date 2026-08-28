@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { X, Search, Heart, User, Mail, MessageCircle } from "lucide-react";
+import { X, Search, Heart, User, Mail } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Sparkle } from "@/components/brand/sparkle";
 import { NAV_LINKS } from "./nav-links";
@@ -12,6 +12,7 @@ import { useUI } from "@/store/ui";
 import { useWishlist } from "@/store/wishlist";
 import { useSession } from "@/store/session";
 import type { NavProduct } from "@/lib/catalog";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 
 export function MobileMenu({
   supportEmail,
@@ -156,7 +157,7 @@ export function MobileMenu({
                 Wishlist{wishCount > 0 ? ` (${wishCount})` : ""}
               </MenuUtil>
               {whatsappHref && (
-                <MenuUtil href={whatsappHref} external icon={<MessageCircle className="h-4 w-4" strokeWidth={1.4} />}>
+                <MenuUtil href={whatsappHref} external icon={<WhatsAppIcon className="h-4 w-4" />}>
                   WhatsApp us
                 </MenuUtil>
               )}

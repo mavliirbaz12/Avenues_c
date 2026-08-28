@@ -46,7 +46,8 @@ const DEFAULTS: StoreSettings = {
   codFeePaise: 4900,
   codMaxOrderPaise: null,
   delhiveryPickupName: null,
-  whatsappNumber: null,
+  // E.164 without the "+" — wa.me wants bare digits. Editable in Admin -> Settings.
+  whatsappNumber: "919979612029",
   // The address a customer is told to write to, and the reply-to on every
   // order email. It has to RECEIVE, which is a higher bar than looking right:
   // the domain is registered but has no mailbox, so support@avenuesperfume.com would
