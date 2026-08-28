@@ -26,9 +26,6 @@ export function Hero({
   videoUrl,
   posterUrl,
   showcaseUrl,
-  count,
-  countWord,
-  sizeLabel,
 }: {
   videoUrl: string | null;
   posterUrl: string | null;
@@ -47,10 +44,6 @@ export function Hero({
    * IS the idea.
    */
   showcaseUrl?: string | null;
-  /** Live catalogue figures — never stated as literals. See getCatalogueSummary. */
-  count: number;
-  countWord: string;
-  sizeLabel: string;
 }) {
   const reduce = useReducedMotion();
 
@@ -79,9 +72,13 @@ export function Hero({
           animate={reduce ? undefined : { opacity: 1 }}
           transition={{ duration: 1, delay: 0.1 }}
         >
+          {/*
+            No bottle size here. `sizeLabel` joins every distinct size in the
+            catalogue with " & ", so the moment a 20ml or 100ml variant is added
+            from admin this line reads "20ml & 50ml & 100ml" — not stale, broken.
+            Size is a fact about one product and belongs on that product's page.
+          */}
           <span>Eau de parfum</span>
-          <span aria-hidden="true" className="text-gold/45">&middot;</span>
-          <span>{sizeLabel}</span>
           <span aria-hidden="true" className="text-gold/45">&middot;</span>
           <span>Made in India</span>
         </motion.p>
@@ -105,9 +102,9 @@ export function Hero({
           animate={reduce ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.62, ease: [0.22, 1, 0.36, 1] }}
         >
-          {countWord} fragrance{count === 1 ? "" : "s"}, made for Indian weather and
-          long days. Eight to ten hours of wear from two sprays. Nothing here
-          fades by lunch.
+          {/* No catalogue count. It goes wrong the day a sixth scent ships, and
+              it was never the reason anyone buys. The wear time is. */}
+          Made for Indian weather. Eight to ten hours from two sprays.
         </motion.p>
 
         <motion.div
@@ -135,7 +132,7 @@ export function Hero({
             <div className="relative aspect-[1600/1283] w-full overflow-hidden">
               <Image
                 src={showcaseUrl}
-                alt="The Avenues range — five eau de parfums and the discovery set."
+                alt="The Avenues range."
                 fill
                 priority
                 // WAS `(max-width: 1024px) 0px` — written when this image was

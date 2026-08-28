@@ -28,11 +28,11 @@ export default function CartPage() {
           Your cart is waiting for its first obsession.
         </h1>
         <p className="mx-auto mt-5 max-w-md font-sans text-body-lg leading-relaxed text-stone">
-          We make five fragrances. Somewhere in there is the one people will
-          start associating with you.
+          Somewhere in the range is the one people will start associating with
+          you.
         </p>
         <Link href="/shop" className="btn btn-primary btn-lg mt-10">
-          Shop the five
+          Shop the range
         </Link>
       </div>
     );

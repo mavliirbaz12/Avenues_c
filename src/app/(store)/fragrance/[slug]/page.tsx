@@ -13,6 +13,7 @@ import { BuyBox } from "@/components/product/buy-box";
 import { NotePyramid } from "@/components/product/note-pyramid";
 import { DetailAccordion } from "@/components/product/detail-accordion";
 import { LegalMetrology } from "@/components/product/legal-metrology";
+import { VariantSelectionProvider } from "@/components/product/variant-selection";
 import { FeaturedCollection } from "@/components/landing/featured-collection";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { GoldArc } from "@/components/brand/gold-arc";
@@ -147,8 +148,13 @@ export async function generateMetadata({
 
   const url = `${siteUrl}/fragrance/${product.slug}`;
   const title = product.metaTitle ?? `${product.name} — ${product.tagline}`;
+  // The variant's real size, not a hardcoded "50ml". This is one of the few
+  // places a size belongs — it describes THIS product — but it still has to be
+  // read rather than assumed, or the description lies the day a 100ml ships.
+  const headlineSize = product.variants[0]?.size;
   const description =
-    product.metaDescription ?? `${product.highlight} ${product.concentration}, 50ml.`;
+    product.metaDescription ??
+    `${product.highlight} ${product.concentration}${headlineSize ? `, ${headlineSize}` : ""}.`;
 
   return {
     title,
@@ -215,8 +221,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     })),
   };
 
+  // Wraps the whole page, not just the buy box: the size the shopper picks up
+  // there has to reach the Product information panel two sections below.
   return (
-    <>
+    <VariantSelectionProvider variants={product.variants}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
@@ -451,6 +459,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           />
         </div>
       )}
-    </>
+    </VariantSelectionProvider>
   );
 }

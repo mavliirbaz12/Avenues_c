@@ -4,9 +4,8 @@ import { Hero } from "@/components/landing/hero";
 import { LazyBottleReveal } from "@/components/landing/lazy-bottle-reveal";
 import {
   getFeaturedProductCards,
-  getFeaturedCombo,
-  getCatalogueSummary,
-  spellCount,
+  getComboCards,
+  getHomeReviews,
 } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/env";
@@ -26,32 +25,35 @@ const CollectionGrid = dynamic(
 const ComboBand = dynamic(
   () => import("@/components/landing/combo-band").then((m) => m.ComboBand),
 );
+const ComboStrip = dynamic(
+  () => import("@/components/landing/combo-strip").then((m) => m.ComboStrip),
+);
 const BrandStory = dynamic(
   () => import("@/components/landing/brand-story").then((m) => m.BrandStory),
 );
+const ReviewsStrip = dynamic(
+  () => import("@/components/landing/reviews-strip").then((m) => m.ReviewsStrip),
+);
 
 /**
- * Built from the catalogue rather than asserted.
+ * Static, and deliberately says nothing about how many or what size.
  *
- * A static description saying "Five fragrances" is the same bug as the on-page
- * copy: it goes stale silently the day a sixth is added, and search engines
- * keep repeating it.
+ * This used to build the description from the live catalogue — "Five eau de
+ * parfum fragrances… 50ml, eight to ten hours of wear" — on the reasoning that
+ * reading it live beat hardcoding it. Reading it live fixed staleness and left
+ * two worse problems: `sizeLabel` joins every size with " & ", so a shop with
+ * three sizes described itself as "20ml & 50ml & 100ml" in search results; and
+ * a description that counts the catalogue advertises a small one.
+ *
+ * What is left is what stays true at any size of shop, and what someone
+ * searching actually wants to know.
  */
-export async function generateMetadata(): Promise<Metadata> {
-  const { count, sizeLabel } = await getCatalogueSummary().catch(() => ({
-    count: 0,
-    sizeLabel: "",
-  }));
-
-  const range = count > 0 ? `${spellCount(count)} eau de parfum fragrances` : "Eau de parfum";
-  const size = sizeLabel ? `${sizeLabel}, ` : "";
-
-  return {
-    title: "Avenues — Eau de parfum, made in India",
-    description: `${range} built for Indian weather and long days. ${size}eight to ten hours of wear, cash on delivery available.`,
-    alternates: { canonical: siteUrl },
-  };
-}
+export const metadata: Metadata = {
+  title: "Avenues — Eau de parfum, made in India",
+  description:
+    "Eau de parfum built for Indian weather. Eight to ten hours of wear from two sprays, cash on delivery across India.",
+  alternates: { canonical: siteUrl },
+};
 
 // The catalogue changes only when an admin edits it, so serve this from cache
 // and revalidate hourly. Admin mutations call revalidatePath to push through.
@@ -70,7 +72,7 @@ export const revalidate = 3600;
  * newsletter form a screen above it would be the clearest template tell here.
  */
 export default async function HomePage() {
-  const [products, settings, featuredSet, summary] = await Promise.all([
+  const [products, settings, sets, reviews] = await Promise.all([
     // Guarded like the layout and footer queries. This page is prerendered at
     // build time, so an unreachable database used to fail `next build`
     // outright — a transient blip during deploy should not take the whole
@@ -83,18 +85,20 @@ export default async function HomePage() {
     getStoreSettings(),
     // Same guard: no set, or an unreachable database, simply means the band
     // does not render.
-    getFeaturedCombo().catch((err) => {
-      console.error("[home] featured combo unavailable:", err);
-      return null;
+    // Every set, not just the featured one. The page shows a band when there
+    // is exactly one and a rail from two, so a shop that grows to four boxes
+    // advertises four instead of hiding three behind /sets.
+    getComboCards().catch((err) => {
+      console.error("[home] gift sets unavailable:", err);
+      return [];
     }),
-    // How many fragrances and in which sizes — read, never asserted.
-    getCatalogueSummary().catch((err) => {
-      console.error("[home] catalogue summary unavailable:", err);
-      return { count: 0, sizeLabel: "", sizes: [] as string[] };
+    // Guarded like the rest: no reviews, or an unreachable database, simply
+    // means the strip does not render.
+    getHomeReviews().catch((err) => {
+      console.error("[home] reviews unavailable:", err);
+      return [];
     }),
   ]);
-
-  const countWord = spellCount(summary.count);
 
   return (
     <>
@@ -105,9 +109,6 @@ export default async function HomePage() {
         // brand banner further down, which is deliberate: one hero image is
         // cheaper than two and the repeat reads as a motif, not a mistake.
         showcaseUrl={settings.brandBannerUrl}
-        count={summary.count}
-        countWord={countWord}
-        sizeLabel={summary.sizeLabel}
       />
       <LazyBottleReveal />
       <FeaturedSlider products={products} />
@@ -123,10 +124,16 @@ export default async function HomePage() {
         radial — which is what the words want behind them. `brandBannerUrl`
         still drives the hero showcase above.
       */}
-      <BrandBanner imageUrl={null} count={summary.count} sizeLabel={summary.sizeLabel} />
+      <BrandBanner imageUrl={null} />
       <NotesStory products={products} />
-      <ComboBand set={featuredSet} />
-      <CollectionGrid products={products} countWord={countWord} />
+      {/* One set is a statement; several are a choice, and a rail of one is a
+          design failure. /sets makes the same switch at the same threshold. */}
+      {sets.length === 1 ? <ComboBand set={sets[0]!} /> : <ComboStrip sets={sets} />}
+      <CollectionGrid products={products} />
+      {/* Social proof after the range and before the story: someone who has
+          just seen the products is at the point of doubt, and this is the only
+          section on the page the brand does not write itself. */}
+      <ReviewsStrip reviews={reviews} />
       <BrandStory />
     </>
   );

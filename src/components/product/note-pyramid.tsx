@@ -60,16 +60,24 @@ export function NotePyramid({
           viewport={{ once: true, margin: "-12%" }}
           transition={{ duration: 0.95, delay: i * 0.16, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="group relative overflow-hidden border border-line bg-surface/60 px-6 py-5 transition-colors duration-600 ease-smoke hover:border-gold/35 sm:px-8">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background: `radial-gradient(26rem 12rem at 50% 130%, rgba(201,162,75,${
-                  0.04 + tier.weight * 0.09
-                }), transparent 72%)`,
-              }}
-            />
+          {/*
+            ONE frame, not two.
+
+            This was a bordered panel per tier with every single note inside it
+            wrapped in its own bordered chip — a box around a box around a word.
+            Three tiers of that is fifteen rectangles competing with the notes
+            they were meant to present, and it is the specific thing that made
+            this page feel boxy.
+
+            The tier keeps a top hairline to separate it and nothing else. The
+            notes are set as type, which is how the reference sites present
+            theirs and how a perfume house prints them on a card.
+          */}
+          <div className="group relative border-t border-line px-1 py-6 sm:py-7">
+            {/* The radial glow that used to sit here was lighting the inside of
+                a bordered panel. With the panel gone its edges read as a stray
+                rectangle behind the type — the exact boxiness this was meant to
+                remove. */}
 
             <div className="relative flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <p className="micro-label-gold">{tier.label} notes</p>
@@ -78,10 +86,7 @@ export function NotePyramid({
               </p>
             </div>
 
-            {/* Centred, not left-aligned: the chips are the visual mass of each
-                tier, and left-aligning them left a wide void on the right of
-                every band — a single-note heart tier looked broken. */}
-            <ul className="relative mt-5 flex flex-wrap justify-center gap-2.5">
+            <ul className="relative mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
               {tier.notes.map((note, n) => (
                 <motion.li
                   key={note}
@@ -94,9 +99,13 @@ export function NotePyramid({
                     ease: [0.22, 1, 0.36, 1],
                   }}
                 >
-                  <span className="inline-flex items-center gap-2.5 border border-line-strong/70 bg-ink-deep/60 py-2 pl-2.5 pr-4 transition-colors duration-400 ease-smoke group-hover:border-gold/25">
-                    <Drop weight={tier.weight} />
-                    <span className="font-sans text-[0.8125rem] text-bone">{note}</span>
+                  <span className="inline-flex items-baseline gap-2.5">
+                    {n > 0 && (
+                      <span aria-hidden="true" className="text-gold/35">
+                        &middot;
+                      </span>
+                    )}
+                    <span className="font-display text-lg font-light text-bone">{note}</span>
                   </span>
                 </motion.li>
               ))}
@@ -109,11 +118,3 @@ export function NotePyramid({
 }
 
 /** The brand ring, filled in proportion to how heavy the note is. */
-function Drop({ weight }: { weight: number }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-gold" aria-hidden="true">
-      <circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.55" />
-      <circle cx="12" cy="12" r={2.6 + weight * 5.2} fill="currentColor" opacity={0.22 + weight * 0.6} />
-    </svg>
-  );
-}

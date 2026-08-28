@@ -8,10 +8,8 @@ import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { Sparkle } from "@/components/brand/sparkle";
 import {
   getActiveProductCards,
-  getCatalogueSummary,
   getComboCards,
   searchProducts,
-  spellCount,
   type ProductCard as Card,
 } from "@/lib/catalog";
 import { siteUrl } from "@/lib/env";
@@ -19,7 +17,9 @@ import { siteUrl } from "@/lib/env";
 export const metadata: Metadata = {
   title: "Shop all fragrances",
   description:
-    "Every Avenues fragrance — eau de parfum, 50ml, eight to ten hours of wear. Filter by who it's for, size and price.",
+    // No bottle size: the shop sells whatever sizes admin has created, and a
+    // description naming one is wrong the moment a second exists.
+    "Every Avenues fragrance — eau de parfum, eight to ten hours of wear. Filter by who it's for, size and price.",
   alternates: { canonical: `${siteUrl}/shop` },
 };
 
@@ -44,6 +44,24 @@ function bucketFor(pricePaise: number) {
   return BUCKETS.find((b) => pricePaise >= b.min && (b.max === null || pricePaise <= b.max))?.value;
 }
 
+/**
+ * Orders "50ml" before "100ml". A plain string sort puts 100ml first, because
+ * "1" sorts before "5" — which is how the facet would list them the day a
+ * second size is added.
+ */
+function sizeRank(size: string) {
+  const n = Number.parseFloat(size.match(/[\d.]+/)?.[0] ?? "");
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+}
+
+/** The ends of a product's price range, for the two sort directions. */
+function cheapestPaise(p: Card) {
+  return p.variants.length ? Math.min(...p.variants.map((v) => v.pricePaise)) : 0;
+}
+function dearestPaise(p: Card) {
+  return p.variants.length ? Math.max(...p.variants.map((v) => v.pricePaise)) : 0;
+}
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function ShopPage({ searchParams }: { searchParams: SearchParams }) {
@@ -65,7 +83,7 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
   // here too made the same product appear in two places with two different
   // framings, and made "5 fragrances" wrong. A set added from admin now shows
   // up on /sets and nowhere else.
-  const [all, sets, summary] = await Promise.all([
+  const [all, sets] = await Promise.all([
     getActiveProductCards({ where: { type: "SINGLE" } }),
     // Gift sets, for the band BELOW the fragrance grid. They are fetched
     // separately and rendered separately on purpose: mixed into the grid a set
@@ -74,7 +92,6 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
     // or size to facet on). Kept apart, the page answers "which fragrance"
     // first and "or give the whole house" second.
     getComboCards(),
-    getCatalogueSummary().catch(() => ({ count: 0, sizeLabel: "", sizes: [] as string[] })),
   ]);
   const base: Card[] = q ? await searchProducts(q, 50) : all;
 
@@ -89,17 +106,21 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
         count: all.filter((p) => p.gender === g).length,
       }))
       .filter((g) => g.count > 0),
-    sizes: [...new Set(all.flatMap((p) => (p.defaultVariant ? [p.defaultVariant.size] : [])))]
-      .sort()
+    // Both of these read EVERY size, not the default one. A fragrance sold in
+    // 50ml and 100ml belongs under both size facets and in both price bands —
+    // faceting on `defaultVariant` alone offered a "100ml" filter that matched
+    // no products at all, and hid the product from the band its larger bottle
+    // actually falls in.
+    sizes: [...new Set(all.flatMap((p) => p.variants.map((v) => v.size)))]
+      .sort((a, b) => sizeRank(a) - sizeRank(b) || a.localeCompare(b))
       .map((size) => ({
         value: size,
-        count: all.filter((p) => p.defaultVariant?.size === size).length,
+        count: all.filter((p) => p.variants.some((v) => v.size === size)).length,
       })),
     priceBuckets: BUCKETS.map((b) => ({
       value: b.value,
       label: b.label,
-      count: all.filter((p) => p.defaultVariant && bucketFor(p.defaultVariant.pricePaise) === b.value)
-        .length,
+      count: all.filter((p) => p.variants.some((v) => bucketFor(v.pricePaise) === b.value)).length,
     })).filter((b) => b.count > 0),
   };
 
@@ -108,23 +129,30 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
     if (p.type !== "SINGLE") return false;
     if (kindFilter.size && !kindFilter.has(p.type)) return false;
     if (genderFilter.size && !genderFilter.has(p.gender)) return false;
-    if (sizeFilter.size && !(p.defaultVariant && sizeFilter.has(p.defaultVariant.size))) return false;
-    if (priceFilter.size) {
-      const b = p.defaultVariant ? bucketFor(p.defaultVariant.pricePaise) : undefined;
-      if (!b || !priceFilter.has(b)) return false;
+    // Match on ANY size, mirroring how the facets are counted above.
+    if (sizeFilter.size && !p.variants.some((v) => sizeFilter.has(v.size))) return false;
+    if (
+      priceFilter.size &&
+      !p.variants.some((v) => {
+        const b = bucketFor(v.pricePaise);
+        return b !== undefined && priceFilter.has(b);
+      })
+    ) {
+      return false;
     }
     return true;
   });
 
   // Search results arrive ranked by relevance; only re-sort on an explicit choice.
+  //
+  // Each direction sorts on the end of the range it is asking about: cheapest
+  // first compares cheapest bottles, dearest first compares dearest ones.
+  // Comparing both on `defaultVariant` would rank a fragrance whose 100ml is
+  // the priciest in the shop below one that only sells a 50ml.
   if (sort === "price-asc") {
-    products = [...products].sort(
-      (a, b) => (a.defaultVariant?.pricePaise ?? 0) - (b.defaultVariant?.pricePaise ?? 0),
-    );
+    products = [...products].sort((a, b) => cheapestPaise(a) - cheapestPaise(b));
   } else if (sort === "price-desc") {
-    products = [...products].sort(
-      (a, b) => (b.defaultVariant?.pricePaise ?? 0) - (a.defaultVariant?.pricePaise ?? 0),
-    );
+    products = [...products].sort((a, b) => dearestPaise(b) - dearestPaise(a));
   }
   // "newest" and "featured" already come out of the query in the right order.
 
@@ -139,13 +167,17 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
           <h1 className="mt-5 font-display text-d2 font-light text-bone">
             {q ? <>Results for &ldquo;{q}&rdquo;</> : "Every fragrance we make"}
           </h1>
-          {/* Counted, never asserted — this page now also lists gift sets, and
-              a hardcoded "Five of them" was already one launch away from being
-              wrong. See getCatalogueSummary. */}
+          {/*
+            Says nothing about how many or what size.
+
+            This read the count and the sizes live, which kept it accurate and
+            still produced "Nine of them. All eau de parfum, all 20ml & 50ml &
+            100ml…" once admin had a few variants. The grid below answers "how
+            many" better than a sentence can, and the filter bar answers "what
+            sizes".
+          */}
           <p className="mx-auto mt-5 max-w-lg font-sans text-body-lg leading-relaxed text-stone">
-            {summary.count > 0 ? `${spellCount(summary.count)} of them. ` : ""}All eau de
-            parfum{summary.sizeLabel ? `, all ${summary.sizeLabel}` : ""}, all built to last
-            a full day rather than a meeting.
+            Eau de parfum, built to last a full day rather than a meeting.
           </p>
         </Reveal>
         <GoldArc className="mt-10" />

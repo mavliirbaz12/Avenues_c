@@ -11,7 +11,7 @@ import { getStoreSettings } from "@/lib/settings";
 export const metadata: Metadata = {
   title: "Our story",
   description:
-    "Why Avenues makes five fragrances instead of fifty, and what it takes to build eau de parfum for Indian weather.",
+    "Why Avenues makes a short catalogue instead of a long one, and what it takes to build eau de parfum for Indian weather.",
   alternates: { canonical: `${siteUrl}/about` },
 };
 
@@ -25,7 +25,7 @@ const PRINCIPLES = [
     body: "A scent that behaves in a Paris autumn falls apart in a Chennai June. Ours are formulated and worn-tested through Indian summers — heat, humidity, commutes — before they earn a label.",
   },
   {
-    title: "Five, done properly",
+    title: "Short, done properly",
     body: "A small catalogue is not a limitation; it is the discipline. Every fragrance has to be somebody's signature, or it doesn't ship.",
   },
   {
@@ -63,21 +63,12 @@ export default async function AboutPage() {
                 Avenues started with a shelf. On one end: imported bottles priced
                 like jewellery, formulated for climates we don&rsquo;t live in.
                 On the other: sprays that smelled promising for forty minutes and
-                then quietly left. The middle — serious fragrance, made for here,
-                priced for daily wear — was almost empty.
+                then quietly left. The middle was almost empty.
               </p>
               <p>
-                So we built for the middle. We spent our first years on five
-                compositions rather than fifty: a bold citrus, a soft floral, a
-                sweet night fragrance, a clean aquatic and a proper oud. Each one
-                went through Indian summers on real skin — office days, wedding
-                evenings, long commutes — and was reformulated until it survived
-                them.
-              </p>
-              <p>
-                The name is the idea: a fragrance is an avenue — a way of
-                arriving somewhere before you say a word. We make five of them.
-                One is probably yours.
+                So we built for the middle. Every composition goes through Indian
+                summers on real skin — office days, wedding evenings, long
+                commutes — and is reformulated until it survives them.
               </p>
             </div>
           </Reveal>
@@ -143,9 +134,10 @@ export default async function AboutPage() {
             <h2 className="max-w-md font-display text-d3 font-light text-bone">
               The catalogue is short. Choosing shouldn&rsquo;t take long either.
             </h2>
+            {/* Was "bold, soft, sweet, clean or rich" — one adjective per
+                product, so it quietly became wrong the day a sixth shipped. */}
             <p className="mt-5 max-w-md font-sans text-body-lg leading-relaxed text-stone">
-              Start with how you want to arrive — bold, soft, sweet, clean or
-              rich — and the rest follows.
+              Start with how you want to arrive, and the rest follows.
             </p>
             <Link href="/shop" className="btn btn-primary btn-lg mt-9">
               Meet the range

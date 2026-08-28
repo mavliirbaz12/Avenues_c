@@ -24,31 +24,25 @@ import type { ProductCard } from "@/lib/catalog";
  *    identity is typography instead of product photography.
  */
 
+/**
+ * Three rows, and the notes are the content.
+ *
+ * Each tier used to carry a ~150-character passage explaining what top, heart
+ * and base notes are — "The lightest molecules, and the first thing anyone
+ * smells…". All of it was true, none of it was ours: the same paragraph sits on
+ * every perfume site on the internet, which is precisely why it read as
+ * machine-written. It also pushed the one genuinely specific thing on the row —
+ * the real notes, aggregated live from the products — down into small grey text
+ * underneath.
+ *
+ * So the explanation is gone and the notes are the row. What is left of the
+ * teaching is the timing, which is the part a customer cannot look up on the
+ * bottle and the part that actually answers "why does it smell different now".
+ */
 const TIERS = [
-  {
-    key: "top",
-    label: "Top",
-    when: "First 15 minutes",
-    width: "56%",
-    title: "The opening",
-    body: "The lightest molecules, and the first thing anyone smells. Citrus, herbs, cool spice. They are gone quickly by design — their job is to make you lean in.",
-  },
-  {
-    key: "heart",
-    label: "Heart",
-    when: "One to three hours",
-    width: "78%",
-    title: "The character",
-    body: "What the fragrance actually is. Florals and warm spice arrive as the top notes burn off, and this is the accord people will recognise on you across a room.",
-  },
-  {
-    key: "base",
-    label: "Base",
-    when: "Three to ten hours",
-    width: "100%",
-    title: "The memory",
-    body: "Heavy, slow molecules that cling to skin and fabric. Amber, woods, musk, vanilla. This is the part still on a collar the next morning.",
-  },
+  { key: "top", label: "Top", when: "First 15 minutes", width: "56%" },
+  { key: "heart", label: "Heart", when: "One to three hours", width: "78%" },
+  { key: "base", label: "Base", when: "Three to ten hours", width: "100%" },
 ] as const;
 
 /** Distinct notes across the live catalogue, for a tier's example line. */
@@ -78,9 +72,7 @@ export function NotesStory({ products }: { products: ProductCard[] }) {
             A fragrance is three things, arriving in order
           </h2>
           <p className="mx-auto mt-5 max-w-xl font-sans text-body-lg leading-relaxed text-stone">
-            What you smell in the shop is not what you wear at dinner. Perfume
-            unfolds in tiers, and knowing which tier you are smelling is most of
-            the education.
+            What you smell in the shop is not what you wear at dinner.
           </p>
         </Reveal>
 
@@ -111,14 +103,9 @@ export function NotesStory({ products }: { products: ProductCard[] }) {
                     <p className="micro-label">{tier.when}</p>
                   </div>
 
-                  <h3 className="relative mt-4 font-display text-d5 font-light text-bone">
-                    {tier.title}
-                  </h3>
-                  <p className="relative mt-3 font-sans text-[0.9375rem] leading-relaxed text-stone">
-                    {tier.body}
-                  </p>
+                  {/* The notes ARE the row now — display type, not a footnote. */}
                   {examples && (
-                    <p className="relative mt-4 font-sans text-xs tracking-wide2 text-stone-dark">
+                    <p className="relative mt-4 font-display text-d5 font-light leading-snug text-bone">
                       {examples}
                     </p>
                   )}

@@ -10,14 +10,7 @@ import type { ProductCard as ProductCardData } from "@/lib/catalog";
  * rather than on all five cards. Repeating it per card is clutter, and the
  * meaning is identical.
  */
-export function CollectionGrid({
-  products,
-  countWord,
-}: {
-  products: ProductCardData[];
-  /** Spelled-out live count, so the heading cannot go stale. */
-  countWord: string;
-}) {
+export function CollectionGrid({ products }: { products: ProductCardData[] }) {
   if (products.length === 0) return null;
 
   return (
@@ -29,7 +22,12 @@ export function CollectionGrid({
             id="collection-heading"
             className="mx-auto mt-5 max-w-lg font-display text-d3 font-light text-bone"
           >
-            {countWord} fragrances, and no filler
+            {/* Was "{countWord} fragrances, and no filler". Reading the count
+                live kept it accurate and still made the headline shrink as the
+                shop grew — "Nine fragrances, and no filler" is a worse sentence
+                than the one below, and the grid underneath already says how
+                many there are. */}
+            No filler
           </h2>
           <p className="mx-auto mt-5 max-w-md font-sans text-body-lg leading-relaxed text-stone">
             Each one built around a single idea, and finished only when it

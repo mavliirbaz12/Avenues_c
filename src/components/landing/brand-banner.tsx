@@ -3,18 +3,26 @@ import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/motion/reveal";
 
 /**
- * The two figures that move with the catalogue are passed in; the two that do
- * not are literals. Previously all four were literals, so adding a sixth scent
- * or a 100ml bottle would have left the band quietly stating something false.
+ * Facts about the PRODUCT, not about the catalogue.
+ *
+ * Two of these used to be catalogue figures — the number of fragrances and the
+ * bottle size — on the reasoning that reading them live beat hardcoding them.
+ * That solved the wrong half of the problem. `sizeLabel` joins every distinct
+ * size with " & ", so a shop selling 20ml, 50ml and 100ml rendered
+ * "20ml & 50ml & 100ml" as a large display figure in a tile sized for "50ml".
+ * And "05 Fragrances" is a number that shrinks the brand every time it is true
+ * and embarrasses it the day it is not.
+ *
+ * Every value here is now a constant about what is in the bottle and how it
+ * behaves, which is what the reference brands lead with and what a customer is
+ * actually weighing. Adding a product or a size cannot change any of them.
  */
-function facts(count: number, sizeLabel: string) {
-  return [
-    { value: String(count).padStart(2, "0"), label: "Fragrances" },
-    { value: sizeLabel, label: "Eau de parfum" },
-    { value: "8–10h", label: "On skin" },
-    { value: "India", label: "Made and bottled" },
-  ].filter((f) => f.value);
-}
+const FACTS = [
+  { value: "8–10h", label: "On skin" },
+  { value: "Eau de parfum", label: "Concentration" },
+  { value: "India", label: "Made and bottled" },
+  { value: "COD", label: "Available across India" },
+] as const;
 
 /**
  * The brand statement band.
@@ -29,16 +37,7 @@ function facts(count: number, sizeLabel: string) {
  * The facts strip grounds the mood with something concrete; a mantra alone
  * over an image is the stock-photo move.
  */
-export function BrandBanner({
-  imageUrl,
-  count,
-  sizeLabel,
-}: {
-  imageUrl: string | null;
-  count: number;
-  sizeLabel: string;
-}) {
-  const FACTS = facts(count, sizeLabel);
+export function BrandBanner({ imageUrl }: { imageUrl: string | null }) {
   return (
     <section
       className={cn(

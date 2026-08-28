@@ -107,6 +107,32 @@ test.describe("landing page", () => {
     await expect(page).toHaveURL(/\/fragrance\//);
   });
 
+  /**
+   * The home page must not state how many fragrances exist, or what size the
+   * bottle is.
+   *
+   * Both were rendered live from the catalogue, which fixed staleness and left
+   * two worse failures. `getCatalogueSummary` joins every distinct size with
+   * " & ", so a shop selling 20ml, 50ml and 100ml described itself as
+   * "20ml & 50ml & 100ml" — in the hero micro-label, in a display-sized fact
+   * tile, and in the SEO description. And a headline that counts the catalogue
+   * advertises a small one, then goes wrong the day it grows.
+   *
+   * This asserts the absence, because the failure mode is silent: the page
+   * renders perfectly, it just says something false or ugly. Adding either back
+   * now fails here rather than in production.
+   */
+  test("@smoke the home page claims no catalogue size and no bottle size", async ({ page }) => {
+    await page.goto("/");
+    const body = (await page.locator("body").innerText()).toLowerCase();
+
+    expect(body, "no bottle size on the home page").not.toMatch(/\d+\s?ml/);
+    expect(
+      body,
+      "no spelled catalogue count — it goes wrong when a product is added",
+    ).not.toMatch(/(three|four|five|six|seven|eight|nine|ten)\s+(fragrance|eau de parfum)/);
+  });
+
   test("hero shows the headline and a Discover CTA into the reveal", async ({ page }) => {
     await page.goto("/");
     await expect(main(page).getByRole("heading", { level: 1 })).toBeVisible();
@@ -258,5 +284,148 @@ test.describe("newsletter capture", () => {
     expect(await db.newsletterSubscriber.count({ where: { email } })).toBe(1);
 
     await db.newsletterSubscriber.delete({ where: { email } });
+  });
+});
+
+/**
+ * The home page review rail.
+ *
+ * Two states worth asserting, and the hidden one is the one that matters. A
+ * carousel holding a single review reads as "nobody has bought this", which is
+ * worse for a young store than saying nothing — so the section renders only
+ * from three approved reviews upward.
+ *
+ * Approved is the only status that leaves the database. A PENDING review
+ * appearing here would put unmoderated text on the front page.
+ */
+test.describe("home reviews", () => {
+  const MARK = "e2e-home-review";
+
+  /**
+   * Every state change goes through the ADMIN FORM, never a Prisma write.
+   *
+   * The landing page is ISR and the rail's query is cached, so the only thing
+   * that makes a change visible is the revalidation `moderateReview` performs.
+   * Writing rows directly and reloading proves nothing — the page keeps serving
+   * its cached copy, which is how an earlier version of this spec managed to
+   * assert "hidden" against a page that was simply stale, and then fail the
+   * next test with three reviews it had already deleted from the database.
+   *
+   * Driving the real moderation flow is also the only way to know the
+   * revalidation added to moderateReview actually reaches the home page.
+   */
+  let parked: string[] = [];
+
+  test.beforeAll(async () => {
+    const rows = await db.review.findMany({
+      where: { status: "APPROVED" },
+      select: { id: true },
+    });
+    parked = rows.map((r) => r.id);
+    if (parked.length) {
+      await db.review.updateMany({ where: { id: { in: parked } }, data: { status: "PENDING" } });
+    }
+  });
+
+  test.afterAll(async () => {
+    await db.review.deleteMany({ where: { body: { contains: MARK } } });
+    if (parked.length) {
+      await db.review.updateMany({ where: { id: { in: parked } }, data: { status: "APPROVED" } });
+    }
+  });
+
+  test("@smoke the rail appears only from the third approved review", async ({
+    page,
+    adminPage,
+  }) => {
+    const tag = `${MARK}-${Date.now()}`;
+    const [user, products] = await Promise.all([
+      db.user.findFirst({ where: { email: "customer@test.dev" }, select: { id: true } }),
+      db.product.findMany({
+        where: { isActive: true, type: "SINGLE" },
+        select: { id: true },
+        take: 3,
+      }),
+    ]);
+    expect(products.length, "need three fragrances to seed three reviews").toBe(3);
+
+    // Three PENDING reviews — invisible until an admin says otherwise.
+    const bodies = products.map((_, i) => `${tag} number ${i}`);
+    for (let i = 0; i < 3; i++) {
+      await db.review.deleteMany({ where: { productId: products[i]!.id, userId: user!.id } });
+      await db.review.create({
+        data: {
+          productId: products[i]!.id,
+          userId: user!.id,
+          rating: 5,
+          title: `Lovely ${i}`,
+          body: bodies[i]!,
+          status: "PENDING",
+        },
+      });
+    }
+
+    const approve = async (body: string) => {
+      await adminPage.goto("/admin/reviews");
+      const row = adminPage.locator("li,tr,article").filter({ hasText: body }).first();
+      await row.getByRole("button", { name: /approve/i }).first().click();
+      await expect
+        .poll(async () => db.review.count({ where: { body, status: "APPROVED" } }))
+        .toBe(1);
+    };
+
+    await approve(bodies[0]!);
+    await page.goto("/");
+    await expect(page.locator("#reviews-heading"), "one review is not proof").toHaveCount(0);
+
+    await approve(bodies[1]!);
+    await page.goto("/");
+    await expect(page.locator("#reviews-heading"), "two is still an anecdote").toHaveCount(0);
+
+    /*
+      Poll the PAGE, not just the database.
+
+      revalidatePath marks the cached home page stale; the regeneration happens
+      on the next request. A single goto immediately after the approve can land
+      on the copy still being replaced, so the rail is absent for reasons that
+      have nothing to do with the threshold. Reloading until it appears is a
+      real check — it fails if the rail never arrives — and it stops the test
+      depending on how quickly the server got round to rebuilding.
+    */
+    await approve(bodies[2]!);
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/");
+          return page.locator("#reviews-heading").count();
+        },
+        { message: "the rail should appear once a third review is approved", timeout: 20_000 },
+      )
+      .toBeGreaterThan(0);
+
+    await expect(main(page).getByText(new RegExp(tag)).first()).toBeVisible();
+  });
+
+  test("a pending review never reaches the home page", async ({ page }) => {
+    // A tag unique to this test, so a stale cached page from another test
+    // cannot satisfy or break the assertion.
+    const tag = `${MARK}-pending-${Date.now()}`;
+    const [user, product] = await Promise.all([
+      db.user.findFirst({ where: { email: "customer@test.dev" }, select: { id: true } }),
+      db.product.findFirst({ where: { isActive: true, type: "SINGLE" }, select: { id: true } }),
+    ]);
+    await db.review.deleteMany({ where: { productId: product!.id, userId: user!.id } });
+    await db.review.create({
+      data: {
+        productId: product!.id,
+        userId: user!.id,
+        rating: 1,
+        body: `${tag} unmoderated and should never be shown`,
+        status: "PENDING",
+      },
+    });
+
+    await page.goto("/");
+    await expect(page.getByText(new RegExp(tag))).toHaveCount(0);
   });
 });
