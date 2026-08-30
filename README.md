@@ -170,8 +170,23 @@ Vercel Cron authenticates with `Authorization: Bearer $CRON_SECRET`. Set a
 use it; if it is absent the endpoint falls back to `AUTH_SECRET`, so it is
 never left unauthenticated either way.
 
-`regions: ["bom1"]` puts the functions in Mumbai — worth keeping for an
-India-only store, and worth matching to your database region.
+`regions: ["sin1"]` puts the functions in Singapore — next to the database
+rather than next to the customer. That looks backwards for an India-only
+store, and is deliberate.
+
+One COD checkout is roughly twenty *sequential* database round trips: the
+reservation sweep, pricing, the coupon counts, the order transaction (one
+statement per cart line), then `confirmOrder`'s second transaction. Latency to
+the database is paid twenty times over. Latency between the customer and the
+function is paid once, and only on requests the edge cannot already answer.
+
+Browsing does not touch the database at all — sessions are JWT, and the
+catalogue reads go through `unstable_cache`. So putting the functions in
+Mumbai instead would save ~40ms on a page view and cost ~800ms at checkout.
+
+**If you move the database, move this with it.** That the two match matters
+far more than which region they land in. Railway has no Indian region;
+`southeast-asia` (Singapore) is its closest to India.
 
 ### 5. Sign-in methods
 

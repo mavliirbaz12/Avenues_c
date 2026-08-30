@@ -74,10 +74,14 @@ export default async function AdminDashboard() {
       prisma.newsletterSubscriber.count(),
     ]);
 
+  // "Email" tracks integrations.email rather than integrations.resend: sendEmail
+  // falls back to Brevo when no Resend key is present, so a Brevo-only deploy
+  // is fully live. Checking the Resend flag alone put a permanent "mock mode:
+  // Email" warning on a store that was really sending its order confirmations.
   const mocks = [
     !integrations.razorpay && "Razorpay",
     !integrations.delhivery && "Delhivery",
-    !integrations.resend && "Email",
+    !integrations.email && "Email",
     !integrations.cloudinary && "Image upload",
   ].filter(Boolean);
 
